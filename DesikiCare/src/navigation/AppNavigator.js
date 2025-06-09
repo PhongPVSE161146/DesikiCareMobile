@@ -2,6 +2,7 @@ import * as React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { View, TextInput, StyleSheet } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import HomeScreen from '../screens/Home/HomeScreen';
 import ProductDetailScreen from '../screens/Product/ProductDetailScreen';
@@ -13,18 +14,21 @@ import AccountScreen from '../screens/Profile/AccountScreen';
 import LoginScreen from '../screens/Auth/Login/LoginScreen';
 import RegisterScreen from '../screens/Auth/Register/RegisterScreen';
 import ForgotPasswordScreen from '../screens/Auth/ForgotPassword/ForgotPasswordScreen';
-
-
-
-
+import CustomHeader from '../components/Header/CustomHeader';
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
+
+
 
 // Stack Navigator for Home and sub-screens
 function HomeStack() {
   return (
     <Stack.Navigator>
-      <Stack.Screen name="HomeMain" component={HomeScreen} options={{ headerShown: false }} />
+      <Stack.Screen
+        name="HomeMain"
+        component={HomeScreen}
+        options={{ headerShown: false }}
+      />
       <Stack.Screen name="ProductDetail" component={ProductDetailScreen} />
     </Stack.Navigator>
   );
@@ -34,7 +38,11 @@ function HomeStack() {
 function CartStack() {
   return (
     <Stack.Navigator>
-      <Stack.Screen name="CartMain" component={CartScreen} options={{ headerShown: true }} />
+      <Stack.Screen
+        name="CartMain"
+        component={CartScreen}
+        options={{ headerShown: false }}
+      />
       <Stack.Screen name="Checkout" component={CheckoutScreen} />
     </Stack.Navigator>
   );
@@ -43,35 +51,42 @@ function CartStack() {
 // Bottom Tabs Navigator
 function MainTabs() {
   return (
-    <Tab.Navigator
-      screenOptions={({ route }) => ({
-        headerShown: false,
-        tabBarStyle: { backgroundColor: '#fff', height: 60 },
-        tabBarIcon: ({ focused, color, size }) => {
-          let iconName;
-          if (route.name === 'Home') {
-            iconName = focused ? 'home' : 'home-outline';
-          } else if (route.name === 'Category') {
-            iconName = focused ? 'list' : 'list-outline';
-          } else if (route.name === 'Cart') {
-            iconName = focused ? 'cart' : 'cart-outline';
-          } else if (route.name === 'Notification') {
-            iconName = focused ? 'notifications' : 'notifications-outline';
-          } else if (route.name === 'Account') {
-            iconName = focused ? 'person' : 'person-outline';
-          }
-          return <Ionicons name={iconName} size={size} color={color} />;
-        },
-        tabBarActiveTintColor: '#ff4d4f',
-        tabBarInactiveTintColor: 'gray',
-      })}
-    >
-      <Tab.Screen name="Home" component={HomeStack} options={{ title: 'Trang chủ' }} />
-      <Tab.Screen name="Category" component={CategoryScreen} options={{ title: 'Danh mục' }} />
-      <Tab.Screen name="Cart" component={CartStack} options={{ title: 'Giỏ hàng' }} />
-      <Tab.Screen name="Notification" component={NotificationScreen} options={{ title: 'Thông báo' }} />
-      <Tab.Screen name="Account" component={AccountScreen} options={{ title: 'Tài khoản' }} />
-    </Tab.Navigator>
+    <View style={styles.container}>
+      <CustomHeader />
+      <Tab.Navigator
+        screenOptions={({ route }) => ({
+          headerShown: false,
+          tabBarStyle: { backgroundColor: '#fff', height: 60 },
+          tabBarIcon: ({ focused, color, size }) => {
+            let iconName;
+            if (route.name === 'Home') {
+              iconName = focused ? 'home' : 'home-outline';
+            } else if (route.name === 'Category') {
+              iconName = focused ? 'list' : 'list-outline';
+            } else if (route.name === 'Cart') {
+              iconName = focused ? 'cart' : 'cart-outline';
+            } else if (route.name === 'Notification') {
+              iconName = focused ? 'notifications' : 'notifications-outline';
+            } else if (route.name === 'Account') {
+              iconName = focused ? 'person' : 'person-outline';
+            }
+            return <Ionicons name={iconName} size={size} color={color} />;
+          },
+          tabBarActiveTintColor: '#ff4d4f',
+          tabBarInactiveTintColor: 'gray',
+        })}
+      >
+        <Tab.Screen name="Home" component={HomeStack} options={{ title: 'Trang chủ' }} />
+        <Tab.Screen name="Category" component={CategoryScreen} options={{ title: 'Danh mục' }} />
+        <Tab.Screen name="Cart" component={CartStack} options={{ title: 'Giỏ hàng' }} />
+        <Tab.Screen
+          name="Notification"
+          component={NotificationScreen}
+          options={{ title: 'Thông báo' }}
+        />
+        <Tab.Screen name="Account" component={AccountScreen} options={{ title: 'Tài khoản' }} />
+      </Tab.Navigator>
+    </View>
   );
 }
 
@@ -88,5 +103,31 @@ const AppNavigator = () => {
     </NavigationContainer>
   );
 };
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#2ecc71',
+    padding: 10,
+    height: 60,
+  },
+  searchBar: {
+    flex: 1,
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    paddingHorizontal: 10,
+    color: '#000',
+    marginRight: 10,
+  },
+  iconContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+});
 
 export default AppNavigator;

@@ -17,7 +17,7 @@ const NotificationScreen = () => {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.header}>Thông báo</Text>
+      {/* <Text style={styles.header}>Thông báo</Text> */}
       <FlatList
         data={notifications}
         renderItem={renderNotification}
