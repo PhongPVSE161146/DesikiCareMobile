@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, FlatList, TouchableOpacity } from 'react-native';
-import { styles } from '../../../assets/styles';
+import { styles } from '../../assets/styles';
 
 const categories = [
   { id: '1', name: 'Son' },
