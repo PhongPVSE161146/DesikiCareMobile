@@ -1,6 +1,7 @@
 import React from 'react';
-import { View, TextInput, StyleSheet, Image } from 'react-native';
+import { View, TextInput, StyleSheet, Image, SafeAreaView } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 // Logo (replace with your actual logo source)
 const logo = require('../../../assets/DesikiCare.jpg'); // Update the path to your logo image
@@ -9,46 +10,52 @@ const logo = require('../../../assets/DesikiCare.jpg'); // Update the path to yo
 const CustomScanIcon = () => {
   return (
     <View style={styles.scanContainer}>
-    
-        <View style={styles.barcodeLines}>
-          {[1, 2, 3, 4, 5].map((i) => (
-            <View key={i} style={styles.line} />
-          ))}
-        </View>
-        <Ionicons name="scan-outline" size={24} color="#fff" style={styles.scanIcon} />
+      <View style={styles.barcodeLines}>
+        {[1, 2, 3, 4, 5].map((i) => (
+          <View key={i} style={styles.line} />
+        ))}
       </View>
-    
+      <Ionicons name="scan-outline" size={24} color="#fff" style={styles.scanIcon} />
+    </View>
   );
 };
 
 const CustomHeader = () => {
+  const insets = useSafeAreaInsets();
   return (
-    <View style={styles.header}>
-      <Image source={logo} style={styles.logo} />
-      <View style={styles.searchContainer}>
-        <Ionicons name="search-outline" size={20} color="#666" style={styles.searchIcon} />
-        <TextInput
-          style={styles.searchBar}
-          placeholder="Tìm kiếm"
-          placeholderTextColor="#ccc"
-        />
+    <SafeAreaView style={[styles.header, { paddingTop: insets.top + 10 }]}>
+      <View style={styles.headerContent}>
+        <Image source={logo} style={styles.logo} />
+        <View style={styles.searchContainer}>
+          <Ionicons name="search-outline" size={20} color="#666" style={styles.searchIcon} />
+          <TextInput
+            style={styles.searchBar}
+            placeholder="Tìm kiếm"
+            placeholderTextColor="#ccc"
+          />
+        </View>
+        <View style={styles.iconContainer}>
+          <CustomScanIcon />
+          <Ionicons name="location-outline" size={24} color="#fff" style={styles.iconSpacing} />
+          <Ionicons name="cube-outline" size={24} color="#fff" />
+
+
+        </View>
       </View>
-      <View style={styles.iconContainer}>
-        <CustomScanIcon />
-        <Ionicons name="location-outline" size={24} color="#fff" style={styles.iconSpacing} />
-        <Ionicons name="cart-outline" size={24} color="#fff" />
-      </View>
-    </View>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
   header: {
+    backgroundColor: '#2ecc71',
+    paddingHorizontal: 10,
+    paddingBottom: 10,
+    height: 90, // Increased height to accommodate downward shift
+  },
+  headerContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#2ecc71',
-    padding: 10,
-    height: 60,
   },
   logo: {
     width: 40,
@@ -95,7 +102,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderRadius: 2,
   },
- barcodeLines: {
+  barcodeLines: {
     flexDirection: 'row',
     alignItems: 'center',
     position: 'absolute',
@@ -111,6 +118,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     marginHorizontal: 1,
   },
+  scanIcon: {
+    position: 'absolute',
+  },
 });
-
 export default CustomHeader;

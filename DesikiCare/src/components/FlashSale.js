@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { ProgressBar } from 'react-native-paper';
 import { Ionicons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
 
 const screenWidth = Dimensions.get('window').width;
 
@@ -46,49 +47,49 @@ const baseProducts = [
     discount: 28,
     sold: 0.51,
   },
-   {
-    img: "https://tunhalam.com/cdn/shop/files/image_b8cc9599-13fe-41dd-91ff-b3bedd5384d5.jpg?v=1684073642",
-    name: "Sữa Rửa Mặt Cetaphil Dịu Lành Cho Da Nhạy Cảm 500ml",
+  {
+    img: 'https://tunhalam.com/cdn/shop/files/image_b8cc9599-13fe-41dd-91ff-b3bedd5384d5.jpg?v=1684073642',
+    name: 'Sữa Rửa Mặt Cetaphil Dịu Lành Cho Da Nhạy Cảm 500ml',
     price: 320000,
     oldPrice: 445000,
     discount: 28,
     sold: 51,
   },
   {
-    img: "https://vn-live-01.slatic.net/p/74a9eb2a023284e9c3fc2e04a38a1098.jpg",
-    name: "Sữa Rửa Mặt Simple Giúp Da Sạch Thoáng 150ml",
+    img: 'https://vn-live-01.slatic.net/p/74a9eb2a023284e9c3fc2e04a38a1098.jpg',
+    name: 'Sữa Rửa Mặt Simple Giúp Da Sạch Thoáng 150ml',
     price: 81000,
     oldPrice: 132000,
     discount: 39,
     sold: 49,
   },
   {
-    img: "https://product.hstatic.net/1000134629/product/z6116467131062_b30aa0c732c5a21ca3205460419a6e5a_281c75a206bf44199b15fc5ced09251a.jpg",
-    name: "Smoothie Tẩy Da Chết Hương Lựu Đỏ 298g",
+    img: 'https://product.hstatic.net/1000134629/product/z6116467131062_b30aa0c732c5a21ca3205460419a6e5a_281c75a206bf44199b15fc5ced09251a.jpg',
+    name: 'Smoothie Tẩy Da Chết Hương Lựu Đỏ 298g',
     price: 119000,
     oldPrice: 189000,
     discount: 64,
     sold: 64,
   },
-   {
-    img: "https://tunhalam.com/cdn/shop/files/image_b8cc9599-13fe-41dd-91ff-b3bedd5384d5.jpg?v=1684073642",
-    name: "Sữa Rửa Mặt Cetaphil Dịu Lành Cho Da Nhạy Cảm 500ml",
+  {
+    img: 'https://tunhalam.com/cdn/shop/files/image_b8cc9599-13fe-41dd-91ff-b3bedd5384d5.jpg?v=1684073642',
+    name: 'Sữa Rửa Mặt Cetaphil Dịu Lành Cho Da Nhạy Cảm 500ml',
     price: 320000,
     oldPrice: 445000,
     discount: 28,
     sold: 51,
   },
   {
-    img: "https://vn-live-01.slatic.net/p/74a9eb2a023284e9c3fc2e04a38a1098.jpg",
-    name: "Sữa Rửa Mặt Simple Giúp Da Sạch Thoáng 150ml",
+    img: 'https://vn-live-01.slatic.net/p/74a9eb2a023284e9c3fc2e04a38a1098.jpg',
+    name: 'Sữa Rửa Mặt Simple Giúp Da Sạch Thoáng 150ml',
     price: 81000,
     oldPrice: 132000,
     discount: 39,
     sold: 49,
   },
   {
-    img: "https://product.hstatic.net/1000134629/product/z6116467131062_b30aa0c732c5a21ca3205460419a6e5a_281c75a206bf44199b15fc5ced09251a.jpg",
-    name: "Smoothie Tẩy Da Chết Hương Lựu Đỏ 298g",
+    img: 'https://product.hstatic.net/1000134629/product/z6116467131062_b30aa0c732c5a21ca3205460419a6e5a_281c75a206bf44199b15fc5ced09251a.jpg',
+    name: 'Smoothie Tẩy Da Chết Hương Lựu Đỏ 298g',
     price: 119000,
     oldPrice: 189000,
     discount: 64,
@@ -98,6 +99,7 @@ const baseProducts = [
 
 const FlashSale = () => {
   const [timeLeft, setTimeLeft] = useState(7200);
+  const navigation = useNavigation();
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -125,7 +127,11 @@ const FlashSale = () => {
 
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.productList}>
         {baseProducts.map((item, index) => (
-          <TouchableOpacity key={index} style={styles.card}>
+          <TouchableOpacity
+            key={index}
+            style={styles.card}
+            onPress={() => navigation.navigate('ProductDetail', { product: item })}
+          >
             <View style={styles.discountBadge}>
               <Text style={styles.discountText}>-{item.discount}%</Text>
             </View>
@@ -138,9 +144,9 @@ const FlashSale = () => {
               <Text style={styles.oldPrice}>
                 {item.oldPrice.toLocaleString('vi-VN')}₫
               </Text>
-              <ProgressBar progress={item.sold} color="#f97316" style={styles.progress} />
+              <ProgressBar progress={item.sold > 1 ? item.sold / 100 : item.sold} color="#f97316" style={styles.progress} />
               <Text style={styles.sold}>
-                {Math.round(item.sold * 100)}% đã bán
+                {Math.round((item.sold > 1 ? item.sold / 100 : item.sold) * 100)}% đã bán
               </Text>
             </View>
           </TouchableOpacity>

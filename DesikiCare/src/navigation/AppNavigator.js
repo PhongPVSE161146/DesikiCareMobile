@@ -2,7 +2,7 @@ import * as React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { View, TextInput, StyleSheet } from 'react-native';
+import { View, TextInput, StyleSheet, SafeAreaView } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import HomeScreen from '../screens/Home/HomeScreen';
 import ProductDetailScreen from '../screens/Product/ProductDetailScreen';
@@ -15,10 +15,10 @@ import LoginScreen from '../screens/Auth/Login/LoginScreen';
 import RegisterScreen from '../screens/Auth/Register/RegisterScreen';
 import ForgotPasswordScreen from '../screens/Auth/ForgotPassword/ForgotPasswordScreen';
 import CustomHeader from '../components/Header/CustomHeader';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
-
-
 
 // Stack Navigator for Home and sub-screens
 function HomeStack() {
@@ -30,6 +30,7 @@ function HomeStack() {
         options={{ headerShown: false }}
       />
       <Stack.Screen name="ProductDetail" component={ProductDetailScreen} />
+     
     </Stack.Navigator>
   );
 }
@@ -50,13 +51,19 @@ function CartStack() {
 
 // Bottom Tabs Navigator
 function MainTabs() {
+  const insets = useSafeAreaInsets();
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={[styles.container, { paddingBottom: insets.bottom }]}>
       <CustomHeader />
       <Tab.Navigator
         screenOptions={({ route }) => ({
           headerShown: false,
-          tabBarStyle: { backgroundColor: '#fff', height: 60 },
+          tabBarStyle: {
+            backgroundColor: '#fff',
+            height: 60 + insets.bottom,
+            paddingBottom: insets.bottom,
+            borderTopWidth: 0,
+          },
           tabBarIcon: ({ focused, color, size }) => {
             let iconName;
             if (route.name === 'Home') {
@@ -86,7 +93,7 @@ function MainTabs() {
         />
         <Tab.Screen name="Account" component={AccountScreen} options={{ title: 'Tài khoản' }} />
       </Tab.Navigator>
-    </View>
+    </SafeAreaView>
   );
 }
 

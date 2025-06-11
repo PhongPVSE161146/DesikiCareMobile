@@ -8,9 +8,11 @@ import {
   Dimensions,
   TouchableOpacity,
 } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 
 const screenWidth = Dimensions.get('window').width;
 
+// Sample product data
 const products = [
   {
     id: '1',
@@ -22,7 +24,7 @@ const products = [
     rating: 4.8,
     reviews: 133,
     sales: '1.7k/tháng',
-    image: 'https://via.placeholder.com/150x200.png?text=Klairs',
+    image: 'https://bizweb.dktcdn.net/100/141/194/products/00502179-loreal-micellar-water-refreshing-400ml-nuoc-tay-trang-danh-cho-da-hon-hop-va-da-dau-2651-63db-large-f1207fa49a.jpg?v=1699015415277',
   },
   {
     id: '2',
@@ -87,47 +89,36 @@ const ProductCard = ({ product, onPress }) => {
   );
 };
 
-export default function ProductList({ navigation }) {
-  // Lấy đúng 4 sản phẩm đầu tiên (2 dòng x 2 cột)
+export default function ProductList() {
+  const navigation = useNavigation();
   const firstFourProducts = products.slice(0, 4);
 
   const renderProduct = ({ item }) => (
     <ProductCard
       product={item}
-      onPress={() =>
-        navigation?.navigate?.('ProductDetail', { product: item })
-      }
+      onPress={() => navigation.navigate('ProductDetail', { product: item })}
     />
   );
 
   return (
- <FlatList
-  data={firstFourProducts}
-  keyExtractor={(item) => item.id}
-  numColumns={2}
-  columnWrapperStyle={{
-    justifyContent: 'space-between',
-    paddingHorizontal: 10,
-  }}
-  contentContainerStyle={{ paddingVertical: 13 }}
-  renderItem={renderProduct}
-/>
-
+    <FlatList
+      data={firstFourProducts}
+      keyExtractor={(item) => item.id}
+      numColumns={2}
+      columnWrapperStyle={{
+        justifyContent: 'space-between',
+        paddingHorizontal: 10,
+      }}
+      contentContainerStyle={{ paddingVertical: 13 }}
+      renderItem={renderProduct}
+    />
   );
 }
 
 const styles = StyleSheet.create({
-  listContent: {
-    paddingHorizontal: 10,
-    paddingTop: 10,
-  },
-  row: {
-    justifyContent: 'space-between',
-    marginBottom: 15,
-  },
   card: {
     backgroundColor: '#fff',
-    width: (screenWidth - 30) / 2, // 10 + 10 padding + 10 giữa
+    width: (screenWidth - 30) / 2,
     borderRadius: 10,
     padding: 13,
     shadowColor: '#000',
