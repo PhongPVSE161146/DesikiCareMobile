@@ -3,9 +3,10 @@ import { View, FlatList, ScrollView, StyleSheet, Text } from 'react-native';
 import ProductList from '../../components/ProductList';
 import { products } from '../../data/products';
 import FeatureButton from '../../components/FeatureButton';
-import FlashSale from '../../components/FlashSale'; // ✅ Import component FlashSale
+import FlashSale from '../../components/FlashSale';
 import ListItem from '../../components/ListItem';
 import { MaterialIcons, MaterialCommunityIcons, FontAwesome5 } from '@expo/vector-icons';
+import CustomHeader from '../../components/Header/CustomHeader';
 
 const features = [
   { title: 'Danh Mục', icon: <MaterialIcons name="menu" size={32} color="#555" /> },
@@ -26,32 +27,68 @@ const HomeScreen = ({ navigation }) => {
     />
   );
 
-  return (
-    <ScrollView contentContainerStyle={styles.scrollContainer}>
-     
-      <View style={styles.featureContainer}>
-        {features.map((feature, index) => (
-          <FeatureButton key={index} title={feature.title} icon={feature.icon} />
-        ))}
-      </View>
+  const handlePress = (title) => {
+    switch (title) {
+      case 'Danh Mục':
+        navigation.navigate('Category');
+        break;
+      case 'Hàng Mới':
+        navigation.navigate('NewProductsScreen');
+        break;
+      case 'Mini Game':
+        navigation.navigate('MiniGameScreen');
+        break;
+      case 'Cẩm Nang':
+        navigation.navigate('GuideScreen');
+        break;
+      case 'Deals':
+        navigation.navigate('DealsScreen');
+        break;
+      case 'Hỗ Trợ':
+        navigation.navigate('SupportScreen');
+        break;
+      case 'Giờ Vàng':
+        navigation.navigate('GoldenHourScreen');
+        break;
+      case 'Chính Sách':
+        navigation.navigate('PolicyScreen');
+        break;
+    }
+  };
 
-      <FlashSale />
-  <ListItem />
-    
-      <FlatList
-        data={products}
-        renderItem={renderProduct}
-        keyExtractor={(item) => item.id}
-        numColumns={2}
-        scrollEnabled={false}
-        contentContainerStyle={styles.productList}
-      />
-    
-    </ScrollView>
+  return (
+    <View style={styles.container}>
+      <CustomHeader />
+      <ScrollView contentContainerStyle={styles.scrollContainer}>
+        <View style={styles.featureContainer}>
+          {features.map((feature, index) => (
+            <FeatureButton
+              key={index}
+              title={feature.title}
+              icon={feature.icon}
+              onPress={() => handlePress(feature.title)}
+            />
+          ))}
+        </View>
+        <FlashSale />
+        <ListItem />
+        <FlatList
+          data={products}
+          renderItem={renderProduct}
+          keyExtractor={(item) => item.id}
+          numColumns={2}
+          scrollEnabled={false}
+          contentContainerStyle={styles.productList}
+        />
+      </ScrollView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
   scrollContainer: {
     paddingBottom: 20,
   },

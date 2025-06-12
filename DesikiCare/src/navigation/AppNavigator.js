@@ -14,7 +14,13 @@ import AccountScreen from '../screens/Profile/AccountScreen';
 import LoginScreen from '../screens/Auth/Login/LoginScreen';
 import RegisterScreen from '../screens/Auth/Register/RegisterScreen';
 import ForgotPasswordScreen from '../screens/Auth/ForgotPassword/ForgotPasswordScreen';
-import CustomHeader from '../components/Header/CustomHeader';
+import NewProductsScreen from '../screens/Home/FeatureButton/NewProductsScreen';
+import MiniGameScreen from '../screens/Home/FeatureButton/MiniGameScreen';
+import GuideScreen from '../screens/Home/FeatureButton/GuideScreen';
+import DealsScreen from '../screens/Home/FeatureButton/DealsScreen';
+import SupportScreen from '../screens/Home/FeatureButton/SupportScreen';
+import GoldenHourScreen from '../screens/Home/FeatureButton/GoldenHourScreen';
+import PolicyScreen from '../screens/Home/FeatureButton/PolicyScreen';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const Stack = createStackNavigator();
@@ -54,7 +60,7 @@ function MainTabs() {
   const insets = useSafeAreaInsets();
   return (
     <SafeAreaView style={[styles.container, { paddingBottom: insets.bottom }]}>
-      <CustomHeader />
+  
       <Tab.Navigator
         screenOptions={({ route }) => ({
           headerShown: false,
@@ -92,6 +98,7 @@ function MainTabs() {
           options={{ title: 'Thông báo' }}
         />
         <Tab.Screen name="Account" component={AccountScreen} options={{ title: 'Tài khoản' }} />
+      
       </Tab.Navigator>
     </SafeAreaView>
   );
@@ -106,6 +113,13 @@ const AppNavigator = () => {
         <Stack.Screen name="Login" component={LoginScreen} />
         <Stack.Screen name="Register" component={RegisterScreen} />
         <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
+          <Stack.Screen name="NewProductsScreen" component={NewProductsScreen} />
+        <Stack.Screen name="MiniGameScreen" component={MiniGameScreen} />
+        <Stack.Screen name="GuideScreen" component={GuideScreen} />
+        <Stack.Screen name="DealsScreen" component={DealsScreen} />
+        <Stack.Screen name="SupportScreen" component={SupportScreen} />
+        <Stack.Screen name="GoldenHourScreen" component={GoldenHourScreen} />
+        <Stack.Screen name="PolicyScreen" component={PolicyScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );

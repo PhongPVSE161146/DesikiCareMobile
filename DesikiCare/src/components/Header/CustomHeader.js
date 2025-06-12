@@ -51,7 +51,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#2ecc71',
     paddingHorizontal: 10,
     paddingBottom: 10,
-    height: 90, // Increased height to accommodate downward shift
+    height: 65, // Increased height to accommodate downward shift
   },
   headerContent: {
     flexDirection: 'row',
