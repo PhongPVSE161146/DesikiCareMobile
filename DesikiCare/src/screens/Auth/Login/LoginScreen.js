@@ -1,29 +1,39 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, Button, TouchableOpacity, Image, StyleSheet, Switch } from 'react-native';
+import { View, Text, TextInput, Button, TouchableOpacity, Image, StyleSheet, Switch, Alert } from 'react-native';
 import { useDispatch } from 'react-redux';
-import { login } from '../../../redux/authSlice';
+import { login as reduxLogin } from '../../../redux/authSlice';
+import authService from './authService'; // Adjust the import path
 
 // Logo image (replace with your actual path)
 const logoImage = require('../../../../assets/DesikiCare.jpg');
 
 const LoginScreen = ({ navigation }) => {
   const [email, setEmail] = useState('sojonism007@gmail.com');
-  const [password, setPassword] = useState('');
+  const [password, setPassword] = useState('123');
   const [isRemember, setIsRemember] = useState(false);
   const dispatch = useDispatch();
 
-  const handleLogin = () => {
-    if (email && password) {
-      dispatch(login({ email }));
-      navigation.navigate('Home');
+  const handleLogin = async () => {
+    if (!email || !password) {
+      Alert.alert('Error', 'Vui lòng điền đầy đủ thông tin.');
+      return;
+    }
+
+    const result = await authService.login(email, password);
+    if (result.success) {
+      Alert.alert('Success', 'Bạn đã login thành công', [
+        { text: 'OK', onPress: () => {
+          dispatch(reduxLogin({ email }));
+          navigation.navigate('Home');
+        }},
+      ]);
     } else {
-      alert('Vui lòng điền đầy đủ thông tin.');
+      Alert.alert('Error', result.message);
     }
   };
 
   const handleGoogleLogin = () => {
-    // Implement Google login logic here (e.g., using a library like @react-native-google-signin/google-signin)
-    alert('Google login functionality to be implemented.');
+    Alert.alert('Info', 'Google login functionality to be implemented.');
   };
 
   return (
@@ -83,7 +93,7 @@ const LoginScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#E0F7FA', // Light cyan background
+    backgroundColor: '#E0F7FA',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -130,11 +140,11 @@ const styles = StyleSheet.create({
     color: '#333',
   },
   forgotText: {
-    marginLeft: 30,
-    color: '#FF5722', // Orange color for "Forgot password!"
+    marginLeft: 'auto',
+    color: '#FF5722',
   },
   linkText: {
-    color: '#4CAF50', // Green for signup link
+    color: '#4CAF50',
     textAlign: 'center',
     marginTop: 10,
   },
