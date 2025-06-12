@@ -1,14 +1,15 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, Button, TouchableOpacity, Image, StyleSheet } from 'react-native';
+import { View, Text, TextInput, Button, TouchableOpacity, Image, StyleSheet, Switch } from 'react-native';
 import { useDispatch } from 'react-redux';
 import { login } from '../../../redux/authSlice';
 
-// Header image (replace with your actual image path)
-const headerImage = require('../../../../assets/DesikiCare.jpg');  // Update the path to your image
+// Logo image (replace with your actual path)
+const logoImage = require('../../../../assets/DesikiCare.jpg');
 
 const LoginScreen = ({ navigation }) => {
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState('sojonism007@gmail.com');
   const [password, setPassword] = useState('');
+  const [isRemember, setIsRemember] = useState(false);
   const dispatch = useDispatch();
 
   const handleLogin = () => {
@@ -21,18 +22,20 @@ const LoginScreen = ({ navigation }) => {
   };
 
   const handleGoogleLogin = () => {
-    // Implement Google login logic here
+    // Implement Google login logic here (e.g., using a library like @react-native-google-signin/google-signin)
     alert('Google login functionality to be implemented.');
   };
 
   return (
     <View style={styles.container}>
-      {/* Header Image */}
-      <Image source={headerImage} style={styles.headerImage} />
+      {/* Header */}
+      <View style={styles.header}>
+        <Image source={logoImage} style={styles.logo} />
+        <Text style={styles.headerText}>Đăng Nhập</Text>
+      </View>
 
       {/* Login Form */}
       <View style={styles.formContainer}>
-        <Text style={styles.header}>Đăng nhập</Text>
         <TextInput
           style={styles.input}
           placeholder="Email"
@@ -43,25 +46,34 @@ const LoginScreen = ({ navigation }) => {
         />
         <TextInput
           style={styles.input}
-          placeholder="Mật khẩu"
+          placeholder="Password"
           value={password}
           onChangeText={setPassword}
           secureTextEntry
           placeholderTextColor="#888"
         />
-        <Button title="Đăng nhập" onPress={handleLogin} color="#1E90FF"  style={styles.buttonLogin}/>
-        <TouchableOpacity onPress={handleGoogleLogin} style={styles.googleButton}>
+        <View style={styles.rememberRow}>
+          <Switch
+            trackColor={{ false: '#ccc', true: '#4CAF50' }}
+            thumbColor={isRemember ? '#fff' : '#f4f3f4'}
+            onValueChange={setIsRemember}
+            value={isRemember}
+          />
+          <Text style={styles.rememberText}>Remember</Text>
+          <TouchableOpacity onPress={() => navigation.navigate('ForgotPassword')}>
+            <Text style={styles.forgotText}>Forgot password!</Text>
+          </TouchableOpacity>
+        </View>
+        <Button title="Log in" onPress={handleLogin} color="#4CAF50" />
+        <TouchableOpacity style={styles.googleButton} onPress={handleGoogleLogin}>
           <Image
             source={{ uri: 'https://img.icons8.com/color/48/000000/google-logo.png' }}
             style={styles.googleIcon}
           />
-          <Text style={styles.googleButtonText}>Đăng nhập với Google</Text>
+          <Text style={styles.googleButtonText}>Login with Google</Text>
         </TouchableOpacity>
         <TouchableOpacity onPress={() => navigation.navigate('Register')}>
-          <Text style={styles.linkText}>Chưa có tài khoản? Đăng ký</Text>
-        </TouchableOpacity>
-        <TouchableOpacity onPress={() => navigation.navigate('ForgotPassword')}>
-          <Text style={styles.linkText}>Quên mật khẩu?</Text>
+          <Text style={styles.linkText}>Don't have an account? Signup</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -71,32 +83,36 @@ const LoginScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F5F5F5',
-  },
-  headerImage: {
-    width: '50%',
-    height: 200,
-    resizeMode: 'cover',
-    marginLeft: '25%',
-    marginTop: 20,
-  },
-  formContainer: {
-    flex: 1,
-    justifyContent: 'center',
+    backgroundColor: '#E0F7FA', // Light cyan background
     alignItems: 'center',
-    paddingHorizontal: 20,
+    justifyContent: 'center',
   },
   header: {
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  logo: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    marginBottom: 10,
+  },
+  headerText: {
     fontSize: 28,
     fontWeight: 'bold',
     color: '#333',
-    marginBottom: 20,
-    textAlign: 'center',
+  },
+  formContainer: {
+    width: '80%',
+    padding: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    borderRadius: 15,
+    elevation: 5,
   },
   input: {
     width: '100%',
     height: 50,
-    borderColor: '#ccc',
+    borderColor: '#B0BEC5',
     borderWidth: 1,
     borderRadius: 8,
     marginBottom: 15,
@@ -104,26 +120,24 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     fontSize: 16,
   },
-buttonLogin: {
-    backgroundColor: '#4CAF50', // Màu nền
-    borderRadius: 5, // Góc tròn
-    paddingVertical: 15, // Padding tương đương 15px
-    paddingHorizontal: 32, // Padding tương đương 32px
-    alignItems: 'center', // Thay cho text-align: center
-    elevation: 2, // Thay cho box-shadow ở trạng thái mặc định
+  rememberRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 15,
   },
-  buttonLoginHover: {
-    backgroundColor: '#4CAF50', // Giữ nguyên màu mặc định, thay đổi khi nhấn
-    elevation: 2, // Thay cho box-shadow
+  rememberText: {
+    marginLeft: 10,
+    color: '#333',
   },
-  buttonLoginActive: {
-    backgroundColor: '#3e8e41', // Màu nền khi nhấn
-    elevation: 5, // Thay cho box-shadow khi nhấn (0 5px 5px 0 rgba(0,0,0,0.2))
-    // Không hỗ trợ transform: translateY, nhưng elevation tạo hiệu ứng tương tự
+  forgotText: {
+    marginLeft: 30,
+    color: '#FF5722', // Orange color for "Forgot password!"
   },
-
-
-
+  linkText: {
+    color: '#4CAF50', // Green for signup link
+    textAlign: 'center',
+    marginTop: 10,
+  },
   googleButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -132,10 +146,9 @@ buttonLogin: {
     borderRadius: 8,
     paddingVertical: 10,
     paddingHorizontal: 15,
-    borderColor: '#ccc',
+    borderColor: '#B0BEC5',
     borderWidth: 1,
-    marginBottom: 15,
-    width: '100%',
+    marginTop: 10,
   },
   googleIcon: {
     width: 24,
@@ -146,12 +159,6 @@ buttonLogin: {
     color: '#333',
     fontSize: 16,
     fontWeight: '500',
-  },
-  linkText: {
-    color: '#1E90FF',
-    marginBottom: 10,
-    textAlign: 'center',
-    fontSize: 14,
   },
 });
 
