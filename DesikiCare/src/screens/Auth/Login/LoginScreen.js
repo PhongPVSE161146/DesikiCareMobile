@@ -1,67 +1,146 @@
-import React, { useState } from 'react';
-import { View, Text, TextInput, Button, TouchableOpacity, Image, StyleSheet, Switch, Alert } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, TextInput, Button, TouchableOpacity, Image, StyleSheet, Switch } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useDispatch } from 'react-redux';
 import { login as reduxLogin } from '../../../redux/authSlice';
-import authService from './authService'; // Adjust the import path
+import authService from '../../../config/axios/Auth/authService'; // Adjust the import path
+import Notification from '../../../components/Notification'; // Adjust the import path
+import { Alert } from 'react-native';
 
 // Logo image (replace with your actual path)
 const logoImage = require('../../../../assets/DesikiCare.jpg');
 
-const LoginScreen = ({ navigation }) => {
-  const [email, setEmail] = useState('sojonism007@gmail.com');
-  const [password, setPassword] = useState('123');
+const LoginScreen = ({ navigation, route }) => {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [isRemember, setIsRemember] = useState(false);
+  const [notification, setNotification] = useState(null);
+  const [errors, setErrors] = useState({ email: '', password: '' });
   const dispatch = useDispatch();
 
+  // Load saved credentials on mount
+  useEffect(() => {
+    const loadCredentials = async () => {
+      try {
+        const savedEmail = await AsyncStorage.getItem('savedEmail');
+        const savedPassword = await AsyncStorage.getItem('savedPassword');
+        const savedIsRemember = await AsyncStorage.getItem('isRemember');
+        if (savedIsRemember === 'true' && savedEmail && savedPassword) {
+          setEmail(savedEmail);
+          setPassword(savedPassword);
+          setIsRemember(true);
+        }
+      } catch (error) {
+        console.error('Error loading credentials:', error);
+      }
+    };
+    loadCredentials();
+  }, []);
+
+  // Handle navigation params for notification
+  useEffect(() => {
+    if (route.params?.notification) {
+      setNotification(route.params.notification);
+    }
+  }, [route.params?.notification]);
+
+  const validateForm = () => {
+    const newErrors = { email: '', password: '' };
+    let isValid = true;
+
+    // Validate email
+    if (!email.trim()) {
+      newErrors.email = 'Vui lòng nhập email.';
+      isValid = false;
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      newErrors.email = 'Vui lòng nhập email hợp lệ.';
+      isValid = false;
+    }
+
+    // Validate password
+    if (!password) {
+      newErrors.password = 'Vui lòng nhập mật khẩu.';
+      isValid = false;
+    } else if (/\s/.test(password)) {
+      newErrors.password = 'Mật khẩu không được chứa khoảng cách.';
+      isValid = false;
+    }
+
+    setErrors(newErrors);
+    if (!isValid) {
+      setNotification({ message: 'Tài khoản và mật khẩu không được bỏ trống hoặc không hợp lệ.', type: 'error' });
+    }
+    return isValid;
+  };
+
   const handleLogin = async () => {
-    if (!email || !password) {
-      Alert.alert('Error', 'Vui lòng điền đầy đủ thông tin.');
+    if (!validateForm()) {
       return;
     }
 
-    const result = await authService.login(email, password);
-    if (result.success) {
-      Alert.alert('Success', 'Bạn đã login thành công', [
-        { text: 'OK', onPress: () => {
-          dispatch(reduxLogin({ email }));
-          navigation.navigate('Home');
-        }},
-      ]);
-    } else {
-      Alert.alert('Error', result.message);
+    try {
+      const result = await authService.login(email.trim(), password);
+      if (result.success) {
+        // Save credentials if "Remember" is enabled
+        if (isRemember) {
+          await AsyncStorage.setItem('savedEmail', email.trim());
+          await AsyncStorage.setItem('savedPassword', password);
+          await AsyncStorage.setItem('isRemember', 'true');
+        } else {
+          await AsyncStorage.removeItem('savedEmail');
+          await AsyncStorage.removeItem('savedPassword');
+          await AsyncStorage.removeItem('isRemember');
+        }
+
+        dispatch(reduxLogin(result.data));
+        navigation.navigate('Home');
+      } else {
+        setNotification({ message: result.message, type: 'error' });
+      }
+    } catch (error) {
+      setNotification({ message: 'Đã xảy ra lỗi không mong muốn.', type: 'error' });
     }
   };
 
   const handleGoogleLogin = () => {
-    Alert.alert('Info', 'Google login functionality to be implemented.');
+    Alert.alert('Thông tin', 'Chức năng đăng nhập Google sẽ được triển khai.');
   };
 
   return (
     <View style={styles.container}>
-      {/* Header */}
+      <Notification
+        message={notification?.message}
+        type={notification?.type}
+        onDismiss={() => setNotification(null)}
+      />
       <View style={styles.header}>
         <Image source={logoImage} style={styles.logo} />
         <Text style={styles.headerText}>Đăng Nhập</Text>
       </View>
-
-      {/* Login Form */}
       <View style={styles.formContainer}>
-        <TextInput
-          style={styles.input}
-          placeholder="Email"
-          value={email}
-          onChangeText={setEmail}
-          keyboardType="email-address"
-          placeholderTextColor="#888"
-        />
-        <TextInput
-          style={styles.input}
-          placeholder="Password"
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry
-          placeholderTextColor="#888"
-        />
+        <View style={[styles.inputContainer, { borderColor: errors.email ? 'red' : '#B0BEC5' }]}>
+          <TextInput
+            style={styles.input}
+            placeholder="Email"
+            value={email}
+            onChangeText={setEmail}
+            keyboardType="email-address"
+            placeholderTextColor="#888"
+            autoCapitalize="none"
+          />
+        </View>
+        {errors.email ? <Text style={styles.errorText}>{errors.email}</Text> : null}
+        <View style={[styles.inputContainer, { borderColor: errors.password ? 'red' : '#B0BEC5' }]}>
+          <TextInput
+            style={styles.input}
+            placeholder="Mật khẩu"
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry
+            placeholderTextColor="#888"
+          />
+        </View>
+        {errors.password ? <Text style={styles.errorText}>{errors.password}</Text> : null}
         <View style={styles.rememberRow}>
           <Switch
             trackColor={{ false: '#ccc', true: '#4CAF50' }}
@@ -69,21 +148,21 @@ const LoginScreen = ({ navigation }) => {
             onValueChange={setIsRemember}
             value={isRemember}
           />
-          <Text style={styles.rememberText}>Remember</Text>
+          <Text style={styles.rememberText}>Ghi nhớ</Text>
           <TouchableOpacity onPress={() => navigation.navigate('ForgotPassword')}>
-            <Text style={styles.forgotText}>Forgot password!</Text>
+            <Text style={styles.forgotText}>Quên mật khẩu?</Text>
           </TouchableOpacity>
         </View>
-        <Button title="Log in" onPress={handleLogin} color="#4CAF50" />
+        <Button title="Đăng nhập" onPress={handleLogin} color="#4CAF50" />
         <TouchableOpacity style={styles.googleButton} onPress={handleGoogleLogin}>
           <Image
             source={{ uri: 'https://img.icons8.com/color/48/000000/google-logo.png' }}
             style={styles.googleIcon}
           />
-          <Text style={styles.googleButtonText}>Login with Google</Text>
+          <Text style={styles.googleButtonText}>Đăng nhập với Google</Text>
         </TouchableOpacity>
         <TouchableOpacity onPress={() => navigation.navigate('Register')}>
-          <Text style={styles.linkText}>Don't have an account? Signup</Text>
+          <Text style={styles.linkText}>Chưa có tài khoản? Đăng ký</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -119,16 +198,24 @@ const styles = StyleSheet.create({
     borderRadius: 15,
     elevation: 5,
   },
-  input: {
+  inputContainer: {
     width: '100%',
     height: 50,
-    borderColor: '#B0BEC5',
     borderWidth: 1,
     borderRadius: 8,
     marginBottom: 15,
-    paddingHorizontal: 15,
     backgroundColor: '#fff',
+  },
+  input: {
+    flex: 1,
+    paddingHorizontal: 15,
     fontSize: 16,
+  },
+  errorText: {
+    color: 'red',
+    fontSize: 12,
+    marginBottom: 10,
+    marginLeft: 10,
   },
   rememberRow: {
     flexDirection: 'row',
@@ -140,7 +227,7 @@ const styles = StyleSheet.create({
     color: '#333',
   },
   forgotText: {
-    marginLeft: 'auto',
+    marginLeft: 50,
     color: '#FF5722',
   },
   linkText: {
