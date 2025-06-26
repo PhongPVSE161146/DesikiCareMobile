@@ -1,48 +1,75 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-
-const API_URL = 'https://cda8-118-69-160-8.ngrok-free.app'; // Replace with your actual API URL
+import axios from 'axios';
+import { API_URL_LOGIN } from '@env';
 
 const authService = {
   login: async (email, password) => {
     try {
-      const response = await fetch(`${API_URL}/api/Account/login`, {
-        method: 'POST',
+      const response = await axios.post(`${API_URL_LOGIN}/api/Account/login`, {
+        loginInfo: {
+          email: email.trim(),
+          password,
+        },
+      }, {
         headers: {
+          'Accept': 'application/json',
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ email, password }),
       });
-      const result = await response.json();
-      if (response.ok) {
-        await AsyncStorage.setItem('userToken', result.token || '');
-        return { success: true, data: result.data };
+
+      console.log('API login response:', response.data); // Debugging API response
+
+      // Check for success based on status and response data
+      if (response.status === 200 || response.status === 201) {
+        const { token, data, message } = response.data;
+        // Consider login successful if token exists or message indicates success
+        if (token || message?.toLowerCase().includes('success')) {
+          if (token) {
+            await AsyncStorage.setItem('userToken', token);
+          }
+          return { success: true, data: data || response.data, message: message || 'Đăng nhập thành công' };
+        } else {
+          return { success: false, message: message || 'Đăng nhập thất bại' };
+        }
       } else {
-        return { success: false, message: result.message || 'Login failed' };
+        return { success: false, message: response.data.message || 'Đăng nhập thất bại' };
       }
     } catch (error) {
-      console.error('Login error:', error);
-      return { success: false, message: 'Network error. Please try again.' };
+      console.error('Login error:', error.response?.data || error.message);
+      const message = error.response?.data?.message || 'Lỗi kết nối. Vui lòng thử lại.';
+      return { success: false, message };
     }
   },
 
   register: async (accountData) => {
     try {
-      const response = await fetch(`${API_URL}/api/Account/register`, {
-        method: 'POST',
+      const response = await axios.post(`${API_URL_LOGIN}/api/Account/register`, {
+        account: {
+          email: accountData.email?.trim(),
+          password: accountData.password,
+          fullName: accountData.fullName?.trim(),
+          phoneNumber: accountData.phoneNumber?.trim(),
+          gender: accountData.gender,
+          dob: accountData.dob,
+          roleId: accountData.roleId || 0,
+          imageBase64: accountData.imageBase64 || '',
+        },
+      }, {
         headers: {
+          'Accept': 'application/json',
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(accountData),
       });
-      const result = await response.json();
-      if (response.ok) {
-        return { success: true, data: result.data };
+
+      if (response.status === 200 || response.status === 201) {
+        return { success: true, data: response.data.data || response.data };
       } else {
-        return { success: false, message: result.message || 'Registration failed' };
+        return { success: false, message: response.data.message || 'Đăng ký thất bại' };
       }
     } catch (error) {
-      console.error('Registration error:', error);
-      return { success: false, message: 'Network error. Please try again.' };
+      console.error('Registration error:', error.response?.data || error.message);
+      const message = error.response?.data?.message || 'Lỗi kết nối. Vui lòng thử lại.';
+      return { success: false, message };
     }
   },
 };

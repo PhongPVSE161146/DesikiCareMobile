@@ -13,7 +13,7 @@ const CheckoutScreen = ({ navigation }) => {
     if (name && address) {
       alert('Đặt hàng thành công!');
       dispatch(clearCart());
-      navigation.navigate('Home');
+      navigation.navigate('Payment');
     } else {
       alert('Vui lòng điền đầy đủ thông tin.');
     }

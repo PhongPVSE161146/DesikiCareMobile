@@ -228,7 +228,7 @@ const CartScreen = ({ navigation }) => {
       </View>
       <TouchableOpacity
         style={styles.checkoutButton}
-        onPress={() => navigation?.navigate?.('Checkout')}
+        onPress={() => navigation?.navigate?.('Payment') }
       >
         <Text style={styles.checkoutButtonText}>Tiến hành đặt hàng</Text>
       </TouchableOpacity>

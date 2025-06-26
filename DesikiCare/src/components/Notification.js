@@ -15,14 +15,16 @@ const Notification = ({ message, type = 'success', autoDismiss = 3000, onDismiss
         useNativeDriver: true,
       }).start();
 
-      if (autoDismiss) {
+      if (autoDismiss > 0) {
         const timer = setTimeout(() => {
           dismissNotification();
         }, autoDismiss);
         return () => clearTimeout(timer);
       }
+    } else {
+      setVisible(false);
     }
-  }, [message]);
+  }, [message, autoDismiss, fadeAnim]);
 
   const dismissNotification = () => {
     Animated.timing(fadeAnim, {
@@ -37,7 +39,7 @@ const Notification = ({ message, type = 'success', autoDismiss = 3000, onDismiss
 
   if (!visible || !message) return null;
 
-  const backgroundColor = type === 'success' ? '#4A90E2' : type === 'error' ? '#FF3B30' : '#FFA500';
+  const backgroundColor = type === 'success' ? '#00FF00' : type === 'error' ? '#FF0000' : '#888888';
 
   return (
     <Animated.View style={[styles.container, { opacity: fadeAnim, backgroundColor }]}>

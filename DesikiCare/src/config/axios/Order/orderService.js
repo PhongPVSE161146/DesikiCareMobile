@@ -1,6 +1,7 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const API_URL = 'https://cda8-118-69-160-8.ngrok-free.app'; // Replace with your actual API URL
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import axios from 'axios';
+import { API_URL } from '@env';
 
 const orderService = {
   getCategories: async () => {
@@ -10,19 +11,17 @@ const orderService = {
         return { success: false, message: 'No token found. Please log in.' };
       }
 
-      const response = await fetch(`${API_URL}/api/Product/categories`, {
-        method: 'GET',
+      const response = await axios.get(`${API_URL}/api/Product/categories`, {
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${userToken}`,
         },
       });
 
-      const result = await response.json();
-      if (response.ok) {
-        return { success: true, data: result.categories }; // Expecting { categories: [{ _id, name }] }
+      if (response.status === 200) {
+        return { success: true, data: response.data.categories }; // Expecting { categories: [{ _id, name }] }
       } else {
-        return { success: false, message: result.message || 'Failed to fetch categories' };
+        return { success: false, message: response.data.message || 'Failed to fetch categories' };
       }
     } catch (error) {
       console.error('Categories fetch error:', error);
@@ -37,19 +36,17 @@ const orderService = {
         return { success: false, message: 'No token found. Please log in.' };
       }
 
-      const response = await fetch(`${API_URL}/api/Order/cartItems/${cartItemId}`, {
-        method: 'DELETE',
+      const response = await axios.delete(`${API_URL}/api/Order/cartItems/${cartItemId}`, {
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${userToken}`,
         },
       });
 
-      if (response.ok) {
+      if (response.status === 200) {
         return { success: true };
       } else {
-        const result = await response.json();
-        return { success: false, message: result.message || 'Failed to delete cart item' };
+        return { success: false, message: response.data.message || 'Failed to delete cart item' };
       }
     } catch (error) {
       console.error('Delete cart item error:', error);
@@ -64,19 +61,17 @@ const orderService = {
         return { success: false, message: 'No token found. Please log in.' };
       }
 
-      const response = await fetch(`${API_URL}/api/Order/carts/me`, {
-        method: 'GET',
+      const response = await axios.get(`${API_URL}/api/Order/carts/me`, {
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${userToken}`,
         },
       });
 
-      const result = await response.json();
-      if (response.ok) {
-        return { success: true, data: result }; // Expecting { cart, cartItems }
+      if (response.status === 200) {
+        return { success: true, data: response.data }; // Expecting { cart, cartItems }
       } else {
-        return { success: false, message: result.message || 'Failed to fetch cart' };
+        return { success: false, message: response.data.message || 'Failed to fetch cart' };
       }
     } catch (error) {
       console.error('Get cart error:', error);
@@ -91,20 +86,17 @@ const orderService = {
         return { success: false, message: 'No token found. Please log in.' };
       }
 
-      const response = await fetch(`${API_URL}/api/Order/cartItems/${cartItemId}`, {
-        method: 'PATCH',
+      const response = await axios.patch(`${API_URL}/api/Order/cartItems/${cartItemId}`, { quantity }, {
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${userToken}`,
         },
-        body: JSON.stringify({ quantity }),
       });
 
-      if (response.ok) {
+      if (response.status === 200) {
         return { success: true };
       } else {
-        const result = await response.json();
-        return { success: false, message: result.message || 'Failed to update quantity' };
+        return { success: false, message: response.data.message || 'Failed to update quantity' };
       }
     } catch (error) {
       console.error('Update cart item quantity error:', error);
@@ -119,20 +111,17 @@ const orderService = {
         return { success: false, message: 'No token found. Please log in.' };
       }
 
-      const response = await fetch(`${API_URL}/api/Order/cartItems`, {
-        method: 'POST',
+      const response = await axios.post(`${API_URL}/api/Order/cartItems`, { productId, quantity }, {
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${userToken}`,
         },
-        body: JSON.stringify({ productId, quantity }),
       });
 
-      const result = await response.json();
-      if (response.ok) {
-        return { success: true, data: result };
+      if (response.status === 200) {
+        return { success: true, data: response.data };
       } else {
-        return { success: false, message: result.message || 'Failed to add item to cart' };
+        return { success: false, message: response.data.message || 'Failed to add item to cart' };
       }
     } catch (error) {
       console.error('Add cart item error:', error);

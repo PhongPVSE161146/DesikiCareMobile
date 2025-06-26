@@ -5,6 +5,10 @@ import { Picker } from '@react-native-picker/picker';
 import { useDispatch } from 'react-redux';
 import { login as reduxLogin } from '../../../redux/authSlice';
 import authService from '../../../config/axios/Auth/authService'; // Adjust the import path
+import Notification from '../../../components/Notification'; // Adjust the import path
+
+// Logo image (same as LoginScreen)
+const logoImage = require('../../../../assets/DesikiCare.jpg');
 
 const RegisterScreen = ({ navigation }) => {
   const [email, setEmail] = useState('');
@@ -14,6 +18,7 @@ const RegisterScreen = ({ navigation }) => {
   const [gender, setGender] = useState('');
   const [dob, setDob] = useState('');
   const [loading, setLoading] = useState(false);
+  const [notification, setNotification] = useState(null);
   const [errors, setErrors] = useState({
     email: '',
     password: '',
@@ -35,7 +40,7 @@ const RegisterScreen = ({ navigation }) => {
     };
     let isValid = true;
 
-    // Validate fullName (letters and spaces only)
+    // Validate fullName
     if (!fullName.trim()) {
       newErrors.fullName = 'Vui lòng nhập họ và tên.';
       isValid = false;
@@ -53,16 +58,19 @@ const RegisterScreen = ({ navigation }) => {
       isValid = false;
     }
 
-    // Validate password (no spaces)
+    // Validate password
     if (!password) {
       newErrors.password = 'Vui lòng nhập mật khẩu.';
       isValid = false;
     } else if (/\s/.test(password)) {
       newErrors.password = 'Mật khẩu không được chứa khoảng cách.';
       isValid = false;
+    } else if (password.length < 6) {
+      newErrors.password = 'Mật khẩu phải có ít nhất 6 ký tự.';
+      isValid = false;
     }
 
-    // Validate phoneNumber (digits only, 10-15 digits)
+    // Validate phoneNumber
     if (!phoneNumber.trim()) {
       newErrors.phoneNumber = 'Vui lòng nhập số điện thoại.';
       isValid = false;
@@ -72,28 +80,31 @@ const RegisterScreen = ({ navigation }) => {
     }
 
     // Validate gender
-    const validGenders = ['nam', 'nữ', 'khác'];
     if (!gender) {
       newErrors.gender = 'Vui lòng chọn giới tính.';
       isValid = false;
-    } else if (!validGenders.includes(gender.toLowerCase())) {
-      newErrors.gender = 'Giới tính phải là "Nam", "Nữ", hoặc "Khác".';
-      isValid = false;
     }
 
-    // Validate dob (DD-MM-YYYY, digits and hyphens only)
+    // Validate dob (DD-MM-YYYY format for input, convert to YYYY-MM-DD for API)
     if (!dob.trim()) {
       newErrors.dob = 'Vui lòng nhập ngày sinh.';
       isValid = false;
     } else if (!/^\d{2}-\d{2}-\d{4}$/.test(dob.trim())) {
       newErrors.dob = 'Ngày sinh phải theo định dạng DD-MM-YYYY.';
       isValid = false;
-    } else if (!/^[0-9-]+$/.test(dob.trim())) {
-      newErrors.dob = 'Ngày sinh chỉ được chứa số và dấu gạch ngang.';
-      isValid = false;
+    } else {
+      const [day, month, year] = dob.trim().split('-');
+      const date = new Date(`${year}-${month}-${day}`);
+      if (isNaN(date.getTime()) || parseInt(year) < 1900 || date > new Date()) {
+        newErrors.dob = 'Ngày sinh không hợp lệ.';
+        isValid = false;
+      }
     }
 
     setErrors(newErrors);
+    if (!isValid) {
+      setNotification({ message: 'Vui lòng kiểm tra lại thông tin.', type: 'error' });
+    }
     return isValid;
   };
 
@@ -104,86 +115,111 @@ const RegisterScreen = ({ navigation }) => {
 
     setLoading(true);
     try {
+      // Convert dob from DD-MM-YYYY to YYYY-MM-DD for API
+      const [day, month, year] = dob.trim().split('-');
+      const formattedDob = `${year}-${month}-${day}`;
+
       const accountData = {
         email: email.trim(),
         password,
         fullName: fullName.trim(),
         phoneNumber: phoneNumber.trim(),
         gender: gender.toLowerCase(),
-        dob: dob.trim(),
+        dob: formattedDob,
         roleId: 0,
+        imageBase64: '',
       };
 
       const result = await authService.register(accountData);
+      console.log('Register result:', result); // Debugging API response
       setLoading(false);
+
       if (result.success) {
         dispatch(reduxLogin(result.data));
-        navigation.navigate('Login', { notification: { message: 'Đăng ký tài khoản thành công', type: 'success' } });
+        setNotification({ message: 'Đăng ký tài khoản thành công!', type: 'success' });
+        setTimeout(() => {
+          if (navigation && typeof navigation.reset === 'function') {
+            navigation.reset({
+              index: 0,
+              routes: [{ name: 'Main', params: { screen: 'Home' } }],
+            });
+            console.log('Navigated to Main with Home tab');
+          } else {
+            console.error('Navigation object is invalid:', navigation);
+            setNotification({ message: 'Lỗi điều hướng. Vui lòng thử lại.', type: 'error' });
+          }
+        }, 1000); // Delay navigation to show success notification
       } else {
-        navigation.navigate('Login', { notification: { message: result.message, type: 'error' } });
+        setNotification({ message: result.message || 'Đăng ký thất bại.', type: 'error' });
       }
     } catch (error) {
+      console.error('Register error:', error);
       setLoading(false);
-      navigation.navigate('Login', { notification: { message: 'Đã xảy ra lỗi không mong muốn.', type: 'error' } });
+      setNotification({ message: 'Đã xảy ra lỗi không mong muốn.', type: 'error' });
     }
   };
 
   return (
     <View style={styles.container}>
-      <View style={styles.headerContainer}>
-        <Text style={styles.header}>Đăng Ký</Text>
-        <Text style={styles.subHeader}>Tham gia DesikiCare ngay hôm nay</Text>
+      <Notification
+        message={notification?.message}
+        type={notification?.type}
+        onDismiss={() => setNotification(null)}
+      />
+      <View style={styles.header}>
+        <Image source={logoImage} style={styles.logo} />
+        <Text style={styles.headerText}>Đăng Ký</Text>
       </View>
       <View style={styles.formContainer}>
-        <View style={[styles.inputContainer, { borderColor: errors.fullName ? 'red' : '#E0E0E0' }]}>
+        <View style={[styles.inputContainer, { borderColor: errors.fullName ? 'red' : '#B0BEC5' }]}>
           <Icon name="person" size={24} color="#666" style={styles.inputIcon} />
           <TextInput
             style={styles.input}
             placeholder="Họ và tên"
-            placeholderTextColor="#999"
             value={fullName}
             onChangeText={setFullName}
+            placeholderTextColor="#888"
           />
         </View>
         {errors.fullName ? <Text style={styles.errorText}>{errors.fullName}</Text> : null}
-        <View style={[styles.inputContainer, { borderColor: errors.email ? 'red' : '#E0E0E0' }]}>
+        <View style={[styles.inputContainer, { borderColor: errors.email ? 'red' : '#B0BEC5' }]}>
           <Icon name="email" size={24} color="#666" style={styles.inputIcon} />
           <TextInput
             style={styles.input}
             placeholder="Email"
-            placeholderTextColor="#999"
             value={email}
             onChangeText={setEmail}
             keyboardType="email-address"
             autoCapitalize="none"
+            placeholderTextColor="#888"
           />
         </View>
         {errors.email ? <Text style={styles.errorText}>{errors.email}</Text> : null}
-        <View style={[styles.inputContainer, { borderColor: errors.password ? 'red' : '#E0E0E0' }]}>
+        <View style={[styles.inputContainer, { borderColor: errors.password ? 'red' : '#B0BEC5' }]}>
           <Icon name="lock" size={24} color="#666" style={styles.inputIcon} />
           <TextInput
             style={styles.input}
             placeholder="Mật khẩu"
-            placeholderTextColor="#999"
             value={password}
             onChangeText={setPassword}
             secureTextEntry
+            placeholderTextColor="#888"
           />
         </View>
         {errors.password ? <Text style={styles.errorText}>{errors.password}</Text> : null}
-        <View style={[styles.inputContainer, { borderColor: errors.phoneNumber ? 'red' : '#E0E0E0' }]}>
+        <View style={[styles.inputContainer, { borderColor: errors.phoneNumber ? 'red' : '#B0BEC5' }]}>
           <Icon name="phone" size={24} color="#666" style={styles.inputIcon} />
           <TextInput
             style={styles.input}
             placeholder="Số điện thoại"
-            placeholderTextColor="#999"
             value={phoneNumber}
             onChangeText={setPhoneNumber}
             keyboardType="numeric"
+            placeholderTextColor="#888"
           />
         </View>
         {errors.phoneNumber ? <Text style={styles.errorText}>{errors.phoneNumber}</Text> : null}
-        <View style={[styles.inputContainer, { borderColor: errors.gender ? 'red' : '#E0E0E0' }]}>
+        <View style={[styles.inputContainer, { borderColor: errors.gender ? 'red' : '#B0BEC5' }]}>
           <Icon name="wc" size={24} color="#666" style={styles.inputIcon} />
           <Picker
             selectedValue={gender}
@@ -197,15 +233,15 @@ const RegisterScreen = ({ navigation }) => {
           </Picker>
         </View>
         {errors.gender ? <Text style={styles.errorText}>{errors.gender}</Text> : null}
-        <View style={[styles.inputContainer, { borderColor: errors.dob ? 'red' : '#E0E0E0' }]}>
+        <View style={[styles.inputContainer, { borderColor: errors.dob ? 'red' : '#B0BEC5' }]}>
           <Icon name="calendar-today" size={24} color="#666" style={styles.inputIcon} />
           <TextInput
             style={styles.input}
-            placeholder="Ngày sinh (YYYY-MM-DD)"
-            placeholderTextColor="#999"
+            placeholder="Ngày sinh (DD-MM-YYYY)"
             value={dob}
             onChangeText={setDob}
             keyboardType="numbers-and-punctuation"
+            placeholderTextColor="#888"
           />
         </View>
         {errors.dob ? <Text style={styles.errorText}>{errors.dob}</Text> : null}
@@ -216,24 +252,10 @@ const RegisterScreen = ({ navigation }) => {
         >
           <Text style={styles.buttonText}>{loading ? 'Đang đăng ký...' : 'Đăng Ký'}</Text>
         </TouchableOpacity>
-        {loading && (
-          <ActivityIndicator
-            size="large"
-            color="#4A90E2"
-            style={styles.loadingIndicator}
-          />
-        )}
-        <TouchableOpacity
-          style={styles.loginLink}
-          onPress={() => navigation.navigate('Login')}
-        >
-          <Text style={styles.loginText}>Đã có tài khoản? <Text style={styles.loginTextBold}>Đăng nhập</Text></Text>
+        {loading && <ActivityIndicator size="large" color="#4CAF50" style={styles.loadingIndicator} />}
+        <TouchableOpacity style={styles.loginLink} onPress={() => navigation.navigate('Login')}>
+          <Text style={styles.linkText}>Đã có tài khoản? Đăng nhập</Text>
         </TouchableOpacity>
-      </View>
-      <View style={styles.pawContainer}>
-        <Image source={{ uri: 'https://img.icons8.com/ios-filled/50/000000/paw-print.png' }} style={styles.pawIcon} />
-        <Image source={{ uri: 'https://img.icons8.com/ios-filled/50/000000/paw-print.png' }} style={styles.pawIcon} />
-        <Image source={{ uri: 'https://img.icons8.com/ios-filled/50/000000/paw-print.png' }} style={styles.pawIcon} />
       </View>
     </View>
   );
@@ -242,52 +264,48 @@ const RegisterScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    backgroundColor: '#E6F0FA',
-  },
-  headerContainer: {
+    backgroundColor: '#E0F7FA',
     alignItems: 'center',
-    marginTop: 40,
+    justifyContent: 'center',
   },
   header: {
-    fontSize: 32,
-    fontWeight: '700',
-    color: '#333',
-    textAlign: 'center',
-  },
-  subHeader: {
-    fontSize: 16,
-    color: '#666',
-    textAlign: 'center',
-    marginTop: 5,
-  },
-  formContainer: {
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
-    borderRadius: 15,
-    padding: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 5,
-    elevation: 3,
+    alignItems: 'center',
     marginBottom: 20,
   },
+  logo: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    marginBottom: 10,
+  },
+  headerText: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  formContainer: {
+    width: '80%',
+    padding: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    borderRadius: 15,
+    elevation: 5,
+  },
   inputContainer: {
+    width: '100%',
+    height: 50,
+    borderWidth: 1,
+    borderRadius: 8,
+    marginBottom: 15,
+    backgroundColor: '#fff',
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFF',
-    borderRadius: 10,
-    marginBottom: 15,
     paddingHorizontal: 10,
-    borderWidth: 1,
   },
   inputIcon: {
     marginRight: 10,
   },
   input: {
     flex: 1,
-    height: 50,
     fontSize: 16,
     color: '#333',
   },
@@ -303,14 +321,14 @@ const styles = StyleSheet.create({
     marginLeft: 10,
   },
   registerButton: {
-    backgroundColor: '#4A90E2',
-    borderRadius: 10,
+    backgroundColor: '#4CAF50',
+    borderRadius: 8,
     paddingVertical: 12,
     alignItems: 'center',
     marginTop: 10,
   },
   buttonDisabled: {
-    backgroundColor: '#A3BFFA',
+    backgroundColor: '#A5D6A7',
   },
   buttonText: {
     color: '#FFF',
@@ -324,22 +342,9 @@ const styles = StyleSheet.create({
     marginTop: 15,
     alignItems: 'center',
   },
-  loginText: {
+  linkText: {
+    color: '#4CAF50',
     fontSize: 14,
-    color: '#666',
-  },
-  loginTextBold: {
-    color: '#4A90E2',
-    fontWeight: '600',
-  },
-  pawContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    paddingBottom: 20,
-  },
-  pawIcon: {
-    width: 30,
-    height: 30,
   },
 });
 

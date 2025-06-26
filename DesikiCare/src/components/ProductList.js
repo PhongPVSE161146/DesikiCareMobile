@@ -8,213 +8,122 @@ import {
   Dimensions,
   TouchableOpacity,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import ProductService from '../config/axios/Product/productService';
 
 const screenWidth = Dimensions.get('window').width;
 
-// Sample product data
-const initialProducts = [
-  {
-    id: '1',
-    name: 'Klairs',
-    title: 'Nước Hoa Hồng Klairs Không Mùi Cho Da Nhạy...',
-    price: 259000,
-    oldPrice: 435000,
-    discount: 40,
-    rating: 4.8,
-    reviews: 133,
-    sales: '1.7k/tháng',
-    image: 'https://bizweb.dktcdn.net/100/141/194/products/00502179-loreal-micellar-water-refreshing-400ml-nuoc-tay-trang-danh-cho-da-hon-hop-va-da-dau-2651-63db-large-f1207fa49a.jpg?v=1699015415277',
-  },
-  {
-    id: '2',
-    name: 'L\'Oreal',
-    title: 'Nước Tẩy Trang L\'Oreal Tươi Mát Cho Da Dầu...',
-    price: 152000,
-    oldPrice: 239000,
-    discount: 36,
-    rating: 4.8,
-    reviews: 290,
-    sales: '2.1k/tháng',
-    image: 'https://via.placeholder.com/150x200.png?text=Loreal',
-  },
-  {
-    id: '3',
-    name: 'Skin1004',
-    title: 'Kem Chống Nắng Skin1004 Cho Da Nhạy C...',
-    price: 236000,
-    oldPrice: 465000,
-    discount: 49,
-    rating: 4.8,
-    reviews: 104,
-    sales: '1.4k/tháng',
-    image: 'https://via.placeholder.com/150x200.png?text=Skin1004',
-  },
-  {
-    id: '4',
-    name: 'La Roche-Posay',
-    title: 'Kem Chống Nắng La Roche-Posay Phổ Rộng...',
-    price: 359000,
-    oldPrice: 560000,
-    discount: 36,
-    rating: 5.0,
-    reviews: 100,
-    sales: '148/tháng',
-    image: 'https://via.placeholder.com/150x200.png?text=LaRoche',
-  },
-  // Additional products to simulate more data
-  {
-    id: '5',
-    name: 'Cetaphil',
-    title: 'Sữa Rửa Mặt Cetaphil Cho Da Dầu...',
-    price: 180000,
-    oldPrice: 300000,
-    discount: 40,
-    rating: 4.7,
-    reviews: 200,
-    sales: '1.2k/tháng',
-    image: 'https://via.placeholder.com/150x200.png?text=Cetaphil',
-  },
-  {
-    id: '6',
-    name: 'Neutrogena',
-    title: 'Kem Dưỡng Ẩm Neutrogena Cho Da Khô...',
-    price: 250000,
-    oldPrice: 400000,
-    discount: 37,
-    rating: 4.9,
-    reviews: 150,
-    sales: '1.5k/tháng',
-    image: 'https://via.placeholder.com/150x200.png?text=Neutrogena',
-  },
-  {
-    id: '7',
-    name: 'Avene',
-    title: 'Nước Thermal Avene Cho Da Nhạy Cảm...',
-    price: 300000,
-    oldPrice: 500000,
-    discount: 40,
-    rating: 4.6,
-    reviews: 120,
-    sales: '1.0k/tháng',
-    image: 'https://via.placeholder.com/150x200.png?text=Avene',
-  },
-  {
-    id: '8',
-    name: 'Bioderma',
-    title: 'Sữa Rửa Mặt Bioderma Sebium...',
-    price: 220000,
-    oldPrice: 350000,
-    discount: 37,
-    rating: 4.8,
-    reviews: 180,
-    sales: '1.3k/tháng',
-    image: 'https://via.placeholder.com/150x200.png?text=Bioderma',
-  },
-  {
-    id: '9',
-    name: 'The Ordinary',
-    title: 'Serum Niacinamide The Ordinary...',
-    price: 190000,
-    oldPrice: 320000,
-    discount: 41,
-    rating: 4.7,
-    reviews: 160,
-    sales: '1.1k/tháng',
-    image: 'https://via.placeholder.com/150x200.png?text=TheOrdinary',
-  },
-  {
-    id: '10',
-    name: 'CeraVe',
-    title: 'Kem Dưỡng CeraVe PM...',
-    price: 270000,
-    oldPrice: 450000,
-    discount: 40,
-    rating: 4.9,
-    reviews: 140,
-    sales: '1.4k/tháng',
-    image: 'https://via.placeholder.com/150x200.png?text=CeraVe',
-  },
-  {
-    id: '11',
-    name: 'Hada Labo',
-    title: 'Nước Hoa Hồng Hada Labo Gokujyun...',
-    price: 150000,
-    oldPrice: 250000,
-    discount: 40,
-    rating: 4.6,
-    reviews: 130,
-    sales: '1.0k/tháng',
-    image: 'https://via.placeholder.com/150x200.png?text=HadaLabo',
-  },
-  {
-    id: '12',
-    name: 'Innisfree',
-    title: 'Kem Chống Nắng Innisfree Daily UV...',
-    price: 200000,
-    oldPrice: 330000,
-    discount: 39,
-    rating: 4.7,
-    reviews: 170,
-    sales: '1.2k/tháng',
-    image: 'https://via.placeholder.com/150x200.png?text=Innisfree',
-  },
-];
-
-// Component
+// ProductCard Component
 const ProductCard = ({ product, onPress }) => {
+  const { _id, name, description, volume, salePrice, imageUrl, isDeactivated } = product;
+
+  console.log('Rendering ProductCard:', { _id, name, salePrice, imageUrl });
+
   return (
-    <TouchableOpacity onPress={onPress} activeOpacity={0.8} style={styles.card}>
-      <View style={styles.discountBadge}>
-        <Text style={styles.discountText}>{product.discount}%</Text>
-      </View>
+    <TouchableOpacity
+      onPress={onPress}
+      activeOpacity={0.8}
+      style={[styles.card, isDeactivated ? styles.deactivatedCard : null]}
+      disabled={isDeactivated}
+    >
       <Image
-        source={{ uri: product.image }}
+        source={{
+          uri: imageUrl && imageUrl !== 'string' ? imageUrl : 'https://via.placeholder.com/150',
+        }}
         style={styles.image}
         resizeMode="contain"
+        onError={() => console.log('Error loading image:', imageUrl)}
       />
-      <Text style={styles.brand}>{product.name}</Text>
-      <Text numberOfLines={2} style={styles.title}>
-        {product.title}
+      <Text style={[styles.brand, isDeactivated ? styles.deactivatedText : null]}>
+        {name || 'Không có tên'}
       </Text>
-      <Text style={styles.price}>
-        {product.price.toLocaleString()} đ
+      <Text
+        numberOfLines={2}
+        style={[styles.title, isDeactivated ? styles.deactivatedText : null]}
+      >
+        {description || 'Không có mô tả'}
       </Text>
-      <Text style={styles.oldPrice}>
-        {product.oldPrice.toLocaleString()} đ
+      <Text style={[styles.price, isDeactivated ? styles.deactivatedText : null]}>
+        {(salePrice > 0 ? salePrice : 'Liên hệ').toLocaleString('vi-VN')} đ
       </Text>
-      <Text style={styles.rating}>
-        ⭐ {product.rating} ({product.reviews}) • {product.sales}
-      </Text>
+      {volume > 0 && (
+        <Text style={styles.volume}>Dung tích: {volume} ml</Text>
+      )}
+      {isDeactivated && (
+        <Text style={styles.deactivatedLabel}>Hết hàng</Text>
+      )}
     </TouchableOpacity>
   );
 };
 
 export default function ProductList() {
   const navigation = useNavigation();
-  const [displayedProducts, setDisplayedProducts] = useState(initialProducts.slice(0, 8));
+  const [products, setProducts] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
 
-  const loadMoreProducts = () => {
-    if (isLoading) return;
+  const fetchProducts = async (pageNum = 1) => {
+    if (isLoading || !hasMore) return;
 
     setIsLoading(true);
-    const nextPage = page + 1;
-    const nextProducts = initialProducts.slice(page * 8, nextPage * 8);
+    try {
+      console.log(`Fetching products for page ${pageNum}`);
+      const result = await ProductService.getProducts(pageNum);
+      console.log('Fetch Products Result:', result);
 
-    setTimeout(() => {
-      setDisplayedProducts((prev) => [...prev, ...nextProducts]);
-      setPage(nextPage);
+      if (result.success) {
+        const newProducts = result.data || [];
+        console.log('New Products:', newProducts);
+        if (newProducts.length === 0) {
+          setHasMore(false);
+          console.log('No more products to load');
+        } else {
+          const validProducts = newProducts.filter(
+            (product) => product && product._id && product.name
+          );
+          console.log('Valid Products:', validProducts);
+          setProducts((prev) =>
+            pageNum === 1 ? validProducts : [...prev, ...validProducts]
+          );
+          setPage(pageNum);
+        }
+      } else {
+        console.log('Fetch Products Failed:', result.message);
+        Alert.alert(
+          'Lỗi',
+          result.message || 'Không thể lấy danh sách sản phẩm. Vui lòng kiểm tra kết nối hoặc thử lại sau.'
+        );
+      }
+    } catch (error) {
+      console.error('Fetch products error:', error.message);
+      Alert.alert(
+        'Lỗi',
+        'Có lỗi xảy ra khi lấy danh sách sản phẩm. Vui lòng kiểm tra kết nối hoặc server API.'
+      );
+    } finally {
       setIsLoading(false);
-    }, 1000); // Simulate network delay
+      console.log('Current Products State:', products);
+    }
+  };
+
+  useEffect(() => {
+    fetchProducts(1);
+  }, []);
+
+  const loadMoreProducts = () => {
+    if (hasMore && !isLoading) {
+      console.log('Loading more products...');
+      fetchProducts(page + 1);
+    }
   };
 
   const renderProduct = ({ item }) => (
     <ProductCard
       product={item}
-      onPress={() => navigation.navigate('ProductDetail', { product: item })}
+      onPress={() => navigation.navigate('ProductDetail', { productId: item._id })}
     />
   );
 
@@ -229,8 +138,8 @@ export default function ProductList() {
 
   return (
     <FlatList
-      data={displayedProducts}
-      keyExtractor={(item) => item.id}
+      data={products}
+      keyExtractor={(item) => item._id.toString()}
       numColumns={2}
       columnWrapperStyle={{
         justifyContent: 'space-between',
@@ -259,23 +168,12 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#e0e0e0',
   },
-  discountBadge: {
-    position: 'absolute',
-    top: 10,
-    left: 10,
-    backgroundColor: '#E53935',
-    borderRadius: 5,
-    paddingVertical: 2,
-    paddingHorizontal: 6,
-    zIndex: 1,
-  },
-  discountText: {
-    color: '#fff',
-    fontSize: 12,
-    fontWeight: 'bold',
+  deactivatedCard: {
+    backgroundColor: '#f5f5f5',
+    opacity: 0.6,
   },
   image: {
-    width: '100',
+    width: '100%',
     height: 130,
     marginBottom: 10,
     borderRadius: 6,
@@ -297,15 +195,20 @@ const styles = StyleSheet.create({
     color: '#E53935',
     fontSize: 14,
   },
-  oldPrice: {
-    fontSize: 12,
-    textDecorationLine: 'line-through',
-    color: '#888',
-    marginBottom: 4,
-  },
-  rating: {
+  volume: {
     fontSize: 11,
     color: '#666',
+    marginTop: 4,
+  },
+  deactivatedText: {
+    color: '#999',
+  },
+  deactivatedLabel: {
+    fontSize: 12,
+    color: '#E53935',
+    fontWeight: 'bold',
+    marginTop: 4,
+    textAlign: 'center',
   },
   loader: {
     paddingVertical: 20,

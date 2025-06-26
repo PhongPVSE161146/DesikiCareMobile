@@ -1,23 +1,73 @@
-import React, { useState } from 'react';
-import { View, Text, Image, ScrollView, TouchableOpacity, StyleSheet, Dimensions, Alert } from 'react-native';
+
+import React, { useState, useEffect } from 'react';
+import {
+  View,
+  Text,
+  Image,
+  ScrollView,
+  TouchableOpacity,
+  StyleSheet,
+  Dimensions,
+  Alert,
+  ActivityIndicator,
+} from 'react-native';
 import { useDispatch } from 'react-redux';
 import { addToCart } from '../../redux/cartSlice';
-import orderService from '../../config/axios/Order/orderService'; // Adjust path based on your file structure
-import Notification from '../../components/Notification'; // Import Notification component
+import ProductService from '../../config/axios/Product/productService';
+import orderService from '../../config/axios/Order/orderService';
+import Notification from '../../components/Notification';
 
 const screenWidth = Dimensions.get('window').width;
 
 const ProductDetailScreen = ({ route, navigation }) => {
-  const { product } = route.params || {};
+  const { productId } = route.params || {};
   const dispatch = useDispatch();
+  const [productData, setProductData] = useState(null);
   const [quantity, setQuantity] = useState(1);
   const [notificationMessage, setNotificationMessage] = useState('');
   const [notificationType, setNotificationType] = useState('success');
+  const [isLoading, setIsLoading] = useState(true);
 
-  if (!product) {
+  useEffect(() => {
+    const fetchProduct = async () => {
+      setIsLoading(true);
+      try {
+        const result = await ProductService.getProductById(productId);
+        if (result.success) {
+          setProductData(result.data);
+        } else {
+          Alert.alert('Lỗi', result.message || 'Không thể lấy thông tin sản phẩm.', [
+            { text: 'OK', onPress: () => navigation.goBack() },
+          ]);
+        }
+      } catch (error) {
+        Alert.alert('Lỗi', 'Có lỗi xảy ra khi lấy thông tin sản phẩm.');
+        console.error('Fetch product error:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    if (productId) {
+      fetchProduct();
+    } else {
+      Alert.alert('Lỗi', 'Không tìm thấy ID sản phẩm.');
+      setIsLoading(false);
+    }
+  }, [productId, navigation]);
+
+  if (isLoading) {
     return (
       <View style={styles.container}>
-        <Text>Product not found</Text>
+        <ActivityIndicator size="large" color="#E53935" />
+      </View>
+    );
+  }
+
+  if (!productData) {
+    return (
+      <View style={styles.container}>
+        <Text>Không tìm thấy sản phẩm</Text>
         <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
           <Text style={styles.backButtonText}>Quay lại</Text>
         </TouchableOpacity>
@@ -25,56 +75,79 @@ const ProductDetailScreen = ({ route, navigation }) => {
     );
   }
 
+  const { product, category, productSkinTypes, productSkinStatuses, shipmentProducts } = productData;
+  const { name, description, salePrice, imageUrl, isDeactivated, volume } = product;
+  const categoryName = category?.name || 'No Category';
+  const skinTypes = productSkinTypes?.map(type => type.name).join(', ') || 'No Skin Types';
+  const skinStatuses = productSkinStatuses?.map(status => status.name).join(', ') || 'No Skin Statuses';
+  const latestShipment = shipmentProducts?.length > 0 ? shipmentProducts[0].shipmentProduct : null;
+
   const handleAddToCart = async () => {
-    console.log('Adding to cart:', product._id, 'Quantity:', quantity);
-    const result = await orderService.addCartItem(product._id, quantity);
-    if (result.success) {
-      const productWithId = {
-        id: product._id,
-        title: product.name,
-        price: product.price,
-        quantity,
-        image: product.image || product.img,
-      };
-      dispatch(addToCart(productWithId));
-      setNotificationMessage('Đã thêm vào giỏ hàng!');
-      setNotificationType('success');
-    } else {
-      if (result.message === 'No token found. Please log in.') {
-        Alert.alert('Lỗi', 'Vui lòng đăng nhập để thêm sản phẩm.', [
-          { text: 'OK', onPress: () => navigation.navigate('Login') },
-        ]);
+    if (isDeactivated) {
+      Alert.alert('Lỗi', 'Sản phẩm hiện không có sẵn.');
+      return;
+    }
+    try {
+      const result = await orderService.addCartItem(product._id, quantity);
+      if (result.success) {
+        const productWithId = {
+          id: product._id,
+          title: name,
+          price: salePrice,
+          quantity,
+          image: imageUrl,
+        };
+        dispatch(addToCart(productWithId));
+        setNotificationMessage('Đã thêm vào giỏ hàng!');
+        setNotificationType('success');
       } else {
-        Alert.alert('Lỗi', result.message || 'Không thể thêm sản phẩm vào giỏ hàng.');
+        if (result.message === 'No token found. Please log in.') {
+          Alert.alert('Lỗi', 'Vui lòng đăng nhập để thêm sản phẩm.', [
+            { text: 'OK', onPress: () => navigation.navigate('Login') },
+          ]);
+        } else {
+          Alert.alert('Lỗi', result.message || 'Không thể thêm sản phẩm vào giỏ hàng.');
+        }
       }
+    } catch (error) {
+      Alert.alert('Lỗi', 'Có lỗi xảy ra khi thêm sản phẩm vào giỏ hàng.');
+      console.error('Add to cart error:', error);
     }
   };
 
   const handleBuyNow = async () => {
-    console.log('Buying now:', product._id, 'Quantity:', quantity);
-    const result = await orderService.addCartItem(product._id, quantity);
-    if (result.success) {
-      const productWithId = {
-        id: product._id,
-        title: product.name,
-        price: product.price,
-        quantity,
-        image: product.image || product.img,
-      };
-      dispatch(addToCart(productWithId));
-      setNotificationMessage('Đã thêm vào giỏ hàng! Chuyển tới giỏ hàng...');
-      setNotificationType('success');
-      setTimeout(() => {
-        navigation.navigate('Cart');
-      }, 1000); // Navigate after 1s to show notification
-    } else {
-      if (result.message === 'No token found. Please log in.') {
-        Alert.alert('Lỗi', 'Vui lòng đăng nhập để thêm sản phẩm.', [
-          { text: 'OK', onPress: () => navigation.navigate('Login') },
-        ]);
+    if (isDeactivated) {
+      Alert.alert('Lỗi', 'Sản phẩm hiện không có sẵn.');
+      return;
+    }
+    try {
+      const result = await orderService.addCartItem(product._id, quantity);
+      if (result.success) {
+        const productWithId = {
+          id: product._id,
+          title: name,
+          price: salePrice,
+          quantity,
+          image: imageUrl,
+        };
+        dispatch(addToCart(productWithId));
+        setNotificationMessage('Đã thêm vào giỏ hàng! Chuyển tới giỏ hàng...');
+        setNotificationType('success');
+        setTimeout(() => {
+          navigation.navigate('Cart');
+        }, 1000);
       } else {
-        Alert.alert('Lỗi', result.message || 'Không thể thêm sản phẩm vào giỏ hàng.');
+        if (Спрятатьresult.message === 'No token found. Please log in.') {
+          Alert.alert('Lỗi', 'Vui lòng đăng nhập để thêm sản phẩm.', [
+            { text: 'OK', onPress: () => navigation.navigate('Login') },
+          ]);
+        } else {
+          Alert.alert('Lỗi', result.message || 'Không thể thêm sản phẩm vào giỏ hàng.');
+        }
       }
+    } catch (error) {
+      Alert.alert('Lỗi', 'Có lỗi xảy ra khi thêm sản phẩm vào giỏ hàng.');
+      console.error('Buy now error:', error);
     }
   };
 
@@ -86,7 +159,7 @@ const ProductDetailScreen = ({ route, navigation }) => {
     setQuantity(prev => (prev > 1 ? prev - 1 : 1));
   };
 
-  const imageSource = product.image || product.img || 'https://via.placeholder.com/150x200.png?text=No+Image';
+  const imageSource = imageUrl || 'https://via.placeholder.com/150x200.png?text=No+Image';
 
   return (
     <View style={styles.container}>
@@ -94,7 +167,8 @@ const ProductDetailScreen = ({ route, navigation }) => {
         message={notificationMessage}
         type={notificationType}
         autoDismiss={3000}
-        onDismiss={() => setNotificationMessage('')}
+       onDismiss={() => setNotificationMessage('')}
+
       />
       <ScrollView>
         <View style={styles.imageContainer}>
@@ -105,55 +179,72 @@ const ProductDetailScreen = ({ route, navigation }) => {
           />
         </View>
         <View style={styles.detailsContainer}>
-          <Text style={styles.brand}>{product.name}</Text>
-          <Text style={styles.title}>{product.title || product.name}</Text>
-          <View style={styles.priceContainer}>
-            <Text style={styles.price}>{product.price.toLocaleString()} đ</Text>
-            <Text style={styles.oldPrice}>{product.oldPrice.toLocaleString()} đ</Text>
-            <Text style={styles.discount}>-{product.discount}%</Text>
-          </View>
-          <View style={styles.ratingContainer}>
-            <Text style={styles.rating}>
-              ⭐ {product.rating || 'N/A'} ({product.reviews || 0} đánh giá) • Đã bán {product.sales || product.sold || 0}
-            </Text>
-          </View>
+          <Text style={[styles.brand, isDeactivated ? styles.deactivatedText : null]}>
+            {name}
+          </Text>
+          <Text style={styles.category}>Danh mục: {categoryName}</Text>
+          <Text style={[styles.price, isDeactivated ? styles.deactivatedText : null]}>
+            {(salePrice || 0).toLocaleString()} đ
+          </Text>
+          {isDeactivated && (
+            <Text style={styles.deactivatedLabel}>Hết hàng</Text>
+          )}
           <View style={styles.descriptionContainer}>
             <Text style={styles.sectionTitle}>Mô tả sản phẩm</Text>
             <Text style={styles.description}>
-              Sản phẩm {product.name} là giải pháp hoàn hảo cho làn da nhạy cảm, với công thức dịu nhẹ, không chứa paraben, không gây kích ứng. Sản phẩm cung cấp độ ẩm, làm dịu da và bảo vệ da khỏi tác nhân môi trường. Phù hợp với mọi loại da, đặc biệt là da dầu và da mụn.
+              {description || 'Không có mô tả'}
             </Text>
           </View>
           <View style={styles.specificationContainer}>
             <Text style={styles.sectionTitle}>Thông tin chi tiết</Text>
-            <Text style={styles.specification}>• Thương hiệu: {product.name}</Text>
-            <Text style={styles.specification}>• Xuất xứ: Hàn Quốc</Text>
-            <Text style={styles.specification}>• Dung tích: 100ml</Text>
-            <Text style={styles.specification}>• Loại da: Phù hợp mọi loại da</Text>
-            <Text style={styles.specification}>• Hạn sử dụng: 24 tháng kể từ ngày sản xuất</Text>
+            <Text style={styles.specification}>• Thương hiệu: {name}</Text>
+            <Text style={styles.specification}>• Dung tích: {volume || 'N/A'}ml</Text>
+            <Text style={styles.specification}>• Loại da: {skinTypes}</Text>
+            <Text style={styles.specification}>• Trạng thái da: {skinStatuses}</Text>
+            {latestShipment && (
+              <>
+                <Text style={styles.specification}>
+                  • Ngày sản xuất: {latestShipment.manufacturingDate || 'N/A'}
+                </Text>
+                <Text style={styles.specification}>
+                  • Hạn sử dụng: {latestShipment.expiryDate || 'N/A'}
+                </Text>
+              </>
+            )}
           </View>
           <View style={styles.buttonContainer}>
             <View style={styles.quantityContainer}>
-              <TouchableOpacity style={styles.quantityButton} onPress={decreaseQuantity}>
+              <TouchableOpacity 
+                style={styles.quantityButton} 
+                onPress={decreaseQuantity}
+                disabled={isDeactivated}
+              >
                 <Text style={styles.quantityButtonText}>−</Text>
               </TouchableOpacity>
               <Text style={styles.quantityText}>{quantity}</Text>
-              <TouchableOpacity style={styles.quantityButton} onPress={increaseQuantity}>
+              <TouchableOpacity 
+                style={styles.quantityButton} 
+                onPress={increaseQuantity}
+                disabled={isDeactivated}
+              >
                 <Text style={styles.quantityButtonText}>+</Text>
               </TouchableOpacity>
             </View>
-            <TouchableOpacity style={styles.addToCartButton} onPress={handleAddToCart}>
+            <TouchableOpacity 
+              style={[styles.addToCartButton, isDeactivated ? styles.disabledButton : null]} 
+              onPress={handleAddToCart}
+              disabled={isDeactivated}
+            >
               <Text style={styles.buttonText}>Thêm vào giỏ hàng</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.buyNowButton} onPress={handleBuyNow}>
+            <TouchableOpacity 
+              style={[styles.buyNowButton, isDeactivated ? styles.disabledButton : null]} 
+              onPress={handleBuyNow}
+              disabled={isDeactivated}
+            >
               <Text style={styles.buttonText}>Mua ngay</Text>
             </TouchableOpacity>
           </View>
-          {/* <TouchableOpacity
-            style={styles.viewCartButton}
-            onPress={() => navigation.navigate('Cart')}
-          >
-        
-          </TouchableOpacity> */}
         </View>
       </ScrollView>
     </View>
@@ -189,39 +280,25 @@ const styles = StyleSheet.create({
     color: '#333',
     marginBottom: 5,
   },
-  title: {
-    fontSize: 16,
-    color: '#555',
-    marginBottom: 15,
-  },
-  priceContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  category: {
+    fontSize: 14,
+    color: '#666',
     marginBottom: 10,
   },
   price: {
     fontSize: 22,
     fontWeight: 'bold',
     color: '#E53935',
-    marginRight: 15,
+    marginBottom: 10,
   },
-  oldPrice: {
-    fontSize: 16,
-    color: '#888',
-    textDecorationLine: 'line-through',
-    marginRight: 15,
+  deactivatedText: {
+    color: '#999',
   },
-  discount: {
+  deactivatedLabel: {
     fontSize: 16,
     color: '#E53935',
     fontWeight: 'bold',
-  },
-  ratingContainer: {
-    marginBottom: 20,
-  },
-  rating: {
-    fontSize: 14,
-    color: '#666',
+    marginBottom: 10,
   },
   descriptionContainer: {
     marginBottom: 20,
@@ -292,6 +369,9 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
   },
+  disabledButton: {
+    backgroundColor: '#ccc',
+  },
   buttonText: {
     color: '#fff',
     fontSize: 16,
@@ -306,17 +386,6 @@ const styles = StyleSheet.create({
   backButtonText: {
     fontSize: 16,
     color: '#333',
-    fontWeight: 'bold',
-  },
-  viewCartButton: {
-    backgroundColor: '#4A90E2',
-    paddingVertical: 15,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  viewCartButtonText: {
-    color: '#fff',
-    fontSize: 16,
     fontWeight: 'bold',
   },
 });

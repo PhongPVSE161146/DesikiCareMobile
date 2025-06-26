@@ -1,22 +1,47 @@
-import React, { useState } from 'react';
-import { View, Text, ScrollView, FlatList, TouchableOpacity, StyleSheet, Animated, Image } from 'react-native';
-import { categories, products } from '../../data/products'; // Verify this import
+import React, { useState, useEffect } from 'react';
+import {
+  View,
+  Text,
+  ScrollView,
+  FlatList,
+  TouchableOpacity,
+  StyleSheet,
+  Animated,
+  Image,
+} from 'react-native';
+import ProductService from '../../config/axios/Product/productService';
 import CustomHeader from '../../components/Header/CustomHeader';
 
 const CategoryScreen = ({ navigation }) => {
   const [selectedCategory, setSelectedCategory] = useState(null);
-  const [animation] = useState(new Animated.Value(0)); // Animation value for opacity and height
+  const [categories, setCategories] = useState([]);
+  const [products, setProducts] = useState([]);
+  const [animation] = useState(new Animated.Value(0));
 
-  // Fallback if categories is undefined
-  const safeCategories = categories || [];
+  useEffect(() => {
+    fetchCategories();
+    fetchProducts();
+  }, []);
 
-  // Filter products based on selected category
+  const fetchCategories = async () => {
+    const res = await ProductService.getCategories();
+    if (res.success) {
+      setCategories(res.data);
+    }
+  };
+
+  const fetchProducts = async () => {
+    const res = await ProductService.getProducts();
+    if (res.success) {
+      setProducts(res.data);
+    }
+  };
+
   const filteredProducts = selectedCategory
-    ? products.filter((product) => product.category === selectedCategory)
+    ? products.filter((p) => p.product.categoryId === selectedCategory._id)
     : [];
 
-  // Trigger animation when category changes
-  React.useEffect(() => {
+  useEffect(() => {
     if (selectedCategory) {
       Animated.timing(animation, {
         toValue: 1,
@@ -30,29 +55,20 @@ const CategoryScreen = ({ navigation }) => {
         useNativeDriver: false,
       }).start();
     }
-  }, [selectedCategory, animation]);
+  }, [selectedCategory]);
 
-  const renderCategory = ({ item }) => {
-    // Split the category text into words
-    const words = item.split(' ');
-    const firstLine = words.slice(0, 2).join(' '); // First 2 words
-    const secondLine = words.length > 2 ? words.slice(2).join(' ') : ''; // Remaining words
-
-    return (
-      <TouchableOpacity
-        style={[
-          localStyles.categoryItem,
-          selectedCategory === item && localStyles.selectedCategoryItem,
-        ]}
-        onPress={() => setSelectedCategory(item)}
-      >
-        <Text style={localStyles.categoryText}>
-          {firstLine}
-          {secondLine ? `\n${secondLine}` : ''}
-        </Text>
-      </TouchableOpacity>
-    );
-  };
+  const renderCategory = ({ item }) => (
+    <TouchableOpacity
+      key={item._id}
+      style={[
+        localStyles.categoryItem,
+        selectedCategory?._id === item._id && localStyles.selectedCategoryItem,
+      ]}
+      onPress={() => setSelectedCategory(item)}
+    >
+      <Text style={localStyles.categoryText}>{item.name}</Text>
+    </TouchableOpacity>
+  );
 
   const renderProduct = ({ item }) => (
     <TouchableOpacity
@@ -60,20 +76,17 @@ const CategoryScreen = ({ navigation }) => {
       onPress={() => navigation.navigate('ProductDetail', { product: item })}
     >
       <Image
-        source={{ uri: item.image }}
+        source={{ uri: item.product.imageUrl }}
         style={localStyles.productImage}
         resizeMode="contain"
       />
-      <Text style={localStyles.productText}>{item.name}</Text>
+      <Text style={localStyles.productText}>{item.product.name}</Text>
     </TouchableOpacity>
   );
 
   const animatedStyle = {
     opacity: animation,
-    height: animation.interpolate({
-      inputRange: [0, 1],
-      outputRange: [0, 'auto'],
-    }),
+    height: animation.interpolate({ inputRange: [0, 1], outputRange: [0, 'auto'] }),
   };
 
   return (
@@ -81,21 +94,7 @@ const CategoryScreen = ({ navigation }) => {
       <CustomHeader />
       <View style={localStyles.content}>
         <ScrollView style={localStyles.categoryContainer}>
-          {safeCategories.map((category) => (
-            <TouchableOpacity
-              key={category}
-              style={[
-                localStyles.categoryItem,
-                selectedCategory === category && localStyles.selectedCategoryItem,
-              ]}
-              onPress={() => setSelectedCategory(category)}
-            >
-              <Text style={localStyles.categoryText}>
-                {category.split(' ').slice(0, 2).join(' ')}
-                {category.split(' ').length > 2 ? `\n${category.split(' ').slice(2).join(' ')}` : ''}
-              </Text>
-            </TouchableOpacity>
-          ))}
+          {categories.map(renderCategory)}
         </ScrollView>
         <View style={localStyles.productContainer}>
           {selectedCategory ? (
@@ -104,7 +103,7 @@ const CategoryScreen = ({ navigation }) => {
                 <FlatList
                   data={filteredProducts}
                   renderItem={renderProduct}
-                  keyExtractor={(item) => item.id}
+                  keyExtractor={(item) => item.product._id}
                   numColumns={2}
                   columnWrapperStyle={localStyles.productWrapper}
                   contentContainerStyle={localStyles.productList}
@@ -132,18 +131,15 @@ const localStyles = StyleSheet.create({
     flex: 1,
   },
   categoryContainer: {
-    width: '15%',
+    width: '25%',
     backgroundColor: '#f5f5f5',
     borderRightWidth: 1,
     borderRightColor: '#ddd',
   },
   categoryItem: {
-    paddingVertical: 5,
-    paddingHorizontal: 5,
+    padding: 10,
     borderBottomWidth: 1,
     borderBottomColor: '#eee',
-    minHeight: 60,
-    justifyContent: 'center',
   },
   selectedCategoryItem: {
     backgroundColor: '#e0e0e0',
@@ -152,10 +148,9 @@ const localStyles = StyleSheet.create({
     fontSize: 12,
     color: '#555',
     textAlign: 'center',
-    lineHeight: 15,
   },
   productContainer: {
-    flex: 5,
+    flex: 1,
     padding: 10,
   },
   productWrapper: {
@@ -171,16 +166,12 @@ const localStyles = StyleSheet.create({
     backgroundColor: '#fff',
     borderRadius: 5,
     elevation: 1,
-    shadowColor: '#000',
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    shadowOffset: { width: 0, height: 1 },
     alignItems: 'center',
   },
   productImage: {
-    width: 100, // Fixed width for the image
-    height: 150, // Fixed height for the image
-    marginBottom: 5, // Space between image and text
+    width: 100,
+    height: 150,
+    marginBottom: 5,
   },
   productText: {
     fontSize: 12,

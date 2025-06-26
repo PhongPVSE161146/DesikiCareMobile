@@ -80,24 +80,53 @@ const LoginScreen = ({ navigation, route }) => {
 
     try {
       const result = await authService.login(email.trim(), password);
+      console.log('Login result:', result); // Debugging login response
       if (result.success) {
         // Save credentials if "Remember" is enabled
         if (isRemember) {
-          await AsyncStorage.setItem('savedEmail', email.trim());
-          await AsyncStorage.setItem('savedPassword', password);
-          await AsyncStorage.setItem('isRemember', 'true');
+          try {
+            await AsyncStorage.setItem('savedEmail', email.trim());
+            await AsyncStorage.setItem('savedPassword', password);
+            await AsyncStorage.setItem('isRemember', 'true');
+          } catch (e) {
+            console.error('Error saving credentials:', e);
+          }
         } else {
-          await AsyncStorage.removeItem('savedEmail');
-          await AsyncStorage.removeItem('savedPassword');
-          await AsyncStorage.removeItem('isRemember');
+          try {
+            await AsyncStorage.removeItem('savedEmail');
+            await AsyncStorage.removeItem('savedPassword');
+            await AsyncStorage.removeItem('isRemember');
+          } catch (e) {
+            console.error('Error clearing credentials:', e);
+          }
         }
 
-        dispatch(reduxLogin(result.data));
-        navigation.navigate('Home');
+        try {
+          // Dispatch Redux login action
+          dispatch(reduxLogin(result.data));
+          console.log('Dispatched reduxLogin with data:', result.data);
+          // Show success notification
+          setNotification({ message: 'Đăng nhập thành công!', type: 'success' });
+          // Check if navigation is available
+          if (navigation && typeof navigation.reset === 'function') {
+            navigation.reset({
+              index: 0,
+              routes: [{ name: 'Main', params: { screen: 'Home' } }],
+            });
+            console.log('Navigated to Main with Home tab');
+          } else {
+            console.error('Navigation object is invalid:', navigation);
+            setNotification({ message: 'Lỗi điều hướng. Vui lòng thử lại.', type: 'error' });
+          }
+        } catch (dispatchError) {
+          console.error('Dispatch or navigation error:', dispatchError);
+          setNotification({ message: 'Lỗi khi đăng nhập. Vui lòng thử lại.', type: 'error' });
+        }
       } else {
         setNotification({ message: result.message, type: 'error' });
       }
     } catch (error) {
+      console.error('Login error:', error);
       setNotification({ message: 'Đã xảy ra lỗi không mong muốn.', type: 'error' });
     }
   };

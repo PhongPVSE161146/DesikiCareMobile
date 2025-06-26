@@ -22,7 +22,7 @@ import SupportScreen from '../screens/Home/FeatureButton/SupportScreen';
 import GoldenHourScreen from '../screens/Home/FeatureButton/GoldenHourScreen';
 import PolicyScreen from '../screens/Home/FeatureButton/PolicyScreen';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-
+// import Payment from '../screens/Payments/payment';
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
 
@@ -36,7 +36,7 @@ function HomeStack() {
         options={{ headerShown: false }}
       />
       <Stack.Screen name="ProductDetail" component={ProductDetailScreen} />
-     
+
     </Stack.Navigator>
   );
 }
@@ -60,7 +60,7 @@ function MainTabs() {
   const insets = useSafeAreaInsets();
   return (
     <SafeAreaView style={[styles.container, { paddingBottom: insets.bottom }]}>
-  
+
       <Tab.Navigator
         screenOptions={({ route }) => ({
           headerShown: false,
@@ -98,7 +98,7 @@ function MainTabs() {
           options={{ title: 'Thông báo' }}
         />
         <Tab.Screen name="Account" component={AccountScreen} options={{ title: 'Tài khoản' }} />
-      
+
       </Tab.Navigator>
     </SafeAreaView>
   );
@@ -113,13 +113,14 @@ const AppNavigator = () => {
         <Stack.Screen name="Login" component={LoginScreen} />
         <Stack.Screen name="Register" component={RegisterScreen} />
         <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
-          <Stack.Screen name="NewProductsScreen" component={NewProductsScreen} />
+        <Stack.Screen name="NewProductsScreen" component={NewProductsScreen} />
         <Stack.Screen name="MiniGameScreen" component={MiniGameScreen} />
         <Stack.Screen name="GuideScreen" component={GuideScreen} />
         <Stack.Screen name="DealsScreen" component={DealsScreen} />
         <Stack.Screen name="SupportScreen" component={SupportScreen} />
         <Stack.Screen name="GoldenHourScreen" component={GoldenHourScreen} />
         <Stack.Screen name="PolicyScreen" component={PolicyScreen} />
+        {/* <Stack.Screen name="Payment" component={Payment} /> */}
       </Stack.Navigator>
     </NavigationContainer>
   );
