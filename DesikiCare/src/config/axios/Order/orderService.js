@@ -22,7 +22,7 @@ const orderService = {
   getCart: async () => {
     try {
       const userToken = await getUserToken();
-      console.log('Fetching cart from:', `${API_URL_LOGIN}/api/Order/carts/me`);
+      // console.log('Fetching cart from:', `${API_URL_LOGIN}/api/Order/carts/me`);
       const response = await axiosInstance.get('/carts/me', {
         headers: { Authorization: `Bearer ${userToken}` },
       });
@@ -56,7 +56,7 @@ const orderService = {
   updateCartItemQuantity: async (cartItemId, quantity) => {
     try {
       const userToken = await getUserToken();
-      console.log('Updating cart item quantity:', { cartItemId, quantity });
+      // console.log('Updating cart item quantity:', { cartItemId, quantity });
       const response = await axiosInstance.patch(`/cartItems/${cartItemId}`, { quantity }, {
         headers: { Authorization: `Bearer ${userToken}` },
       });
@@ -65,7 +65,7 @@ const orderService = {
         ? { success: true }
         : { success: false, message: response.data.message || 'Failed to update quantity' };
     } catch (error) {
-      console.error('Update cart item quantity error:', error.message);
+      // console.error('Update cart item quantity error:', error.message);
       return { success: false, message: error.message || 'Network error. Please try again.' };
     }
   },
@@ -73,7 +73,7 @@ const orderService = {
   addCartItem: async (productId, quantity = 1) => {
     try {
       const userToken = await getUserToken();
-      console.log('Adding cart item:', { productId, quantity });
+      // console.log('Adding cart item:', { productId, quantity });
       const response = await axiosInstance.post('/cartItems', { productId, quantity }, {
         headers: { Authorization: `Bearer ${userToken}` },
       });
@@ -90,7 +90,7 @@ const orderService = {
   getPaymentLink: async (orderData, metaData) => {
     try {
       const userToken = await getUserToken();
-      console.log('Generating payment link with:', { orderData, metaData });
+      // console.log('Generating payment link with:', { orderData, metaData });
       const response = await axiosInstance.post('/carts/getPaymentLink', {
         order: {
           pointUsed: orderData.pointUsed || 0,
@@ -116,7 +116,7 @@ const orderService = {
   confirmPayment: async (orderData, metaData) => {
     try {
       const userToken = await getUserToken();
-      console.log('Confirming payment with:', { orderData, metaData });
+      // console.log('Confirming payment with:', { orderData, metaData });
       const response = await axiosInstance.post('/confirmPayment', {
         order: {
           fullName: orderData.fullName,

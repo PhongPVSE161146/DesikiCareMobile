@@ -118,19 +118,19 @@ const CartScreen = ({ navigation }) => {
     }
   };
 
-  const handleApplyDiscount = () => {
-    if (!discountCode.trim()) {
-      Alert.alert('Lỗi', 'Vui lòng nhập mã giảm giá.');
-      return;
-    }
-    if (discountCode.trim() === 'SAVE10') {
-      dispatch(applyDiscount({ code: 'SAVE10', amount: 0.1 }));
-      Alert.alert('Thành công', 'Mã giảm giá đã được áp dụng!');
-      setDiscountCode('');
-    } else {
-      Alert.alert('Lỗi', 'Mã giảm giá không hợp lệ.');
-    }
-  };
+  // const handleApplyDiscount = () => {
+  //   if (!discountCode.trim()) {
+  //     Alert.alert('Lỗi', 'Vui lòng nhập mã giảm giá.');
+  //     return;
+  //   }
+  //   if (discountCode.trim() === 'SAVE10') {
+  //     dispatch(applyDiscount({ code: 'SAVE10', amount: 0.1 }));
+  //     Alert.alert('Thành công', 'Mã giảm giá đã được áp dụng!');
+  //     setDiscountCode('');
+  //   } else {
+  //     Alert.alert('Lỗi', 'Mã giảm giá không hợp lệ.');
+  //   }
+  // };
 
   const calculateTotal = () => {
     const subtotal = cartItems.reduce((sum, item) => sum + (item.price || 0) * (item.quantity || 1), 0);
@@ -226,7 +226,7 @@ const CartScreen = ({ navigation }) => {
         keyExtractor={(item) => item.id.toString()}
         contentContainerStyle={styles.cartList}
       />
-      <View style={styles.discountContainer}>
+      {/* <View style={styles.discountContainer}>
         <TextInput
           style={styles.discountInput}
           placeholder="Nhập mã giảm giá"
@@ -236,7 +236,7 @@ const CartScreen = ({ navigation }) => {
         <TouchableOpacity style={styles.applyDiscountButton} onPress={handleApplyDiscount}>
           <Text style={styles.applyDiscountButtonText}>Áp dụng</Text>
         </TouchableOpacity>
-      </View>
+      </View> */}
       <View style={styles.totalContainer}>
         <Text style={styles.totalText}>
           Tổng: {calculateTotal().toLocaleString('vi-VN')} đ

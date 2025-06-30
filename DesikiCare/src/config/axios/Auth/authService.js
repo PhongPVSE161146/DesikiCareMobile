@@ -51,7 +51,7 @@ const authService = {
           phoneNumber: accountData.phoneNumber?.trim(),
           gender: accountData.gender,
           dob: accountData.dob,
-          roleId: accountData.roleId || 0,
+          roleId: accountData.roleId || 3, // Default to customer role
           imageBase64: accountData.imageBase64 || '',
         },
       }, {

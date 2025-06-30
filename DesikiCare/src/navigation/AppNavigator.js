@@ -53,8 +53,7 @@ function CartStack() {
         options={{ headerShown: false }}
       />
       <Stack.Screen name="Checkout" component={CheckoutScreen} />
-        <Stack.Screen name="Payment" component={Payment} />
-          <Stack.Screen name="ConfirmPayment" component={ConfirmPaymentScreen} />
+     
     </Stack.Navigator>
   );
 }
@@ -130,7 +129,14 @@ const AppNavigator = () => {
           <Stack.Screen name="SupportScreen" component={SupportScreen} />
           {/* <Stack.Screen name="GoldenHourScreen" component={GoldenHourScreen} /> */}
           <Stack.Screen name="PolicyScreen" component={PolicyScreen} />
-        
+           <Stack.Screen name="Payment" component={Payment} options={{
+            headerShown: true,
+            title: 'Thanh toán',
+            headerStyle: { backgroundColor: '#fa7ca6' },
+            headerTintColor: '#fff',
+            headerTitleStyle: { fontWeight: 'bold' },
+           }} />
+          <Stack.Screen name="ConfirmPayment" component={ConfirmPaymentScreen} />
         </Stack.Navigator>
       </NavigationContainer>
     </View>

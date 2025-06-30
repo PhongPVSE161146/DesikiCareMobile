@@ -3,10 +3,10 @@ import { API_URL_LOGIN } from '@env';
 
 const ProductService = {
   // Get list of products
-  getProducts: async (page = 1) => {
+  getProducts: async () => {
     try {
       const response = await axios.get(`${API_URL_LOGIN}/api/Product/products`, {
-        params: { page },
+        // params: { page },
         headers: {
           Accept: 'application/json',
         },

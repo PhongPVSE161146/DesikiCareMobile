@@ -13,19 +13,23 @@ import { Formik } from 'formik';
 import * as Yup from 'yup';
 import { Card, Input } from 'react-native-elements';
 import RadioGroup from 'react-native-radio-buttons-group';
+import { useSelector } from 'react-redux';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import orderService from '../../config/axios/Order/orderService';
 import { CANCEL_URL, RETURN_URL } from '@env';
 
 // Validation schema using Yup
 const validationSchema = Yup.object().shape({
   fullName: Yup.string().required('Vui lòng nhập họ và tên'),
-  phone: Yup.string().required('Vui lòng nhập số điện thoại'),
+  phone: Yup.string()
+    .matches(/^[0-9]{10,11}$/, 'Số điện thoại không hợp lệ')
+    .required('Vui lòng nhập số điện thoại'),
   address: Yup.string().required('Vui lòng nhập địa chỉ'),
   paymentMethod: Yup.string().required('Vui lòng chọn phương thức thanh toán'),
 });
 
 // Radio button options
-const radioButtonsData = [
+const initialRadioButtons = [
   {
     id: 'cod',
     label: 'Thanh toán khi nhận hàng (COD)',
@@ -36,35 +40,62 @@ const radioButtonsData = [
     id: 'bank',
     label: 'Chuyển khoản ngân hàng',
     value: 'bank',
+    selected: false,
   },
   {
     id: 'momo',
     label: 'Ví MoMo',
     value: 'momo',
+    selected: false,
   },
 ];
 
 const Payment = ({ route, navigation }) => {
-  const { paymentUrl, cartItems } = route.params || {};
+  const { paymentUrl, cartItems: passedCartItems } = route.params || {};
   const [isLoading, setIsLoading] = useState(!!paymentUrl);
   const [showWebView, setShowWebView] = useState(!!paymentUrl);
+  const [radioButtons, setRadioButtons] = useState(initialRadioButtons);
+
+  // Get cart items from Redux store
+  const reduxCartItems = useSelector(state => state.cart.items) || [];
+
+  // Use passed cartItems or fallback to Redux
+  const cartItems = passedCartItems?.length > 0 ? passedCartItems : reduxCartItems;
+
+  // Fetch user info from AsyncStorage
+  const getUserInfo = async () => {
+    try {
+      const userInfo = await AsyncStorage.getItem('userInfo');
+      return userInfo ? JSON.parse(userInfo) : { fullName: '', phone: '', address: '' };
+    } catch (error) {
+      console.error('Error fetching user info:', error.message);
+      return { fullName: '', phone: '', address: '' };
+    }
+  };
 
   useEffect(() => {
     if (paymentUrl) {
       setShowWebView(true);
       setIsLoading(false);
     }
-  }, [paymentUrl]);
+    console.log('Cart items in Payment:', cartItems);
+  }, [paymentUrl, cartItems]);
 
   const handleSubmit = async (values) => {
+    if (!cartItems || cartItems.length === 0) {
+      alert('Giỏ hàng trống. Vui lòng thêm sản phẩm trước khi thanh toán.');
+      return;
+    }
+
     const metaData = {
       cancelUrl: CANCEL_URL,
       returnUrl: RETURN_URL,
     };
 
-    if (values.paymentMethod === 'cod') {
-      try {
-        setIsLoading(true);
+    try {
+      setIsLoading(true);
+      if (values.paymentMethod === 'cod') {
+        console.log('Submitting COD payment:', { ...values, cartItems });
         const response = await orderService.confirmPayment(
           {
             fullName: values.fullName,
@@ -72,41 +103,58 @@ const Payment = ({ route, navigation }) => {
             address: values.address,
             note: values.note || '',
             paymentMethod: 'cod',
-            cartItems: cartItems || [],
+            cartItems: cartItems.map(item => ({
+              id: item.id,
+              quantity: item.quantity,
+            })),
           },
           metaData
         );
+        console.log('COD payment response:', response);
 
         if (response.success) {
+          // Fetch updated cart to verify state
+          const cartResult = await orderService.getCart();
+          console.log('Cart after payment:', cartResult);
           navigation.navigate('ConfirmPaymentScreen', { paymentData: response });
         } else {
           alert(response.message || 'Không thể xác nhận thanh toán COD.');
         }
-      } catch (error) {
-        console.error('COD payment error:', error);
-        alert('Có lỗi xảy ra khi xác nhận thanh toán COD: ' + error.message);
-      } finally {
-        setIsLoading(false);
-      }
-    } else {
-      try {
-        setIsLoading(true);
+      } else {
+        const formattedCartItems = cartItems.map(item => ({
+          id: item.id,
+          quantity: item.quantity,
+        }));
+        console.log('Requesting payment link:', {
+          order: {
+            pointUsed: 0,
+            deliveryAddressId: values.address,
+            cartItems: formattedCartItems,
+          },
+          metaData,
+        });
         const paymentResult = await orderService.getPaymentLink(
-          { pointUsed: 0, deliveryAddressId: values.address },
+          {
+            pointUsed: 0,
+            deliveryAddressId: values.address,
+            cartItems: formattedCartItems,
+          },
           metaData
         );
+        console.log('Payment link response:', paymentResult);
 
         if (paymentResult.success && paymentResult.data.paymentUrl) {
           setShowWebView(true);
+          navigation.setParams({ paymentUrl: paymentResult.data.paymentUrl });
         } else {
           alert(paymentResult.message || 'Không thể tạo link thanh toán.');
         }
-      } catch (error) {
-        console.error('Payment link error:', error);
-        alert('Có lỗi xảy ra khi tạo link thanh toán: ' + error.message);
-      } finally {
-        setIsLoading(false);
       }
+    } catch (error) {
+      console.error('Payment error:', error.message);
+      alert('Có lỗi xảy ra: ' + error.message);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -129,31 +177,36 @@ const Payment = ({ route, navigation }) => {
           alert('Lỗi khi tải trang thanh toán.');
           setShowWebView(false);
         }}
-        onNavigationStateChange={(navState) => {
+        onNavigationStateChange={async (navState) => {
           if (navState.url.includes('success')) {
+            const userInfo = await getUserInfo();
+            const payload = {
+              fullName: userInfo.fullName || 'Unknown',
+              phone: userInfo.phone || 'Unknown',
+              address: userInfo.address || 'Unknown',
+              paymentMethod: 'online',
+              cartItems: cartItems.map(item => ({
+                id: item.id,
+                quantity: item.quantity,
+              })),
+            };
+            console.log('Confirming payment in WebView:', payload);
             orderService
-              .confirmPayment(
-                {
-                  fullName: '', // Thay bằng thông tin người dùng nếu có
-                  phone: '',
-                  address: '',
-                  paymentMethod: route.params?.paymentMethod || 'online',
-                  cartItems: cartItems || [],
-                },
-                {
-                  cancelUrl: CANCEL_URL,
-                  returnUrl: RETURN_URL,
-                }
-              )
+              .confirmPayment(payload, { cancelUrl: CANCEL_URL, returnUrl: RETURN_URL })
               .then((response) => {
+                console.log('Confirm payment response:', response);
                 if (response.success) {
+                  // Fetch updated cart to verify state
+                  orderService.getCart().then(cartResult => {
+                    console.log('Cart after payment:', cartResult);
+                  });
                   navigation.navigate('ConfirmPaymentScreen', { paymentData: response });
                 } else {
                   alert(response.message || 'Không thể xác nhận thanh toán.');
                 }
               })
               .catch((error) => {
-                console.error('Confirm payment error:', error);
+                console.error('Confirm payment error:', error.message);
                 alert('Lỗi xác nhận thanh toán: ' + error.message);
               });
           } else if (navState.url.includes('cancel')) {
@@ -248,11 +301,18 @@ const Payment = ({ route, navigation }) => {
               <View style={styles.radioContainer}>
                 <Text style={[styles.label, styles.inputLabel]}>Phương thức thanh toán</Text>
                 <RadioGroup
-                  radioButtons={radioButtonsData}
-                  onPress={(data) => {
-                    const selected = data.find((item) => item.selected);
+                  radioButtons={radioButtons}
+                  onPress={(selectedId) => {
+                    console.log('Radio button selected:', selectedId);
+                    const updatedButtons = radioButtons.map(button => ({
+                      ...button,
+                      selected: button.id === selectedId,
+                    }));
+                    setRadioButtons(updatedButtons);
+                    const selected = updatedButtons.find(button => button.selected);
                     if (selected) {
                       setFieldValue('paymentMethod', selected.value);
+                      console.log('Selected payment method:', selected.value);
                     }
                   }}
                   layout="column"
@@ -270,7 +330,9 @@ const Payment = ({ route, navigation }) => {
               {cartItems && cartItems.length > 0 ? (
                 cartItems.map((item, index) => (
                   <View key={index} style={styles.summaryItem}>
-                    <Text style={styles.summaryText}>{item.title}</Text>
+                    <Text style={styles.summaryText}>
+                      {item.title} (x{item.quantity})
+                    </Text>
                     <Text style={styles.summaryText}>
                       {(item.price * item.quantity).toLocaleString('vi-VN')}₫
                     </Text>
@@ -298,8 +360,9 @@ const Payment = ({ route, navigation }) => {
 
               <TouchableOpacity
                 onPress={handleSubmit}
-                style={styles.submitButton}
+                style={[styles.submitButton, isLoading && styles.disabledButton]}
                 activeOpacity={0.8}
+                disabled={isLoading}
               >
                 <Text style={styles.submitButtonText}>
                   {values.paymentMethod === 'cod' ? 'Xác nhận đơn hàng' : 'Thanh toán'}
@@ -321,7 +384,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 24,
-    fontWeight: 'bold',
+    fontWeight: '700',
     textAlign: 'center',
     marginBottom: 24,
     color: '#333',
@@ -332,12 +395,12 @@ const styles = StyleSheet.create({
   card: {
     borderRadius: 12,
     marginBottom: 24,
-    padding: 16,
-    elevation: 2,
+    padding: 20,
+    elevation: 4,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.04,
-    shadowRadius: 10,
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
     backgroundColor: '#fff',
   },
   cardTitle: {
@@ -357,12 +420,14 @@ const styles = StyleSheet.create({
   },
   inputText: {
     fontSize: 16,
+    color: '#333',
   },
   inputContainer: {
     borderWidth: 1,
     borderColor: '#d9d9d9',
     borderRadius: 8,
-    paddingHorizontal: 8,
+    paddingHorizontal: 12,
+    backgroundColor: '#fafafa',
   },
   textAreaContainer: {
     marginBottom: 16,
@@ -371,30 +436,88 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     marginBottom: 8,
+    color: '#333',
   },
   textArea: {
     borderWidth: 1,
     borderColor: '#d9d9d9',
     borderRadius: 8,
-    padding: 8,
+    padding: 12,
     fontSize: 16,
     height: 80,
+    backgroundColor: '#fafafa',
+    color: '#333',
   },
   radioContainer: {
     marginBottom: 16,
+    padding: 12,
+    borderRadius: 8,
+    backgroundColor: '#f9f9f9',
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+    marginLeft: -12, // Adjust to match card padding
+    marginRight: -12, // Adjust to match card padding
+    
   },
   radioGroup: {
-    marginTop: 8,
+    marginTop: 9,
+    marginStart: 8,
+    marginEnd: 8,
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    gap: 8,
+  },
+  radioButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    marginBottom: 8,
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+    height: 56, // Fixed height for uniformity
+  },
+  radioButtonSelected: {
+    backgroundColor: '#ffe6f0',
+    borderColor: '#f06292',
+  },
+  radioLabel: {
+    fontSize: 16,
+    color: '#333',
+    flex: 1,
+  },
+  radioCircle: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: '#d9d9d9',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 12,
+  },
+  radioCircleSelected: {
+    borderColor: '#f06292',
+    backgroundColor: '#f06292',
+  },
+  radioInnerCircle: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: '#fff',
   },
   errorText: {
-    color: 'red',
+    color: '#d32f2f',
     fontSize: 12,
     marginTop: 4,
+    marginLeft: 16,
   },
   summaryItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingVertical: 6,
+    paddingVertical: 8,
     marginBottom: 8,
   },
   summaryText: {
@@ -409,20 +532,23 @@ const styles = StyleSheet.create({
   summaryTotal: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingTop: 10,
+    paddingTop: 12,
   },
   summaryTotalText: {
     fontSize: 17,
-    fontWeight: '600',
+    fontWeight: '700',
     color: '#333',
   },
   submitButton: {
     backgroundColor: '#f06292',
     borderRadius: 8,
-    paddingVertical: 12,
+    paddingVertical: 14,
     alignItems: 'center',
     marginTop: 24,
-    height: 45,
+    height: 48,
+  },
+  disabledButton: {
+    backgroundColor: '#cccccc',
   },
   submitButtonText: {
     color: '#fff',
