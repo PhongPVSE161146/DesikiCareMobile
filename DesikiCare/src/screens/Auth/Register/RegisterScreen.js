@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, StyleSheet, Image } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, StyleSheet, Image, ScrollView, KeyboardAvoidingView, Platform, Modal } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
-import { Picker } from '@react-native-picker/picker';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { useDispatch } from 'react-redux';
 import { login as reduxLogin } from '../../../redux/authSlice';
 import authService from '../../../config/axios/Auth/authService'; // Adjust the import path
@@ -16,7 +16,9 @@ const RegisterScreen = ({ navigation }) => {
   const [fullName, setFullName] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [gender, setGender] = useState('');
-  const [dob, setDob] = useState('');
+  const [dob, setDob] = useState(null); // Store as Date object
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showGenderModal, setShowGenderModal] = useState(false);
   const [loading, setLoading] = useState(false);
   const [notification, setNotification] = useState(null);
   const [errors, setErrors] = useState({
@@ -85,17 +87,14 @@ const RegisterScreen = ({ navigation }) => {
       isValid = false;
     }
 
-    // Validate dob (DD-MM-YYYY format for input, convert to YYYY-MM-DD for API)
-    if (!dob.trim()) {
-      newErrors.dob = 'Vui lòng nhập ngày sinh.';
-      isValid = false;
-    } else if (!/^\d{2}-\d{2}-\d{4}$/.test(dob.trim())) {
-      newErrors.dob = 'Ngày sinh phải theo định dạng DD-MM-YYYY.';
+    // Validate dob
+    if (!dob) {
+      newErrors.dob = 'Vui lòng chọn ngày sinh.';
       isValid = false;
     } else {
-      const [day, month, year] = dob.trim().split('-');
-      const date = new Date(`${year}-${month}-${day}`);
-      if (isNaN(date.getTime()) || parseInt(year) < 1900 || date > new Date()) {
+      const today = new Date();
+      const year = dob.getFullYear();
+      if (year < 1900 || dob > today) {
         newErrors.dob = 'Ngày sinh không hợp lệ.';
         isValid = false;
       }
@@ -115,9 +114,8 @@ const RegisterScreen = ({ navigation }) => {
 
     setLoading(true);
     try {
-      // Convert dob from DD-MM-YYYY to YYYY-MM-DD for API
-      const [day, month, year] = dob.trim().split('-');
-      const formattedDob = `${year}-${month}-${day}`;
+      // Format dob to YYYY-MM-DD for API
+      const formattedDob = dob.toISOString().split('T')[0];
 
       const accountData = {
         email: email.trim(),
@@ -141,9 +139,17 @@ const RegisterScreen = ({ navigation }) => {
           if (navigation && typeof navigation.reset === 'function') {
             navigation.reset({
               index: 0,
-              routes: [{ name: 'Main', params: { screen: 'Home' } }],
+              routes: [
+                {
+                  name: 'Main',
+                  params: {
+                    screen: 'Home',
+                    params: { notification: { message: 'Đăng ký tài khoản thành công!', type: 'success' } },
+                  },
+                },
+              ],
             });
-            console.log('Navigated to Main with Home tab');
+            console.log('Navigated to Main with Home tab and success notification');
           } else {
             console.error('Navigation object is invalid:', navigation);
             setNotification({ message: 'Lỗi điều hướng. Vui lòng thử lại.', type: 'error' });
@@ -159,105 +165,196 @@ const RegisterScreen = ({ navigation }) => {
     }
   };
 
+  const handleDateChange = (event, selectedDate) => {
+    setShowDatePicker(false); // Close picker after selection
+    if (selectedDate) {
+      setDob(selectedDate);
+    }
+  };
+
+  const formatDate = (date) => {
+    if (!date) return 'Chọn ngày sinh';
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = date.getFullYear();
+    return `${day}-${month}-${year}`;
+  };
+
+  const handleGenderSelect = (value) => {
+    setGender(value);
+    setShowGenderModal(false);
+  };
+
   return (
-    <View style={styles.container}>
-      <Notification
-        message={notification?.message}
-        type={notification?.type}
-        onDismiss={() => setNotification(null)}
-      />
-      <View style={styles.header}>
-        <Image source={logoImage} style={styles.logo} />
-        <Text style={styles.headerText}>Đăng Ký</Text>
-      </View>
-      <View style={styles.formContainer}>
-        <View style={[styles.inputContainer, { borderColor: errors.fullName ? 'red' : '#B0BEC5' }]}>
-          <Icon name="person" size={24} color="#666" style={styles.inputIcon} />
-          <TextInput
-            style={styles.input}
-            placeholder="Họ và tên"
-            value={fullName}
-            onChangeText={setFullName}
-            placeholderTextColor="#888"
-          />
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      style={styles.container}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 100 : 0}
+    >
+      <ScrollView contentContainerStyle={styles.scrollContainer}>
+        <Notification
+          message={notification?.message}
+          type={notification?.type}
+          onDismiss={() => setNotification(null)}
+        />
+        <View style={styles.header}>
+          <Image source={logoImage} style={styles.logo} />
+          <Text style={styles.headerText}>Đăng Ký</Text>
         </View>
-        {errors.fullName ? <Text style={styles.errorText}>{errors.fullName}</Text> : null}
-        <View style={[styles.inputContainer, { borderColor: errors.email ? 'red' : '#B0BEC5' }]}>
-          <Icon name="email" size={24} color="#666" style={styles.inputIcon} />
-          <TextInput
-            style={styles.input}
-            placeholder="Email"
-            value={email}
-            onChangeText={setEmail}
-            keyboardType="email-address"
-            autoCapitalize="none"
-            placeholderTextColor="#888"
-          />
-        </View>
-        {errors.email ? <Text style={styles.errorText}>{errors.email}</Text> : null}
-        <View style={[styles.inputContainer, { borderColor: errors.password ? 'red' : '#B0BEC5' }]}>
-          <Icon name="lock" size={24} color="#666" style={styles.inputIcon} />
-          <TextInput
-            style={styles.input}
-            placeholder="Mật khẩu"
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry
-            placeholderTextColor="#888"
-          />
-        </View>
-        {errors.password ? <Text style={styles.errorText}>{errors.password}</Text> : null}
-        <View style={[styles.inputContainer, { borderColor: errors.phoneNumber ? 'red' : '#B0BEC5' }]}>
-          <Icon name="phone" size={24} color="#666" style={styles.inputIcon} />
-          <TextInput
-            style={styles.input}
-            placeholder="Số điện thoại"
-            value={phoneNumber}
-            onChangeText={setPhoneNumber}
-            keyboardType="numeric"
-            placeholderTextColor="#888"
-          />
-        </View>
-        {errors.phoneNumber ? <Text style={styles.errorText}>{errors.phoneNumber}</Text> : null}
-        <View style={[styles.inputContainer, { borderColor: errors.gender ? 'red' : '#B0BEC5' }]}>
-          <Icon name="wc" size={24} color="#666" style={styles.inputIcon} />
-          <Picker
-            selectedValue={gender}
-            onValueChange={(itemValue) => setGender(itemValue)}
-            style={styles.picker}
+        <View style={styles.formContainer}>
+          <View style={[styles.inputContainer, { borderColor: errors.fullName ? 'red' : '#B0BEC5' }]}>
+            <Icon name="person" size={24} color="#666" style={styles.inputIcon} />
+            <TextInput
+              style={styles.input}
+              placeholder="Họ và tên"
+              value={fullName}
+              onChangeText={setFullName}
+              placeholderTextColor="#888"
+            />
+          </View>
+          {errors.fullName ? <Text style={styles.errorText}>{errors.fullName}</Text> : null}
+          <View style={[styles.inputContainer, { borderColor: errors.email ? 'red' : '#B0BEC5' }]}>
+            <Icon name="email" size={24} color="#666" style={styles.inputIcon} />
+            <TextInput
+              style={styles.input}
+              placeholder="Email"
+              value={email}
+              onChangeText={setEmail}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              placeholderTextColor="#888"
+            />
+          </View>
+          {errors.email ? <Text style={styles.errorText}>{errors.email}</Text> : null}
+          <View style={[styles.inputContainer, { borderColor: errors.password ? 'red' : '#B0BEC5' }]}>
+            <Icon name="lock" size={24} color="#666" style={styles.inputIcon} />
+            <TextInput
+              style={styles.input}
+              placeholder="Mật khẩu"
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry
+              placeholderTextColor="#888"
+            />
+          </View>
+          {errors.password ? <Text style={styles.errorText}>{errors.password}</Text> : null}
+          <View style={[styles.inputContainer, { borderColor: errors.phoneNumber ? 'red' : '#B0BEC5' }]}>
+            <Icon name="phone" size={24} color="#666" style={styles.inputIcon} />
+            <TextInput
+              style={styles.input}
+              placeholder="Số điện thoại"
+              value={phoneNumber}
+              onChangeText={setPhoneNumber}
+              keyboardType="numeric"
+              placeholderTextColor="#888"
+            />
+          </View>
+          {errors.phoneNumber ? <Text style={styles.errorText}>{errors.phoneNumber}</Text> : null}
+          <TouchableOpacity
+            style={[styles.inputContainer, { borderColor: errors.gender ? 'red' : '#B0BEC5' }]}
+            onPress={() => setShowGenderModal(true)}
           >
-            <Picker.Item label="Chọn giới tính" value="" />
-            <Picker.Item label="Nam" value="nam" />
-            <Picker.Item label="Nữ" value="nữ" />
-            <Picker.Item label="Khác" value="khác" />
-          </Picker>
+            <Icon name="wc" size={24} color="#666" style={styles.inputIcon} />
+            <Text style={[styles.input, { color: gender ? '#333' : '#888' }]}>
+              {gender ? gender.charAt(0).toUpperCase() + gender.slice(1) : 'Chọn giới tính'}
+            </Text>
+            <Icon name="arrow-drop-down" size={24} color="#666" style={styles.inputIcon} />
+          </TouchableOpacity>
+          {errors.gender ? <Text style={styles.errorText}>{errors.gender}</Text> : null}
+          <Modal
+            visible={showGenderModal}
+            transparent
+            animationType="fade"
+            onRequestClose={() => setShowGenderModal(false)}
+          >
+            <View style={styles.modalContainer}>
+              <View style={styles.modalContent}>
+                <Text style={styles.modalTitle}>Chọn giới tính</Text>
+                <View style={styles.genderOptionsContainer}>
+                  {['nam', 'nữ', 'khác'].map((option) => (
+                    <TouchableOpacity
+                      key={option}
+                      style={[
+                        styles.genderOption,
+                        gender === option && styles.genderOptionSelected,
+                      ]}
+                      onPress={() => handleGenderSelect(option)}
+                    >
+                      <Text
+                        style={[
+                          styles.genderOptionText,
+                          gender === option && styles.genderOptionTextSelected,
+                        ]}
+                      >
+                        {option.charAt(0).toUpperCase() + option.slice(1)}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+                <TouchableOpacity
+                  style={styles.closeButton}
+                  onPress={() => setShowGenderModal(false)}
+                >
+                  <Text style={styles.closeButtonText}>Đóng</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </Modal>
+          <TouchableOpacity
+            style={[styles.inputContainer, { borderColor: errors.dob ? 'red' : '#B0BEC5' }]}
+            onPress={() => setShowDatePicker(true)}
+          >
+            <Icon name="calendar-today" size={24} color="#666" style={styles.inputIcon} />
+            <Text style={[styles.input, { color: dob ? '#333' : '#888' }]}>
+              {formatDate(dob)}
+            </Text>
+            <Icon name="arrow-drop-down" size={24} color="#666" style={styles.inputIcon} />
+          </TouchableOpacity>
+          {errors.dob ? <Text style={styles.errorText}>{errors.dob}</Text> : null}
+          <Modal
+            visible={showDatePicker}
+            transparent
+            animationType="fade"
+            onRequestClose={() => setShowDatePicker(false)}
+          >
+            <View style={styles.modalContainer}>
+              <View style={styles.modalContent}>
+                <Text style={styles.modalTitle}>Chọn ngày sinh</Text>
+                <DateTimePicker
+                  value={dob || new Date()}
+                  mode="date"
+                  display={Platform.OS === 'ios' ? 'inline' : 'calendar'}
+                  onChange={handleDateChange}
+                  maximumDate={new Date()}
+                  minimumDate={new Date(1900, 0, 1)}
+                  style={styles.datePicker}
+                  textColor="#333"
+                  accentColor="#4CAF50" // Highlight selected date
+                  themeVariant="light"
+                />
+                <TouchableOpacity
+                  style={styles.closeButton}
+                  onPress={() => setShowDatePicker(false)}
+                >
+                  <Text style={styles.closeButtonText}>Đóng</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </Modal>
+          <TouchableOpacity
+            style={[styles.registerButton, loading && styles.buttonDisabled]}
+            onPress={handleRegister}
+            disabled={loading}
+          >
+            <Text style={styles.buttonText}>{loading ? 'Đang đăng ký...' : 'Đăng Ký'}</Text>
+          </TouchableOpacity>
+          {loading && <ActivityIndicator size="large" color="#4CAF50" style={styles.loadingIndicator} />}
+          <TouchableOpacity style={styles.loginLink} onPress={() => navigation.navigate('Login')}>
+            <Text style={styles.linkText}>Đã có tài khoản? Đăng nhập</Text>
+          </TouchableOpacity>
         </View>
-        {errors.gender ? <Text style={styles.errorText}>{errors.gender}</Text> : null}
-        <View style={[styles.inputContainer, { borderColor: errors.dob ? 'red' : '#B0BEC5' }]}>
-          <Icon name="calendar-today" size={24} color="#666" style={styles.inputIcon} />
-          <TextInput
-            style={styles.input}
-            placeholder="Ngày sinh (DD-MM-YYYY)"
-            value={dob}
-            onChangeText={setDob}
-            keyboardType="numbers-and-punctuation"
-            placeholderTextColor="#888"
-          />
-        </View>
-        {errors.dob ? <Text style={styles.errorText}>{errors.dob}</Text> : null}
-        <TouchableOpacity
-          style={[styles.registerButton, loading && styles.buttonDisabled]}
-          onPress={handleRegister}
-          disabled={loading}
-        >
-          <Text style={styles.buttonText}>{loading ? 'Đang đăng ký...' : 'Đăng Ký'}</Text>
-        </TouchableOpacity>
-        {loading && <ActivityIndicator size="large" color="#4CAF50" style={styles.loadingIndicator} />}
-        <TouchableOpacity style={styles.loginLink} onPress={() => navigation.navigate('Login')}>
-          <Text style={styles.linkText}>Đã có tài khoản? Đăng nhập</Text>
-        </TouchableOpacity>
-      </View>
-    </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 };
 
@@ -265,41 +362,49 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#E0F7FA',
+  },
+  scrollContainer: {
+    flexGrow: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    paddingVertical: 30,
   },
   header: {
     alignItems: 'center',
     marginBottom: 20,
   },
   logo: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    marginBottom: 10,
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    marginBottom: 15,
   },
   headerText: {
-    fontSize: 28,
-    fontWeight: 'bold',
+    fontSize: 30,
+    fontWeight: '700',
     color: '#333',
   },
   formContainer: {
-    width: '80%',
-    padding: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
-    borderRadius: 15,
-    elevation: 5,
+    width: '85%',
+    padding: 25,
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    borderRadius: 20,
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
   },
   inputContainer: {
     width: '100%',
     height: 50,
     borderWidth: 1,
-    borderRadius: 8,
+    borderRadius: 10,
     marginBottom: 15,
     backgroundColor: '#fff',
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 10,
+    paddingHorizontal: 12,
   },
   inputIcon: {
     marginRight: 10,
@@ -309,42 +414,105 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#333',
   },
-  picker: {
-    flex: 1,
-    height: 50,
-    color: '#333',
+  datePicker: {
+    width: '100%',
+    backgroundColor: '#fff',
   },
   errorText: {
-    color: 'red',
+    color: '#D32F2F',
     fontSize: 12,
     marginBottom: 10,
-    marginLeft: 10,
+    marginLeft: 12,
+  },
+  modalContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    width: '85%',
+    borderRadius: 15,
+    padding: 20,
+    alignItems: 'center',
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 15,
+  },
+  genderOptionsContainer: {
+    width: '100%',
+    flexDirection: 'column',
+    alignItems: 'center',
+  },
+  genderOption: {
+    width: '100%',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    marginVertical: 5,
+    backgroundColor: '#F5F5F5',
+    alignItems: 'center',
+  },
+  genderOptionSelected: {
+    backgroundColor: '#4CAF50',
+  },
+  genderOptionText: {
+    fontSize: 16,
+    color: '#333',
+    fontWeight: '500',
+  },
+  genderOptionTextSelected: {
+    color: '#fff',
+    fontWeight: '600',
+  },
+  closeButton: {
+    marginTop: 15,
+    backgroundColor: '#4CAF50',
+    borderRadius: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 30,
+    alignItems: 'center',
+  },
+  closeButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
   },
   registerButton: {
     backgroundColor: '#4CAF50',
-    borderRadius: 8,
-    paddingVertical: 12,
+    borderRadius: 10,
+    paddingVertical: 14,
     alignItems: 'center',
-    marginTop: 10,
+    marginBottom: 15,
   },
   buttonDisabled: {
     backgroundColor: '#A5D6A7',
   },
   buttonText: {
-    color: '#FFF',
-    fontSize: 18,
+    color: '#fff',
+    fontSize: 16,
     fontWeight: '600',
   },
   loadingIndicator: {
     marginTop: 10,
   },
   loginLink: {
-    marginTop: 15,
+    marginTop: 20,
     alignItems: 'center',
   },
   linkText: {
     color: '#4CAF50',
     fontSize: 14,
+    fontWeight: '500',
   },
 });
 

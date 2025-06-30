@@ -1,53 +1,227 @@
+// profileService.js
 import axios from 'axios';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_URL_LOGIN } from '@env';
 
-const ProductService = {
-  // Get list of products
-  getProducts: async (page = 1) => {
+const getAuthToken = async () => {
+  try {
+    const token = await AsyncStorage.getItem('userToken');
+    return token;
+  } catch (error) {
+    console.error('Error retrieving token:', error);
+    return null;
+  }
+};
+
+const profileService = {
+  // Get account information
+  getProfile: async () => {
     try {
-      console.log(`Fetching products from API: ${API_URL_LOGIN}/api/Product/products?page=${page}`);
-      const response = await axios.get(`${API_URL_LOGIN}/api/Product/products`, {
-        params: { page } // Đảm bảo truyền tham số page nếu API yêu cầu
-      });
-
-      console.log('API Response:', response.data); // Log dữ liệu thô từ API
-
-      if (response.status === 200) {
-        // Map response to return only the 'product' object
-        const products = response.data.products.map(item => item.product);
-        console.log('Mapped Products:', products); // Log dữ liệu sau khi ánh xạ
-        return { success: true, data: products };
+      const token = await getAuthToken();
+      if (!token) {
+        return { success: false, message: 'No authentication token found.' };
       }
-      console.log('API Error Response:', response.data);
-      return { success: false, message: response.data.message || 'Failed to fetch products.' };
+
+      console.log(`Fetching account info from API: ${API_URL_LOGIN}/api/Account/me`);
+      const response = await axios.get(`${API_URL_LOGIN}/api/Account/me`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      console.log('API Response for Account Info:', response.data);
+
+      if (response.status === 200 && response.data.account) {
+        return { success: true, data: response.data };
+      }
+      return { success: false, message: response.data.message || 'Failed to fetch account information.' };
     } catch (error) {
-      console.error('Get products error:', error);
-      console.log('Error Response Data:', error.response?.data); // Log dữ liệu lỗi nếu có
-      return { success: false, message: error.response?.data?.message || 'Error fetching products.' };
+      console.error('Get account info error:', error);
+      const message = error.response?.status === 401 
+        ? 'Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại.' 
+        : error.response?.data?.message || 'Error fetching account information.';
+      return { success: false, message };
     }
   },
 
-  // Get product by ID
-  getProductById: async (id) => {
+  // Update account information
+  updateAccount: async (payload) => {
     try {
-      console.log(`Fetching product by ID: ${API_URL_LOGIN}/api/Product/products/${id}`);
-      const response = await axios.get(`${API_URL_LOGIN}/api/Product/products/${id}`);
+      const token = await getAuthToken();
+      if (!token) {
+        return { success: false, message: 'No authentication token found.' };
+      }
 
-      console.log('API Response for Product by ID:', response.data); // Log dữ liệu thô
+      console.log(`Updating account with payload:`, payload);
+      const response = await axios.put(`${API_URL_LOGIN}/api/Account/me`, payload, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      console.log('Update Account Response:', response.data);
 
       if (response.status === 200) {
-        // Return only the 'product' object
-        console.log('Mapped Product:', response.data.product); // Log dữ liệu product
-        return { success: true, data: response.data.product };
+        return { success: true, data: response.data };
       }
-      console.log('API Error Response:', response.data);
-      return { success: false, message: response.data.message || 'Failed to fetch product.' };
+      return { success: false, message: response.data.message || 'Failed to update account.' };
     } catch (error) {
-      console.error('Get product by ID error:', error);
-      console.log('Error Response Data:', error.response?.data); // Log dữ liệu lỗi
-      return { success: false, message: error.response?.data?.message || 'Error fetching product.' };
+      console.error('Update account error:', error);
+      const message = error.response?.status === 401 
+        ? 'Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại.' 
+        : error.response?.data?.message || 'Error updating account.';
+      return { success: false, message };
+    }
+  },
+
+  // Change password
+  changePassword: async (currentPassword, newPassword) => {
+    try {
+      const token = await getAuthToken();
+      if (!token) {
+        return { success: false, message: 'No authentication token found.' };
+      }
+
+      const payload = { currentPassword, newPassword };
+      console.log(`Changing password with payload:`, payload);
+      const response = await axios.put(`${API_URL_LOGIN}/api/Account/change-password`, payload, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      // console.log('Change Password Response:', response.data);
+
+      if (response.status === 200) {
+        return { success: true, data: response.data };
+      }
+      return { success: false, message: response.data.message || 'Failed to change password.' };
+    } catch (error) {
+      console.error('Change password error:', error);
+      const message = error.response?.status === 401 
+        ? 'Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại.' 
+        : error.response?.data?.message || 'Error changing password.';
+      return { success: false, message };
+    }
+  },
+
+  // Get delivery addresses (mocked to handle single address from API)
+  getDeliveryAddresses: async (accountId) => {
+    try {
+      const token = await getAuthToken();
+      if (!token) {
+        return { success: false, message: 'No authentication token found.' };
+      }
+
+      // console.log(`Fetching delivery addresses for account ID: ${accountId}`);
+      const response = await axios.get(`${API_URL_LOGIN}/api/Account/me`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      console.log('Delivery Addresses Response:', response.data);
+
+      if (response.status === 200 && response.data.deliveryAddress) {
+        // Convert single deliveryAddress to array for consistency
+        const addresses = [response.data.deliveryAddress];
+        return { success: true, data: addresses };
+      }
+      return { success: true, data: [] }; // Return empty array if no addresses
+    } catch (error) {
+      console.error('Get delivery addresses error:', error);
+      const message = error.response?.status === 401 
+        ? 'Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại.' 
+        : error.response?.data?.message || 'Error fetching delivery addresses.';
+      return { success: false, message };
+    }
+  },
+
+  // Add delivery address
+  addDeliveryAddress: async (accountId, payload) => {
+    try {
+      const token = await getAuthToken();
+      if (!token) {
+        return { success: false, message: 'No authentication token found.' };
+      }
+
+      console.log(`Adding delivery address for account ID: ${accountId}`, payload);
+      const response = await axios.post(`${API_URL_LOGIN}/api/Account/delivery-address`, {
+        accountId,
+        ...payload,
+      }, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      console.log('Add Delivery Address Response:', response.data);
+
+      if (response.status === 201) {
+        return { success: true, data: response.data };
+      }
+      return { success: false, message: response.data.message || 'Failed to add delivery address.' };
+    } catch (error) {
+      console.error('Add delivery address error:', error);
+      const message = error.response?.status === 401 
+        ? 'Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại.' 
+        : error.response?.data?.message || 'Error adding delivery address.';
+      return { success: false, message };
+    }
+  },
+
+  // Set default delivery address
+  setDefaultDeliveryAddress: async (deliveryAddressId) => {
+    try {
+      const token = await getAuthToken();
+      if (!token) {
+        return { success: false, message: 'No authentication token found.' };
+      }
+
+      console.log(`Setting default delivery address ID: ${deliveryAddressId}`);
+      const response = await axios.put(`${API_URL_LOGIN}/api/Account/delivery-address/${deliveryAddressId}/default`, {}, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      console.log('Set Default Address Response:', response.data);
+
+      if (response.status === 200) {
+        return { success: true, data: response.data };
+      }
+      return { success: false, message: response.data.message || 'Failed to set default address.' };
+    } catch (error) {
+      console.error('Set default address error:', error);
+      const message = error.response?.status === 401 
+        ? 'Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại.' 
+        : error.response?.data?.message || 'Error setting default address.';
+      return { success: false, message };
+    }
+  },
+
+  // Delete delivery address
+  deleteDeliveryAddress: async (deliveryAddressId) => {
+    try {
+      const token = await getAuthToken();
+      if (!token) {
+        return { success: false, message: 'No authentication token found.' };
+      }
+
+      console.log(`Deleting delivery address ID: ${deliveryAddressId}`);
+      const response = await axios.delete(`${API_URL_LOGIN}/api/Account/delivery-address/${deliveryAddressId}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      console.log('Delete Address Response:', response.data);
+
+      if (response.status === 200) {
+        return { success: true, data: response.data };
+      }
+      return { success: false, message: response.data.message || 'Failed to delete address.' };
+    } catch (error) {
+      console.error('Delete address error:', error);
+      const message = error.response?.status === 401 
+        ? 'Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại.' 
+        : error.response?.data?.message || 'Error deleting address.';
+      return { success: false, message };
     }
   },
 };
 
-export default ProductService;
+export default profileService;

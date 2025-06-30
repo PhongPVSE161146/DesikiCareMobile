@@ -1,4 +1,5 @@
 import { createSlice } from '@reduxjs/toolkit';
+
 const cartSlice = createSlice({
   name: 'cart',
   initialState: { items: [], discount: null },
@@ -17,7 +18,27 @@ const cartSlice = createSlice({
     applyDiscount(state, action) {
       state.discount = action.payload;
     },
+
+    // ✅ BỔ SUNG NÀY
+    addToCart(state, action) {
+      const newItem = action.payload;
+      const existingItem = state.items.find(item => item.id === newItem.id);
+      if (existingItem) {
+        existingItem.quantity += newItem.quantity;
+      } else {
+        state.items.push(newItem);
+      }
+    },
   },
 });
-export const { setCartItems, removeFromCart, updateCartItemQuantity, applyDiscount } = cartSlice.actions;
+
+// ✅ Export cả addToCart
+export const {
+  setCartItems,
+  removeFromCart,
+  updateCartItemQuantity,
+  applyDiscount,
+  addToCart,
+} = cartSlice.actions;
+
 export default cartSlice.reducer;

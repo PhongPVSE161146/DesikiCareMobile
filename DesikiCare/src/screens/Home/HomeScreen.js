@@ -10,12 +10,12 @@ import CustomHeader from '../../components/Header/CustomHeader';
 
 const features = [
   { title: 'Danh Mục', icon: <MaterialIcons name="menu" size={32} color="#555" /> },
-  { title: 'Hàng Mới', icon: <MaterialCommunityIcons name="new-box" size={32} color="#E91E63" /> },
+  // { title: 'Hàng Mới', icon: <MaterialCommunityIcons name="new-box" size={32} color="#E91E63" /> },
   { title: 'Mini Game', icon: <MaterialIcons name="gamepad" size={32} color="#4CAF50" /> },
-  { title: 'Cẩm Nang', icon: <MaterialIcons name="menu-book" size={32} color="#607D8B" /> },
-  { title: 'Deals', icon: <MaterialCommunityIcons name="sale" size={32} color="#FF5722" /> },
+  // { title: 'Cẩm Nang', icon: <MaterialIcons name="menu-book" size={32} color="#607D8B" /> },
+  // { title: 'Deals', icon: <MaterialCommunityIcons name="sale" size={32} color="#FF5722" /> },
   { title: 'Hỗ Trợ', icon: <MaterialIcons name="support-agent" size={32} color="#9C27B0" /> },
-  { title: 'Giờ Vàng', icon: <MaterialCommunityIcons name="alarm" size={32} color="#FFC107" /> },
+  // { title: 'Giờ Vàng', icon: <MaterialCommunityIcons name="alarm" size={32} color="#FFC107" /> },
   { title: 'Chính Sách', icon: <MaterialIcons name="policy" size={32} color="#795548" /> },
 ];
 
@@ -32,24 +32,24 @@ const HomeScreen = ({ navigation }) => {
       case 'Danh Mục':
         navigation.navigate('Category');
         break;
-      case 'Hàng Mới':
-        navigation.navigate('NewProductsScreen');
-        break;
+      // case 'Hàng Mới':
+      //   navigation.navigate('NewProductsScreen');
+      //   break;
       case 'Mini Game':
         navigation.navigate('MiniGameScreen');
         break;
-      case 'Cẩm Nang':
-        navigation.navigate('GuideScreen');
-        break;
-      case 'Deals':
-        navigation.navigate('DealsScreen');
-        break;
+      // case 'Cẩm Nang':
+      //   navigation.navigate('GuideScreen');
+      //   break;
+      // case 'Deals':
+      //   navigation.navigate('DealsScreen');
+      //   break;
       case 'Hỗ Trợ':
         navigation.navigate('SupportScreen');
         break;
-      case 'Giờ Vàng':
-        navigation.navigate('GoldenHourScreen');
-        break;
+      // case 'Giờ Vàng':
+      //   navigation.navigate('GoldenHourScreen');
+      //   break;
       case 'Chính Sách':
         navigation.navigate('PolicyScreen');
         break;
@@ -97,7 +97,7 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     justifyContent: 'space-around',
     paddingVertical: 16,
-    backgroundColor: '#2ecc71',
+    backgroundColor: '#fa7ca6',
   },
   productList: {
     paddingHorizontal: 8,

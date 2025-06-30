@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,11 +6,15 @@ import {
   TextInput,
   TouchableOpacity,
   StyleSheet,
+  ActivityIndicator,
 } from 'react-native';
+import { WebView } from 'react-native-webview';
 import { Formik } from 'formik';
 import * as Yup from 'yup';
 import { Card, Input } from 'react-native-elements';
 import RadioGroup from 'react-native-radio-buttons-group';
+import orderService from '../../config/axios/Order/orderService';
+import { CANCEL_URL, RETURN_URL } from '@env';
 
 // Validation schema using Yup
 const validationSchema = Yup.object().shape({
@@ -40,10 +44,125 @@ const radioButtonsData = [
   },
 ];
 
-const Payment = () => {
-  const handleSubmit = (values) => {
-    console.log('Thông tin thanh toán:', values);
+const Payment = ({ route, navigation }) => {
+  const { paymentUrl, cartItems } = route.params || {};
+  const [isLoading, setIsLoading] = useState(!!paymentUrl);
+  const [showWebView, setShowWebView] = useState(!!paymentUrl);
+
+  useEffect(() => {
+    if (paymentUrl) {
+      setShowWebView(true);
+      setIsLoading(false);
+    }
+  }, [paymentUrl]);
+
+  const handleSubmit = async (values) => {
+    const metaData = {
+      cancelUrl: CANCEL_URL,
+      returnUrl: RETURN_URL,
+    };
+
+    if (values.paymentMethod === 'cod') {
+      try {
+        setIsLoading(true);
+        const response = await orderService.confirmPayment(
+          {
+            fullName: values.fullName,
+            phone: values.phone,
+            address: values.address,
+            note: values.note || '',
+            paymentMethod: 'cod',
+            cartItems: cartItems || [],
+          },
+          metaData
+        );
+
+        if (response.success) {
+          navigation.navigate('ConfirmPaymentScreen', { paymentData: response });
+        } else {
+          alert(response.message || 'Không thể xác nhận thanh toán COD.');
+        }
+      } catch (error) {
+        console.error('COD payment error:', error);
+        alert('Có lỗi xảy ra khi xác nhận thanh toán COD: ' + error.message);
+      } finally {
+        setIsLoading(false);
+      }
+    } else {
+      try {
+        setIsLoading(true);
+        const paymentResult = await orderService.getPaymentLink(
+          { pointUsed: 0, deliveryAddressId: values.address },
+          metaData
+        );
+
+        if (paymentResult.success && paymentResult.data.paymentUrl) {
+          setShowWebView(true);
+        } else {
+          alert(paymentResult.message || 'Không thể tạo link thanh toán.');
+        }
+      } catch (error) {
+        console.error('Payment link error:', error);
+        alert('Có lỗi xảy ra khi tạo link thanh toán: ' + error.message);
+      } finally {
+        setIsLoading(false);
+      }
+    }
   };
+
+  if (isLoading) {
+    return (
+      <View style={styles.container}>
+        <ActivityIndicator size="large" color="#f06292" />
+      </View>
+    );
+  }
+
+  if (showWebView && paymentUrl) {
+    return (
+      <WebView
+        source={{ uri: paymentUrl }}
+        style={styles.webview}
+        onError={(syntheticEvent) => {
+          const { nativeEvent } = syntheticEvent;
+          console.error('WebView error:', nativeEvent);
+          alert('Lỗi khi tải trang thanh toán.');
+          setShowWebView(false);
+        }}
+        onNavigationStateChange={(navState) => {
+          if (navState.url.includes('success')) {
+            orderService
+              .confirmPayment(
+                {
+                  fullName: '', // Thay bằng thông tin người dùng nếu có
+                  phone: '',
+                  address: '',
+                  paymentMethod: route.params?.paymentMethod || 'online',
+                  cartItems: cartItems || [],
+                },
+                {
+                  cancelUrl: CANCEL_URL,
+                  returnUrl: RETURN_URL,
+                }
+              )
+              .then((response) => {
+                if (response.success) {
+                  navigation.navigate('ConfirmPaymentScreen', { paymentData: response });
+                } else {
+                  alert(response.message || 'Không thể xác nhận thanh toán.');
+                }
+              })
+              .catch((error) => {
+                console.error('Confirm payment error:', error);
+                alert('Lỗi xác nhận thanh toán: ' + error.message);
+              });
+          } else if (navState.url.includes('cancel')) {
+            navigation.goBack();
+          }
+        }}
+      />
+    );
+  }
 
   return (
     <ScrollView style={styles.container}>
@@ -70,7 +189,6 @@ const Payment = () => {
           touched,
         }) => (
           <View style={styles.formContainer}>
-            {/* Delivery Information */}
             <Card containerStyle={styles.card}>
               <Text style={styles.cardTitle}>Thông tin giao hàng</Text>
 
@@ -128,9 +246,7 @@ const Payment = () => {
               </View>
 
               <View style={styles.radioContainer}>
-                <Text style={[styles.label, styles.inputLabel]}>
-                  Phương thức thanh toán
-                </Text>
+                <Text style={[styles.label, styles.inputLabel]}>Phương thức thanh toán</Text>
                 <RadioGroup
                   radioButtons={radioButtonsData}
                   onPress={(data) => {
@@ -148,14 +264,24 @@ const Payment = () => {
               </View>
             </Card>
 
-            {/* Order Summary */}
             <Card containerStyle={styles.card}>
               <Text style={styles.cardTitle}>Tóm tắt đơn hàng</Text>
 
-              <View style={styles.summaryItem}>
-                <Text style={styles.summaryText}>Sản phẩm A</Text>
-                <Text style={styles.summaryText}>150.000₫</Text>
-              </View>
+              {cartItems && cartItems.length > 0 ? (
+                cartItems.map((item, index) => (
+                  <View key={index} style={styles.summaryItem}>
+                    <Text style={styles.summaryText}>{item.title}</Text>
+                    <Text style={styles.summaryText}>
+                      {(item.price * item.quantity).toLocaleString('vi-VN')}₫
+                    </Text>
+                  </View>
+                ))
+              ) : (
+                <View style={styles.summaryItem}>
+                  <Text style={styles.summaryText}>Không có sản phẩm</Text>
+                  <Text style={styles.summaryText}>0₫</Text>
+                </View>
+              )}
               <View style={styles.summaryItem}>
                 <Text style={styles.summaryText}>Phí giao hàng</Text>
                 <Text style={styles.summaryText}>30.000₫</Text>
@@ -163,7 +289,11 @@ const Payment = () => {
               <View style={styles.divider} />
               <View style={styles.summaryTotal}>
                 <Text style={styles.summaryTotalText}>Tổng cộng:</Text>
-                <Text style={styles.summaryTotalText}>180.000₫</Text>
+                <Text style={styles.summaryTotalText}>
+                  {(
+                    (cartItems?.reduce((total, item) => total + item.price * item.quantity, 0) || 0) + 30000
+                  ).toLocaleString('vi-VN')}₫
+                </Text>
               </View>
 
               <TouchableOpacity
@@ -171,7 +301,9 @@ const Payment = () => {
                 style={styles.submitButton}
                 activeOpacity={0.8}
               >
-                <Text style={styles.submitButtonText}>Thanh toán</Text>
+                <Text style={styles.submitButtonText}>
+                  {values.paymentMethod === 'cod' ? 'Xác nhận đơn hàng' : 'Thanh toán'}
+                </Text>
               </TouchableOpacity>
             </Card>
           </View>
@@ -184,25 +316,25 @@ const Payment = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f2f4f7', // From .payment-container
-    padding: 16, // Adjusted for mobile (50px 80px is too large)
+    backgroundColor: '#f2f4f7',
+    padding: 16,
   },
   title: {
     fontSize: 24,
     fontWeight: 'bold',
     textAlign: 'center',
-    marginBottom: 24, // 2rem
+    marginBottom: 24,
     color: '#333',
   },
   formContainer: {
     flex: 1,
   },
   card: {
-    borderRadius: 12, // From .ant-card
+    borderRadius: 12,
     marginBottom: 24,
     padding: 16,
-    elevation: 2, // Shadow for Android
-    shadowColor: '#000', // Shadow for iOS (from box-shadow)
+    elevation: 2,
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.04,
     shadowRadius: 10,
@@ -219,7 +351,7 @@ const styles = StyleSheet.create({
   },
   inputLabel: {
     fontSize: 14,
-    fontWeight: '500', // From .ant-form-item-label
+    fontWeight: '500',
     color: '#333',
     marginBottom: 8,
   },
@@ -229,7 +361,7 @@ const styles = StyleSheet.create({
   inputContainer: {
     borderWidth: 1,
     borderColor: '#d9d9d9',
-    borderRadius: 8, // From .ant-input
+    borderRadius: 8,
     paddingHorizontal: 8,
   },
   textAreaContainer: {
@@ -243,7 +375,7 @@ const styles = StyleSheet.create({
   textArea: {
     borderWidth: 1,
     borderColor: '#d9d9d9',
-    borderRadius: 8, // From .ant-input
+    borderRadius: 8,
     padding: 8,
     fontSize: 16,
     height: 80,
@@ -261,41 +393,44 @@ const styles = StyleSheet.create({
   },
   summaryItem: {
     flexDirection: 'row',
-    justifyContent: 'space-between', // From .summary-item
-    paddingVertical: 6, // 6px 0
+    justifyContent: 'space-between',
+    paddingVertical: 6,
     marginBottom: 8,
   },
   summaryText: {
-    fontSize: 15, // From .summary-item
+    fontSize: 15,
     color: '#333',
   },
   divider: {
     height: 1,
-    backgroundColor: '#e0e0e0', // From .summary-total border-top
+    backgroundColor: '#e0e0e0',
     marginVertical: 16,
   },
   summaryTotal: {
     flexDirection: 'row',
-    justifyContent: 'space-between', // From .summary-total
-    paddingTop: 10, // 10px
+    justifyContent: 'space-between',
+    paddingTop: 10,
   },
   summaryTotalText: {
-    fontSize: 17, // From .summary-total
+    fontSize: 17,
     fontWeight: '600',
     color: '#333',
   },
   submitButton: {
-    backgroundColor: '#f06292', // From .ant-btn-primary
-    borderRadius: 8, // 8px
+    backgroundColor: '#f06292',
+    borderRadius: 8,
     paddingVertical: 12,
     alignItems: 'center',
     marginTop: 24,
-    height: 45, // 45px
+    height: 45,
   },
   submitButtonText: {
     color: '#fff',
     fontSize: 16,
-    fontWeight: '600', // From .ant-btn-primary
+    fontWeight: '600',
+  },
+  webview: {
+    flex: 1,
   },
 });
 

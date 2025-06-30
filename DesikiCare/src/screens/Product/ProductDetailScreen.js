@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -12,11 +11,13 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { useDispatch } from 'react-redux';
-import { addToCart } from '../../redux/cartSlice';
+import { addToCart } from '../../redux/cartSlice'; // Verify this path
+console.log('addToCart:', addToCart); // Debug import
 import ProductService from '../../config/axios/Product/productService';
 import orderService from '../../config/axios/Order/orderService';
 import Notification from '../../components/Notification';
-
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { CANCEL_URL, RETURN_URL } from '@env';
 const screenWidth = Dimensions.get('window').width;
 
 const ProductDetailScreen = ({ route, navigation }) => {
@@ -41,8 +42,8 @@ const ProductDetailScreen = ({ route, navigation }) => {
           ]);
         }
       } catch (error) {
+        console.error('Error fetching product:', error);
         Alert.alert('Lỗi', 'Có lỗi xảy ra khi lấy thông tin sản phẩm.');
-        console.error('Fetch product error:', error);
       } finally {
         setIsLoading(false);
       }
@@ -56,6 +57,28 @@ const ProductDetailScreen = ({ route, navigation }) => {
     }
   }, [productId, navigation]);
 
+  // Hàm lấy địa chỉ mặc định của người dùng (giả định có API lấy địa chỉ)
+  const getDefaultAddressId = async () => {
+    try {
+      const userToken = await AsyncStorage.getItem('userToken');
+      if (!userToken) {
+        throw new Error('No token found. Please log in.');
+      }
+      // Giả định có API để lấy địa chỉ mặc định
+      const response = await fetch(`${API_URL_LOGIN}/api/User/addresses/default`, {
+        headers: { Authorization: `Bearer ${userToken}` },
+      });
+      const data = await response.json();
+      if (response.ok && data.success) {
+        return data.data.id; // Giả định response trả về id của địa chỉ
+      }
+      return null;
+    } catch (error) {
+      console.error('Error fetching default address:', error);
+      return null;
+    }
+  };
+
   if (isLoading) {
     return (
       <View style={styles.container}>
@@ -64,11 +87,15 @@ const ProductDetailScreen = ({ route, navigation }) => {
     );
   }
 
-  if (!productData) {
+  if (!productData || !productData.product) {
     return (
       <View style={styles.container}>
         <Text>Không tìm thấy sản phẩm</Text>
-        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => navigation.goBack()}
+          accessibilityLabel="Quay lại danh sách sản phẩm"
+        >
           <Text style={styles.backButtonText}>Quay lại</Text>
         </TouchableOpacity>
       </View>
@@ -77,19 +104,31 @@ const ProductDetailScreen = ({ route, navigation }) => {
 
   const { product, category, productSkinTypes, productSkinStatuses, shipmentProducts } = productData;
   const { name, description, salePrice, imageUrl, isDeactivated, volume } = product;
-  const categoryName = category?.name || 'No Category';
-  const skinTypes = productSkinTypes?.map(type => type.name).join(', ') || 'No Skin Types';
-  const skinStatuses = productSkinStatuses?.map(status => status.name).join(', ') || 'No Skin Statuses';
+  const categoryName = category?.name || 'Không có danh mục';
+  const skinTypes = productSkinTypes?.map(type => type.name).join(', ') || 'Không có loại da';
+  const skinStatuses = productSkinStatuses?.map(status => status.name).join(', ') || 'Không có trạng thái da';
   const latestShipment = shipmentProducts?.length > 0 ? shipmentProducts[0].shipmentProduct : null;
+
+  const formatDate = (dateString) => {
+    if (!dateString) return 'N/A';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('vi-VN', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+    });
+  };
 
   const handleAddToCart = async () => {
     if (isDeactivated) {
-      Alert.alert('Lỗi', 'Sản phẩm hiện không có sẵn.');
+      setNotificationMessage('');
+      Alert.alert('', 'Sản phẩm hiện không có sẵn.');
       return;
     }
     try {
       const result = await orderService.addCartItem(product._id, quantity);
-      if (result.success) {
+      console.log('API Response:', result);
+      if (result && (result.success || result.message === 'Cart items added successfully')) {
         const productWithId = {
           id: product._id,
           title: name,
@@ -97,57 +136,87 @@ const ProductDetailScreen = ({ route, navigation }) => {
           quantity,
           image: imageUrl,
         };
-        dispatch(addToCart(productWithId));
-        setNotificationMessage('Đã thêm vào giỏ hàng!');
-        setNotificationType('success');
+        console.log('Dispatching addToCart with:', productWithId);
+        if (typeof addToCart === 'function') {
+          dispatch(addToCart(productWithId));
+          setNotificationMessage('Đã thêm vào giỏ hàng!');
+          setNotificationType('success');
+        } else {
+          console.error('addToCart is not a function:', addToCart);
+          Alert.alert('Lỗi', 'Hành động thêm vào giỏ hàng không khả dụng. Vui lòng kiểm tra cấu hình Redux.');
+        }
       } else {
-        if (result.message === 'No token found. Please log in.') {
+        setNotificationMessage('');
+        if (result?.message === 'No token found. Please log in.') {
           Alert.alert('Lỗi', 'Vui lòng đăng nhập để thêm sản phẩm.', [
             { text: 'OK', onPress: () => navigation.navigate('Login') },
           ]);
         } else {
-          Alert.alert('Lỗi', result.message || 'Không thể thêm sản phẩm vào giỏ hàng.');
+          Alert.alert('Lỗi', result?.message || 'Không thể thêm sản phẩm vào giỏ hàng.');
         }
       }
     } catch (error) {
-      Alert.alert('Lỗi', 'Có lỗi xảy ra khi thêm sản phẩm vào giỏ hàng.');
-      console.error('Add to cart error:', error);
+      console.error('Error adding to cart:', error);
+      setNotificationMessage('');
+      Alert.alert('Lỗi', 'Có lỗi xảy ra khi thêm sản phẩm vào giỏ hàng: ' + error.message);
     }
   };
 
   const handleBuyNow = async () => {
     if (isDeactivated) {
+      setNotificationMessage('');
       Alert.alert('Lỗi', 'Sản phẩm hiện không có sẵn.');
       return;
     }
     try {
-      const result = await orderService.addCartItem(product._id, quantity);
-      if (result.success) {
-        const productWithId = {
-          id: product._id,
-          title: name,
-          price: salePrice,
-          quantity,
-          image: imageUrl,
-        };
-        dispatch(addToCart(productWithId));
-        setNotificationMessage('Đã thêm vào giỏ hàng! Chuyển tới giỏ hàng...');
-        setNotificationType('success');
-        setTimeout(() => {
-          navigation.navigate('Cart');
-        }, 1000);
-      } else {
-        if (Спрятатьresult.message === 'No token found. Please log in.') {
-          Alert.alert('Lỗi', 'Vui lòng đăng nhập để thêm sản phẩm.', [
+      // Bước 1: Thêm sản phẩm vào giỏ hàng
+      const addToCartResult = await orderService.addCartItem(product._id, quantity);
+      console.log('Add to cart API Response:', addToCartResult);
+      if (!addToCartResult.success) {
+        setNotificationMessage('');
+        if (addToCartResult.message === 'No token found. Please log in.') {
+          Alert.alert('Lỗi', 'Vui lòng đăng nhập để mua sản phẩm.', [
             { text: 'OK', onPress: () => navigation.navigate('Login') },
           ]);
         } else {
-          Alert.alert('Lỗi', result.message || 'Không thể thêm sản phẩm vào giỏ hàng.');
+          Alert.alert('Lỗi', addToCartResult.message || 'Không thể thêm sản phẩm vào giỏ hàng.');
         }
+        return;
+      }
+
+      // Bước 2: Lấy địa chỉ mặc định
+      const deliveryAddressId = await getDefaultAddressId();
+      if (!deliveryAddressId) {
+        setNotificationMessage('');
+        Alert.alert('Lỗi', 'Vui lòng thiết lập địa chỉ giao hàng trước khi mua.', [
+          { text: 'OK', onPress: () => navigation.navigate('AddressScreen') }, // Giả định có màn hình AddressScreen
+        ]);
+        return;
+      }
+
+      // Bước 3: Lấy link thanh toán
+      const paymentResult = await orderService.getPaymentLink(
+        { pointUsed: 0, deliveryAddressId },
+        {
+         cancelUrl: CANCEL_URL,
+         returnUrl: RETURN_URL,
+        }
+      );
+
+      console.log('Payment link API Response:', paymentResult);
+      if (paymentResult.success && paymentResult.data.paymentUrl) {
+        // Chuyển hướng tới màn hình thanh toán (WebView)
+        navigation.navigate('PaymentScreen', { paymentUrl: paymentResult.data.paymentUrl });
+        setNotificationMessage('Đang chuyển tới trang thanh toán...');
+        setNotificationType('success');
+      } else {
+        setNotificationMessage('');
+        Alert.alert('Lỗi', paymentResult.message || 'Không thể tạo link thanh toán.');
       }
     } catch (error) {
-      Alert.alert('Lỗi', 'Có lỗi xảy ra khi thêm sản phẩm vào giỏ hàng.');
       console.error('Buy now error:', error);
+      setNotificationMessage('');
+      Alert.alert('Lỗi', 'Có lỗi xảy ra khi xử lý mua ngay: ' + error.message);
     }
   };
 
@@ -159,7 +228,9 @@ const ProductDetailScreen = ({ route, navigation }) => {
     setQuantity(prev => (prev > 1 ? prev - 1 : 1));
   };
 
-  const imageSource = imageUrl || 'https://via.placeholder.com/150x200.png?text=No+Image';
+  const imageSource = imageUrl && imageUrl !== 'string'
+    ? { uri: imageUrl }
+    : { uri: 'https://via.placeholder.com/150x200.png?text=No+Image' };
 
   return (
     <View style={styles.container}>
@@ -167,24 +238,27 @@ const ProductDetailScreen = ({ route, navigation }) => {
         message={notificationMessage}
         type={notificationType}
         autoDismiss={3000}
-       onDismiss={() => setNotificationMessage('')}
-
+        onDismiss={() => {
+          setNotificationMessage('');
+          setNotificationType('success');
+        }}
       />
       <ScrollView>
         <View style={styles.imageContainer}>
           <Image
-            source={{ uri: imageSource }}
+            source={imageSource}
             style={styles.detailImage}
             resizeMode="contain"
+            accessibilityLabel={`Hình ảnh sản phẩm ${name}`}
           />
         </View>
         <View style={styles.detailsContainer}>
           <Text style={[styles.brand, isDeactivated ? styles.deactivatedText : null]}>
-            {name}
+            {name || 'Tên sản phẩm không có'}
           </Text>
           <Text style={styles.category}>Danh mục: {categoryName}</Text>
           <Text style={[styles.price, isDeactivated ? styles.deactivatedText : null]}>
-            {(salePrice || 0).toLocaleString()} đ
+            {(salePrice || 0).toLocaleString('vi-VN')} đ
           </Text>
           {isDeactivated && (
             <Text style={styles.deactivatedLabel}>Hết hàng</Text>
@@ -197,50 +271,54 @@ const ProductDetailScreen = ({ route, navigation }) => {
           </View>
           <View style={styles.specificationContainer}>
             <Text style={styles.sectionTitle}>Thông tin chi tiết</Text>
-            <Text style={styles.specification}>• Thương hiệu: {name}</Text>
-            <Text style={styles.specification}>• Dung tích: {volume || 'N/A'}ml</Text>
+            <Text style={styles.specification}>• Thương hiệu: {name || 'N/A'}</Text>
+            <Text style={styles.specification}>• Dung tích: {volume ? `${volume}ml` : 'N/A'}</Text>
             <Text style={styles.specification}>• Loại da: {skinTypes}</Text>
             <Text style={styles.specification}>• Trạng thái da: {skinStatuses}</Text>
             {latestShipment && (
               <>
                 <Text style={styles.specification}>
-                  • Ngày sản xuất: {latestShipment.manufacturingDate || 'N/A'}
+                  • Ngày sản xuất: {formatDate(latestShipment.manufacturingDate)}
                 </Text>
                 <Text style={styles.specification}>
-                  • Hạn sử dụng: {latestShipment.expiryDate || 'N/A'}
+                  • Hạn sử dụng: {formatDate(latestShipment.expiryDate)}
                 </Text>
               </>
             )}
           </View>
           <View style={styles.buttonContainer}>
             <View style={styles.quantityContainer}>
-              <TouchableOpacity 
-                style={styles.quantityButton} 
+              <TouchableOpacity
+                style={[styles.quantityButton, isDeactivated ? styles.disabledButton : null]}
                 onPress={decreaseQuantity}
                 disabled={isDeactivated}
+                accessibilityLabel="Giảm số lượng"
               >
                 <Text style={styles.quantityButtonText}>−</Text>
               </TouchableOpacity>
               <Text style={styles.quantityText}>{quantity}</Text>
-              <TouchableOpacity 
-                style={styles.quantityButton} 
+              <TouchableOpacity
+                style={[styles.quantityButton, isDeactivated ? styles.disabledButton : null]}
                 onPress={increaseQuantity}
                 disabled={isDeactivated}
+                accessibilityLabel="Tăng số lượng"
               >
                 <Text style={styles.quantityButtonText}>+</Text>
               </TouchableOpacity>
             </View>
-            <TouchableOpacity 
-              style={[styles.addToCartButton, isDeactivated ? styles.disabledButton : null]} 
+            <TouchableOpacity
+              style={[styles.addToCartButton, isDeactivated ? styles.disabledButton : null]}
               onPress={handleAddToCart}
               disabled={isDeactivated}
+              accessibilityLabel="Thêm sản phẩm vào giỏ hàng"
             >
               <Text style={styles.buttonText}>Thêm vào giỏ hàng</Text>
             </TouchableOpacity>
-            <TouchableOpacity 
-              style={[styles.buyNowButton, isDeactivated ? styles.disabledButton : null]} 
+            <TouchableOpacity
+              style={[styles.buyNowButton, isDeactivated ? styles.disabledButton : null]}
               onPress={handleBuyNow}
               disabled={isDeactivated}
+              accessibilityLabel="Mua ngay sản phẩm"
             >
               <Text style={styles.buttonText}>Mua ngay</Text>
             </TouchableOpacity>

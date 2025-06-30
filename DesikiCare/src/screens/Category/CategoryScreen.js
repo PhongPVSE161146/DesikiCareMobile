@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -8,40 +8,156 @@ import {
   StyleSheet,
   Animated,
   Image,
+  Dimensions,
+  ActivityIndicator,
+  Alert,
 } from 'react-native';
 import ProductService from '../../config/axios/Product/productService';
+import orderService from '../../config/axios/Order/orderService';
 import CustomHeader from '../../components/Header/CustomHeader';
+
+const screenWidth = Dimensions.get('window').width;
 
 const CategoryScreen = ({ navigation }) => {
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [categories, setCategories] = useState([]);
   const [products, setProducts] = useState([]);
+  const [isLoadingCategories, setIsLoadingCategories] = useState(false);
+  const [isLoadingProducts, setIsLoadingProducts] = useState(false);
   const [animation] = useState(new Animated.Value(0));
+
+  const animatedStyle = {
+    opacity: animation,
+    transform: [
+      {
+        translateY: animation.interpolate({
+          inputRange: [0, 1],
+          outputRange: [50, 0],
+        }),
+      },
+    ],
+  };
+
+  const fetchCategories = useCallback(async () => {
+    setIsLoadingCategories(true);
+    try {
+      const res = await orderService.getCategories();
+      console.log('fetchCategories Result:', JSON.stringify(res, null, 2));
+      if (res.success) {
+        let apiCategories = [];
+        if (Array.isArray(res.data)) {
+          apiCategories = res.data;
+        } else if (res.data && Array.isArray(res.data.categories)) {
+          apiCategories = res.data.categories;
+        } else if (res.data && res.data.category && res.data.category._id) {
+          apiCategories = [res.data.category];
+        } else if (res.data && res.data._id) {
+          apiCategories = [res.data];
+        } else {
+          console.warn('Unexpected API response format:', res.data);
+        }
+        console.log('Parsed API Categories:', apiCategories);
+
+        const validCategories = [
+          { _id: 0, name: 'Tất cả sản phẩm' },
+          ...apiCategories
+            .filter(category => category._id && typeof category._id === 'string')
+            .map(category => ({
+              _id: category._id,
+              name: category.name && typeof category.name === 'string' ? category.name : `Category ${category._id}`,
+            })),
+        ];
+        console.log('Setting Categories (API):', validCategories);
+        setCategories(validCategories);
+        if (validCategories.length > 0 && !selectedCategory) {
+          setSelectedCategory(validCategories[0]);
+        }
+      } else {
+        console.warn('fetchCategories failed:', res.message);
+        Alert.alert('Lỗi', res.message || 'Không thể lấy danh sách danh mục.', [
+          { text: 'OK' },
+          { text: 'Thử lại', onPress: () => fetchCategories() },
+        ]);
+        setFallbackCategories();
+      }
+    } catch (error) {
+      console.error('fetchCategories Error:', {
+        message: error.message,
+        stack: error.stack,
+        response: error.response?.data,
+      });
+      Alert.alert('Lỗi', 'Có lỗi xảy ra khi lấy danh sách danh mục.', [
+        { text: 'OK' },
+        { text: 'Thử lại', onPress: () => fetchCategories() },
+      ]);
+      setFallbackCategories();
+    } finally {
+      setIsLoadingCategories(false);
+    }
+  }, [products]);
+
+  const setFallbackCategories = () => {
+    if (products.length > 0) {
+      const uniqueCategoryIds = [...new Set(products.map(p => p.categoryId).filter(id => id != null))];
+      const fallbackCategories = [
+        { _id: 0, name: 'Tất cả sản phẩm' },
+        ...uniqueCategoryIds.map(id => ({
+          _id: id,
+          name: id === 1 ? 'Skincare' : id === 2 ? 'Makeup' : id === 3 ? 'Haircare' : `Category ${id}`,
+        })),
+      ];
+      console.log('Setting Fallback Categories:', fallbackCategories);
+      setCategories(fallbackCategories);
+      setSelectedCategory(fallbackCategories[0]);
+    } else {
+      const defaultCategory = [{ _id: 0, name: 'Tất cả sản phẩm' }];
+      console.log('Setting Default Category:', defaultCategory);
+      setCategories(defaultCategory);
+      setSelectedCategory(defaultCategory[0]);
+    }
+  };
+
+  const fetchProducts = useCallback(async () => {
+    setIsLoadingProducts(true);
+    try {
+      const res = await ProductService.getProducts();
+      console.log('fetchProducts Result:', res);
+      if (res.success) {
+        setProducts(Array.isArray(res.data) ? res.data : []);
+      } else {
+        Alert.alert('Lỗi', res.message || 'Không thể lấy danh sách sản phẩm.', [
+          { text: 'OK' },
+          { text: 'Thử lại', onPress: () => fetchProducts() },
+        ]);
+      }
+    } catch (error) {
+      console.error('fetchProducts Error:', error.message);
+      Alert.alert('Lỗi', 'Có lỗi xảy ra khi lấy danh sách sản phẩm.');
+    } finally {
+      setIsLoadingProducts(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    console.log('Initializing animation:', animation);
+    fetchProducts();
+  }, [fetchProducts]);
 
   useEffect(() => {
     fetchCategories();
-    fetchProducts();
-  }, []);
-
-  const fetchCategories = async () => {
-    const res = await ProductService.getCategories();
-    if (res.success) {
-      setCategories(res.data);
-    }
-  };
-
-  const fetchProducts = async () => {
-    const res = await ProductService.getProducts();
-    if (res.success) {
-      setProducts(res.data);
-    }
-  };
-
-  const filteredProducts = selectedCategory
-    ? products.filter((p) => p.product.categoryId === selectedCategory._id)
-    : [];
+  }, [fetchCategories]);
 
   useEffect(() => {
+    console.log('Current Categories State:', categories);
+    console.log('Selected Category:', selectedCategory);
+  }, [categories, selectedCategory]);
+
+  const filteredProducts = selectedCategory && selectedCategory._id !== 0
+    ? products.filter((p) => p.categoryId === selectedCategory._id)
+    : products;
+
+  useEffect(() => {
+    console.log('Animating with selectedCategory:', selectedCategory);
     if (selectedCategory) {
       Animated.timing(animation, {
         toValue: 1,
@@ -55,65 +171,129 @@ const CategoryScreen = ({ navigation }) => {
         useNativeDriver: false,
       }).start();
     }
-  }, [selectedCategory]);
+  }, [selectedCategory, animation]);
 
   const renderCategory = ({ item }) => (
     <TouchableOpacity
-      key={item._id}
+      key={item._id.toString()}
       style={[
         localStyles.categoryItem,
         selectedCategory?._id === item._id && localStyles.selectedCategoryItem,
       ]}
       onPress={() => setSelectedCategory(item)}
+      accessibilityLabel={`Chọn danh mục ${item.name}`}
+      accessibilityRole="button"
     >
       <Text style={localStyles.categoryText}>{item.name}</Text>
     </TouchableOpacity>
   );
 
-  const renderProduct = ({ item }) => (
-    <TouchableOpacity
-      style={localStyles.productItem}
-      onPress={() => navigation.navigate('ProductDetail', { product: item })}
-    >
-      <Image
-        source={{ uri: item.product.imageUrl }}
-        style={localStyles.productImage}
-        resizeMode="contain"
-      />
-      <Text style={localStyles.productText}>{item.product.name}</Text>
-    </TouchableOpacity>
-  );
+  const renderProduct = ({ item }) => {
+    const imageSource = item.imageUrl && item.imageUrl !== 'string'
+      ? { uri: item.imageUrl }
+      : { uri: 'https://via.placeholder.com/150x200.png?text=No+Image' };
 
-  const animatedStyle = {
-    opacity: animation,
-    height: animation.interpolate({ inputRange: [0, 1], outputRange: [0, 'auto'] }),
+    return (
+      <TouchableOpacity
+        style={localStyles.productItem}
+        onPress={() => navigation.navigate('ProductDetail', { productId: item._id })}
+        accessibilityLabel={`Xem chi tiết sản phẩm ${item.name}`}
+        accessibilityRole="button"
+      >
+        <Image
+          source={imageSource}
+          style={localStyles.productImage}
+          resizeMode="contain"
+          accessibilityLabel={`Hình ảnh sản phẩm ${item.name}`}
+        />
+        <Text style={localStyles.productText} numberOfLines={2}>
+          {item.name || 'Không có tên'}
+        </Text>
+      </TouchableOpacity>
+    );
   };
+
+  const renderEmpty = () => (
+    <View style={localStyles.emptyContainer}>
+      <Text style={localStyles.noProductsText}>
+        {categories.length === 0
+          ? 'Không có danh mục nào'
+          : selectedCategory
+          ? 'Không có sản phẩm trong danh mục này'
+          : 'Chọn danh mục để xem sản phẩm'}
+      </Text>
+      {(categories.length === 0 || filteredProducts.length === 0) && (
+        <TouchableOpacity
+          style={localStyles.retryButton}
+          onPress={() => {
+            fetchCategories();
+            fetchProducts();
+          }}
+          accessibilityLabel="Thử lại tải dữ liệu"
+          accessibilityRole="button"
+        >
+          <Text style={localStyles.retryButtonText}>Thử lại</Text>
+        </TouchableOpacity>
+      )}
+    </View>
+  );
 
   return (
     <View style={localStyles.container}>
       <CustomHeader />
       <View style={localStyles.content}>
-        <ScrollView style={localStyles.categoryContainer}>
-          {categories.map(renderCategory)}
-        </ScrollView>
+        {isLoadingCategories ? (
+          <ScrollView
+            style={[localStyles.categoryContainer, localStyles.categoryContainerLoading]}
+            contentContainerStyle={localStyles.categoryContentContainer}
+          >
+            {[...Array(5)].map((_, index) => (
+              <View
+                key={`skeleton-${index}`}
+                style={[localStyles.categoryItem, { backgroundColor: '#eee' }]}
+              >
+                <Text style={localStyles.categoryText}>Đang tải...</Text>
+              </View>
+            ))}
+          </ScrollView>
+        ) : categories.length > 0 ? (
+          <ScrollView
+            style={localStyles.categoryContainer}
+            contentContainerStyle={localStyles.categoryContentContainer}
+          >
+            {categories.map((item) => renderCategory({ item }))}
+          </ScrollView>
+        ) : (
+          <View style={[localStyles.categoryContainer, localStyles.categoryContainerEmpty]}>
+            <Text style={localStyles.noCategoriesText}>Không có danh mục</Text>
+            <TouchableOpacity
+              style={localStyles.retryButton}
+              onPress={() => fetchCategories()}
+              accessibilityLabel="Thử lại tải danh mục"
+              accessibilityRole="button"
+            >
+              <Text style={localStyles.retryButtonText}>Thử lại</Text>
+            </TouchableOpacity>
+          </View>
+        )}
         <View style={localStyles.productContainer}>
-          {selectedCategory ? (
-            <Animated.View style={animatedStyle}>
+          {isLoadingProducts ? (
+            <ActivityIndicator size="large" color="#E53935" style={localStyles.loader} />
+          ) : (
+            <Animated.View style={[localStyles.animatedContainer, animatedStyle]}>
               {filteredProducts.length > 0 ? (
                 <FlatList
                   data={filteredProducts}
                   renderItem={renderProduct}
-                  keyExtractor={(item) => item.product._id}
+                  keyExtractor={(item) => item._id.toString()}
                   numColumns={2}
                   columnWrapperStyle={localStyles.productWrapper}
-                  contentContainerStyle={localStyles.productList}
+                  contentContainerStyle={[localStyles.productList, { flexGrow: 1 }]}
                 />
               ) : (
-                <Text style={localStyles.noProductsText}>Không có sản phẩm</Text>
+                renderEmpty()
               )}
             </Animated.View>
-          ) : (
-            <Text style={localStyles.noSelectionText}>Chọn danh mục để xem sản phẩm</Text>
           )}
         </View>
       </View>
@@ -131,13 +311,24 @@ const localStyles = StyleSheet.create({
     flex: 1,
   },
   categoryContainer: {
-    width: '25%',
+    width: '20%',
     backgroundColor: '#f5f5f5',
     borderRightWidth: 1,
     borderRightColor: '#ddd',
   },
+  categoryContainerLoading: {
+    width: '20%',
+  },
+  categoryContainerEmpty: {
+    width: 0,
+    overflow: 'hidden',
+  },
+  categoryContentContainer: {
+    flexGrow: 1,
+    paddingBottom: 20,
+  },
   categoryItem: {
-    padding: 10,
+    padding: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#eee',
   },
@@ -145,12 +336,13 @@ const localStyles = StyleSheet.create({
     backgroundColor: '#e0e0e0',
   },
   categoryText: {
-    fontSize: 12,
-    color: '#555',
+    fontSize: 13,
+    color: '#333',
+    fontWeight: '500',
     textAlign: 'center',
   },
   productContainer: {
-    flex: 1,
+    width: '80%',
     padding: 10,
   },
   productWrapper: {
@@ -158,37 +350,70 @@ const localStyles = StyleSheet.create({
   },
   productList: {
     paddingVertical: 5,
+    flexGrow: 1,
   },
   productItem: {
-    width: '48%',
-    padding: 5,
-    marginBottom: 5,
+    width: (screenWidth * 0.8 - 30) / 2,
+    padding: 10,
+    margin: 5,
     backgroundColor: '#fff',
-    borderRadius: 5,
-    elevation: 1,
+    borderRadius: 8,
+    elevation: 2,
     alignItems: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
   },
   productImage: {
-    width: 100,
+    width: '100%',
     height: 150,
-    marginBottom: 5,
+    marginBottom: 10,
+    borderRadius: 6,
   },
   productText: {
-    fontSize: 12,
+    fontSize: 13,
     color: '#333',
     textAlign: 'center',
-  },
-  noSelectionText: {
-    textAlign: 'center',
-    color: '#888',
-    fontSize: 14,
-    marginTop: 10,
+    marginBottom: 5,
   },
   noProductsText: {
     textAlign: 'center',
     color: '#888',
     fontSize: 14,
-    marginTop: 10,
+    marginTop: 20,
+  },
+  noCategoriesText: {
+    textAlign: 'center',
+    color: '#888',
+    fontSize: 14,
+    marginTop: 20,
+    paddingHorizontal: 10,
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 20,
+  },
+  retryButton: {
+    backgroundColor: '#E53935',
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    marginTop: 15,
+  },
+  retryButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  loader: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  animatedContainer: {
+    flex: 1,
   },
 });
 

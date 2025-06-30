@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, Button, TouchableOpacity, Image, StyleSheet, Switch } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, Image, StyleSheet, Switch } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useDispatch } from 'react-redux';
 import { login as reduxLogin } from '../../../redux/authSlice';
@@ -105,15 +105,21 @@ const LoginScreen = ({ navigation, route }) => {
           // Dispatch Redux login action
           dispatch(reduxLogin(result.data));
           console.log('Dispatched reduxLogin with data:', result.data);
-          // Show success notification
-          setNotification({ message: 'Đăng nhập thành công!', type: 'success' });
-          // Check if navigation is available
+          // Navigate to Main with notification
           if (navigation && typeof navigation.reset === 'function') {
             navigation.reset({
               index: 0,
-              routes: [{ name: 'Main', params: { screen: 'Home' } }],
+              routes: [
+                {
+                  name: 'Main',
+                  params: {
+                    screen: 'Home',
+                    params: { notification: { message: 'Đăng nhập thành công!', type: 'success' } },
+                  },
+                },
+              ],
             });
-            console.log('Navigated to Main with Home tab');
+            console.log('Navigated to Main with Home tab and success notification');
           } else {
             console.error('Navigation object is invalid:', navigation);
             setNotification({ message: 'Lỗi điều hướng. Vui lòng thử lại.', type: 'error' });
@@ -182,7 +188,9 @@ const LoginScreen = ({ navigation, route }) => {
             <Text style={styles.forgotText}>Quên mật khẩu?</Text>
           </TouchableOpacity>
         </View>
-        <Button title="Đăng nhập" onPress={handleLogin} color="#4CAF50" />
+        <TouchableOpacity style={styles.loginButton} onPress={handleLogin}>
+          <Text style={styles.loginButtonText}>Đăng nhập</Text>
+        </TouchableOpacity>
         <TouchableOpacity style={styles.googleButton} onPress={handleGoogleLogin}>
           <Image
             source={{ uri: 'https://img.icons8.com/color/48/000000/google-logo.png' }}
@@ -256,13 +264,29 @@ const styles = StyleSheet.create({
     color: '#333',
   },
   forgotText: {
-    marginLeft: 50,
     color: '#FF5722',
+    marginLeft: 50,
+  },
+  forgotTextContainer: {
+    marginLeft: 'auto',
   },
   linkText: {
     color: '#4CAF50',
     textAlign: 'center',
     marginTop: 10,
+  },
+  loginButton: {
+    backgroundColor: '#4CAF50',
+    borderRadius: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 15,
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  loginButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '500',
   },
   googleButton: {
     flexDirection: 'row',
@@ -274,7 +298,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 15,
     borderColor: '#B0BEC5',
     borderWidth: 1,
-    marginTop: 10,
+    marginBottom: 10,
   },
   googleIcon: {
     width: 24,

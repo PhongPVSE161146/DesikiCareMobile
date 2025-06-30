@@ -23,9 +23,9 @@ const CustomScanIcon = () => {
 const CustomHeader = () => {
   const insets = useSafeAreaInsets();
   return (
-    <SafeAreaView style={[styles.header, { paddingTop: insets.top + 10 }]}>
+    <SafeAreaView style={[styles.header, { paddingTop: insets.top}]}>
       <View style={styles.headerContent}>
-        <Image source={logo} style={styles.logo} />
+        <Image source={logo} style={styles.logo} resizeMode="contain" />
         <View style={styles.searchContainer}>
           <Ionicons name="search-outline" size={20} color="#666" style={styles.searchIcon} />
           <TextInput
@@ -38,8 +38,6 @@ const CustomHeader = () => {
           <CustomScanIcon />
           <Ionicons name="location-outline" size={24} color="#fff" style={styles.iconSpacing} />
           <Ionicons name="cube-outline" size={24} color="#fff" />
-
-
         </View>
       </View>
     </SafeAreaView>
@@ -48,14 +46,16 @@ const CustomHeader = () => {
 
 const styles = StyleSheet.create({
   header: {
-    backgroundColor: '#2ecc71',
-    paddingHorizontal: 10,
-    paddingBottom: 10,
-    height: 65, // Increased height to accommodate downward shift
+    backgroundColor: '#fa7ca6',
+    paddingHorizontal: 5,
+    paddingBottom: 15,
+ paddingTop: 10, // Dynamic padding based on safe area insets
+    // Removed fixed height to allow dynamic sizing
   },
   headerContent: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between', // Ensure even spacing
   },
   logo: {
     width: 40,
@@ -68,39 +68,29 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#fff',
     borderRadius: 20,
+    marginHorizontal: 10,
   },
   searchIcon: {
     paddingHorizontal: 10,
   },
   searchBar: {
     flex: 1,
-    paddingVertical: 10,
+    paddingVertical: 8, // Reduced padding for better fit
     color: '#000',
     fontSize: 16,
   },
   iconContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginLeft: 10,
   },
   iconSpacing: {
-    marginHorizontal: 20,
+    marginHorizontal: 10, // Reduced spacing for better alignment
   },
   scanContainer: {
     width: 24,
     height: 24,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  scanFrame: {
-    width: 24,
-    height: 24,
-    borderWidth: 2,
-    borderColor: '#fff',
-    borderStyle: 'solid',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderRadius: 2,
   },
   barcodeLines: {
     flexDirection: 'row',
@@ -122,4 +112,5 @@ const styles = StyleSheet.create({
     position: 'absolute',
   },
 });
+
 export default CustomHeader;
