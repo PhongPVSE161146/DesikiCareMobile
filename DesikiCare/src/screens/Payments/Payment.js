@@ -300,24 +300,29 @@ const Payment = ({ route, navigation }) => {
 
               <View style={styles.radioContainer}>
                 <Text style={[styles.label, styles.inputLabel]}>Phương thức thanh toán</Text>
-                <RadioGroup
-                  radioButtons={radioButtons}
-                  onPress={(selectedId) => {
-                    console.log('Radio button selected:', selectedId);
-                    const updatedButtons = radioButtons.map(button => ({
-                      ...button,
-                      selected: button.id === selectedId,
-                    }));
-                    setRadioButtons(updatedButtons);
-                    const selected = updatedButtons.find(button => button.selected);
-                    if (selected) {
-                      setFieldValue('paymentMethod', selected.value);
-                      console.log('Selected payment method:', selected.value);
-                    }
-                  }}
-                  layout="column"
-                  containerStyle={styles.radioGroup}
-                />
+                {radioButtons.map((button) => (
+  <TouchableOpacity
+    key={button.id}
+    style={[
+      styles.radioButton,
+      button.selected && styles.radioButtonSelected,
+    ]}
+    onPress={() => {
+      const updatedButtons = radioButtons.map((b) => ({
+        ...b,
+        selected: b.id === button.id,
+      }));
+      setRadioButtons(updatedButtons);
+      setFieldValue('paymentMethod', button.value);
+    }}
+  >
+    <Text style={styles.radioLabel}>{button.label}</Text>
+    <View style={styles.radioCircle}>
+      {button.selected && <View style={styles.radioInnerCircle} />}
+    </View>
+  </TouchableOpacity>
+))}
+
                 {touched.paymentMethod && errors.paymentMethod && (
                   <Text style={styles.errorText}>{errors.paymentMethod}</Text>
                 )}
@@ -467,47 +472,47 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     gap: 8,
   },
-  radioButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    marginBottom: 8,
-    backgroundColor: '#fff',
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
-    height: 56, // Fixed height for uniformity
-  },
-  radioButtonSelected: {
-    backgroundColor: '#ffe6f0',
-    borderColor: '#f06292',
-  },
-  radioLabel: {
-    fontSize: 16,
-    color: '#333',
-    flex: 1,
-  },
-  radioCircle: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: '#d9d9d9',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginLeft: 12,
-  },
-  radioCircleSelected: {
-    borderColor: '#f06292',
-    backgroundColor: '#f06292',
-  },
-  radioInnerCircle: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: '#fff',
-  },
+  
+radioButton: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  paddingVertical: 12,
+  paddingHorizontal: 16,
+  borderRadius: 8,
+  marginBottom: 8,
+  backgroundColor: '#fff',
+  borderWidth: 1,
+  borderColor: '#e0e0e0',
+},
+
+radioButtonSelected: {
+  borderColor: '#f06292',
+  backgroundColor: '#fff0f5',
+},
+
+radioLabel: {
+  flex: 1,
+  fontSize: 16,
+  color: '#333',
+},
+
+radioCircle: {
+  width: 24,
+  height: 24,
+  borderRadius: 12,
+  borderWidth: 2,
+  borderColor: '#f06292',
+  justifyContent: 'center',
+  alignItems: 'center',
+},
+
+radioInnerCircle: {
+  width: 12,
+  height: 12,
+  borderRadius: 6,
+  backgroundColor: '#f06292',
+},
+
   errorText: {
     color: '#d32f2f',
     fontSize: 12,
