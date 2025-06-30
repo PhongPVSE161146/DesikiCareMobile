@@ -82,81 +82,68 @@ const Payment = ({ route, navigation }) => {
   }, [paymentUrl, cartItems]);
 
   const handleSubmit = async (values) => {
-    if (!cartItems || cartItems.length === 0) {
-      alert('Giỏ hàng trống. Vui lòng thêm sản phẩm trước khi thanh toán.');
-      return;
-    }
+  if (!cartItems || cartItems.length === 0) {
+    alert('Giỏ hàng trống. Vui lòng thêm sản phẩm trước khi thanh toán.');
+    return;
+  }
 
-    const metaData = {
-      cancelUrl: CANCEL_URL,
-      returnUrl: RETURN_URL,
-    };
-
-    try {
-      setIsLoading(true);
-      if (values.paymentMethod === 'cod') {
-        console.log('Submitting COD payment:', { ...values, cartItems });
-        const response = await orderService.confirmPayment(
-          {
-            fullName: values.fullName,
-            phone: values.phone,
-            address: values.address,
-            note: values.note || '',
-            paymentMethod: 'cod',
-            cartItems: cartItems.map(item => ({
-              id: item.id,
-              quantity: item.quantity,
-            })),
-          },
-          metaData
-        );
-        console.log('COD payment response:', response);
-
-        if (response.success) {
-          // Fetch updated cart to verify state
-          const cartResult = await orderService.getCart();
-          console.log('Cart after payment:', cartResult);
-          navigation.navigate('ConfirmPaymentScreen', { paymentData: response });
-        } else {
-          alert(response.message || 'Không thể xác nhận thanh toán COD.');
-        }
-      } else {
-        const formattedCartItems = cartItems.map(item => ({
-          id: item.id,
-          quantity: item.quantity,
-        }));
-        console.log('Requesting payment link:', {
-          order: {
-            pointUsed: 0,
-            deliveryAddressId: values.address,
-            cartItems: formattedCartItems,
-          },
-          metaData,
-        });
-        const paymentResult = await orderService.getPaymentLink(
-          {
-            pointUsed: 0,
-            deliveryAddressId: values.address,
-            cartItems: formattedCartItems,
-          },
-          metaData
-        );
-        console.log('Payment link response:', paymentResult);
-
-        if (paymentResult.success && paymentResult.data.paymentUrl) {
-          setShowWebView(true);
-          navigation.setParams({ paymentUrl: paymentResult.data.paymentUrl });
-        } else {
-          alert(paymentResult.message || 'Không thể tạo link thanh toán.');
-        }
-      }
-    } catch (error) {
-      console.error('Payment error:', error.message);
-      alert('Có lỗi xảy ra: ' + error.message);
-    } finally {
-      setIsLoading(false);
-    }
+  const metaData = {
+    cancelUrl: CANCEL_URL,
+    returnUrl: RETURN_URL,
   };
+
+  try {
+    setIsLoading(true);
+    const formattedCartItems = cartItems.map(item => ({
+      id: item.id,
+      quantity: item.quantity,
+    }));
+
+    if (values.paymentMethod === 'cod') {
+      const response = await orderService.confirmPayment(
+        {
+          fullName: values.fullName,
+          phone: values.phone,
+          address: values.address,
+          note: values.note || '',
+          paymentMethod: 'cod',
+          cartItems: formattedCartItems,
+        },
+        metaData
+      );
+
+      if (response.success) {
+        const cartResult = await orderService.getCart();
+        navigation.navigate('ConfirmPaymentScreen', { paymentData: response });
+      } else {
+        alert(response.message || 'Không thể xác nhận thanh toán COD.');
+      }
+    } else {
+      // Fix: gửi đúng key là "deliveryAddress" thay vì "deliveryAddressId"
+      const paymentResult = await orderService.getPaymentLink(
+        {
+          pointUsed: 0,
+          deliveryAddress: values.address, // ✅ fix ở đây
+          cartItems: formattedCartItems,
+        },
+        metaData
+      );
+
+      if (paymentResult.success && paymentResult.data?.paymentUrl) {
+        setShowWebView(true);
+        navigation.setParams({ paymentUrl: paymentResult.data.paymentUrl });
+      } else {
+        alert(paymentResult.message || 'Không thể tạo link thanh toán.');
+      }
+    }
+  } catch (error) {
+    console.error('Payment error:', error.message);
+    alert('Có lỗi xảy ra: ' + error.message);
+  } finally {
+    setIsLoading(false);
+  }
+};
+
 
   if (isLoading) {
     return (
@@ -177,42 +164,40 @@ const Payment = ({ route, navigation }) => {
           alert('Lỗi khi tải trang thanh toán.');
           setShowWebView(false);
         }}
-        onNavigationStateChange={async (navState) => {
-          if (navState.url.includes('success')) {
-            const userInfo = await getUserInfo();
-            const payload = {
-              fullName: userInfo.fullName || 'Unknown',
-              phone: userInfo.phone || 'Unknown',
-              address: userInfo.address || 'Unknown',
-              paymentMethod: 'online',
-              cartItems: cartItems.map(item => ({
-                id: item.id,
-                quantity: item.quantity,
-              })),
-            };
-            console.log('Confirming payment in WebView:', payload);
-            orderService
-              .confirmPayment(payload, { cancelUrl: CANCEL_URL, returnUrl: RETURN_URL })
-              .then((response) => {
-                console.log('Confirm payment response:', response);
-                if (response.success) {
-                  // Fetch updated cart to verify state
-                  orderService.getCart().then(cartResult => {
-                    console.log('Cart after payment:', cartResult);
-                  });
-                  navigation.navigate('ConfirmPaymentScreen', { paymentData: response });
-                } else {
-                  alert(response.message || 'Không thể xác nhận thanh toán.');
-                }
-              })
-              .catch((error) => {
-                console.error('Confirm payment error:', error.message);
-                alert('Lỗi xác nhận thanh toán: ' + error.message);
-              });
-          } else if (navState.url.includes('cancel')) {
-            navigation.goBack();
-          }
-        }}
+      onNavigationStateChange={async (navState) => {
+  if (navState.url.includes('success')) {
+    const userInfo = await getUserInfo();
+const payload = {
+  fullName: userInfo.fullName || '',
+  phone: userInfo.phone || '',
+  deliveryAddress: userInfo.address || '', // ✅ đúng field name
+  note: '',
+  pointUsed: 0,
+  paymentMethod: 'online',
+  cartItems: cartItems.map(item => ({
+    id: item.id,
+    quantity: item.quantity,
+  })),
+};
+
+
+
+    orderService
+      .confirmPayment(payload, { cancelUrl: CANCEL_URL, returnUrl: RETURN_URL })
+      .then((response) => {
+        if (response.success) {
+          orderService.getCart();
+          navigation.navigate('ConfirmPaymentScreen', { paymentData: response });
+        } else {
+          alert(response.message || 'Không thể xác nhận thanh toán.');
+        }
+      })
+      .catch((error) => {
+        console.error('Confirm payment error:', error.message);
+        alert('Lỗi xác nhận thanh toán: ' + error.message);
+      });
+  }
+}}
       />
     );
   }
