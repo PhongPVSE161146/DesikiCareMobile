@@ -13,7 +13,6 @@ import {
   Alert,
 } from 'react-native';
 import ProductService from '../../config/axios/Product/productService';
-import orderService from '../../config/axios/Order/orderService';
 import CustomHeader from '../../components/Header/CustomHeader';
 
 const screenWidth = Dimensions.get('window').width;
@@ -38,10 +37,21 @@ const CategoryScreen = ({ navigation }) => {
     ],
   };
 
+  const predefinedCategories = [
+    { _id: 0, name: 'Tất cả sản phẩm' },
+    { _id: 1, name: 'Sữa rửa mặt' },
+    { _id: 2, name: 'Kem dưỡng' },
+    { _id: 3, name: 'Toner' },
+    { _id: 4, name: 'Serum' },
+    { _id: 5, name: 'Kem chống nắng' },
+    { _id: 6, name: 'Tẩy tế bào chết' },
+    { _id: 7, name: 'Mặt nạ' },
+  ];
+
   const fetchCategories = useCallback(async () => {
     setIsLoadingCategories(true);
     try {
-      const res = await orderService.getCategories();
+      const res = await ProductService.getCategories();
       console.log('fetchCategories Result:', JSON.stringify(res, null, 2));
       if (res.success) {
         let apiCategories = [];
@@ -49,28 +59,26 @@ const CategoryScreen = ({ navigation }) => {
           apiCategories = res.data;
         } else if (res.data && Array.isArray(res.data.categories)) {
           apiCategories = res.data.categories;
-        } else if (res.data && res.data.category && res.data.category._id) {
+        } else if (res.data && res.data.category && res.data.category._id != null) {
           apiCategories = [res.data.category];
-        } else if (res.data && res.data._id) {
+        } else if (res.data && res.data._id != null) {
           apiCategories = [res.data];
         } else {
           console.warn('Unexpected API response format:', res.data);
+          apiCategories = [];
         }
         console.log('Parsed API Categories:', apiCategories);
 
-        const validCategories = [
-          { _id: 0, name: 'Tất cả sản phẩm' },
-          ...apiCategories
-            .filter(category => category._id && typeof category._id === 'string')
-            .map(category => ({
-              _id: category._id,
-              name: category.name && typeof category.name === 'string' ? category.name : `Category ${category._id}`,
-            })),
-        ];
-        console.log('Setting Categories (API):', validCategories);
-        setCategories(validCategories);
-        if (validCategories.length > 0 && !selectedCategory) {
-          setSelectedCategory(validCategories[0]);
+        // Merge API categories with predefined categories, prioritizing API names
+        const mergedCategories = predefinedCategories.map(predefined => {
+          const apiCategory = apiCategories.find(apiCat => String(apiCat._id) === String(predefined._id));
+          return apiCategory ? { _id: apiCategory._id, name: apiCategory.name } : predefined;
+        });
+
+        console.log('Setting Categories (Merged):', mergedCategories);
+        setCategories(mergedCategories);
+        if (mergedCategories.length > 0 && !selectedCategory) {
+          setSelectedCategory(mergedCategories[0]);
         }
       } else {
         console.warn('fetchCategories failed:', res.message);
@@ -98,22 +106,17 @@ const CategoryScreen = ({ navigation }) => {
 
   const setFallbackCategories = () => {
     if (products.length > 0) {
-      const uniqueCategoryIds = [...new Set(products.map(p => p.categoryId).filter(id => id != null))];
-      const fallbackCategories = [
-        { _id: 0, name: 'Tất cả sản phẩm' },
-        ...uniqueCategoryIds.map(id => ({
-          _id: id,
-          name: id === 1 ? 'Skincare' : id === 2 ? 'Makeup' : id === 3 ? 'Haircare' : `Category ${id}`,
-        })),
-      ];
+      const uniqueCategoryIds = [...new Set(products.map(p => String(p.categoryId)).filter(id => id != null))];
+      const fallbackCategories = predefinedCategories.filter(cat =>
+        cat._id === 0 || uniqueCategoryIds.includes(String(cat._id))
+      );
       console.log('Setting Fallback Categories:', fallbackCategories);
       setCategories(fallbackCategories);
       setSelectedCategory(fallbackCategories[0]);
     } else {
-      const defaultCategory = [{ _id: 0, name: 'Tất cả sản phẩm' }];
-      console.log('Setting Default Category:', defaultCategory);
-      setCategories(defaultCategory);
-      setSelectedCategory(defaultCategory[0]);
+      console.log('Setting Default Categories:', predefinedCategories);
+      setCategories(predefinedCategories);
+      setSelectedCategory(predefinedCategories[0]);
     }
   };
 
@@ -153,29 +156,30 @@ const CategoryScreen = ({ navigation }) => {
   }, [categories, selectedCategory]);
 
   const filteredProducts = selectedCategory && selectedCategory._id !== 0
-    ? products.filter((p) => p.categoryId === selectedCategory._id)
+    ? products.filter((p) => String(p.categoryId) === String(selectedCategory._id))
     : products;
 
   useEffect(() => {
     console.log('Animating with selectedCategory:', selectedCategory);
+    console.log('Filtered Products:', filteredProducts.map(p => ({ _id: p._id, name: p.name, categoryId: p.categoryId })));
     if (selectedCategory) {
       Animated.timing(animation, {
         toValue: 1,
         duration: 500,
-        useNativeDriver: false,
+        useNativeDriver: true,
       }).start();
     } else {
       Animated.timing(animation, {
         toValue: 0,
         duration: 300,
-        useNativeDriver: false,
+        useNativeDriver: true,
       }).start();
     }
   }, [selectedCategory, animation]);
 
   const renderCategory = ({ item }) => (
     <TouchableOpacity
-      key={item._id.toString()}
+      key={String(item._id)}
       style={[
         localStyles.categoryItem,
         selectedCategory?._id === item._id && localStyles.selectedCategoryItem,
@@ -222,7 +226,7 @@ const CategoryScreen = ({ navigation }) => {
           ? 'Không có sản phẩm trong danh mục này'
           : 'Chọn danh mục để xem sản phẩm'}
       </Text>
-      {(categories.length === 0 || filteredProducts.length === 0) && (
+      {/* {(categories.length === 0 || filteredProducts.length === 0) && (
         <TouchableOpacity
           style={localStyles.retryButton}
           onPress={() => {
@@ -234,7 +238,7 @@ const CategoryScreen = ({ navigation }) => {
         >
           <Text style={localStyles.retryButtonText}>Thử lại</Text>
         </TouchableOpacity>
-      )}
+      )} */}
     </View>
   );
 

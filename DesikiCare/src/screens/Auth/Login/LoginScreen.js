@@ -107,18 +107,24 @@ const LoginScreen = ({ navigation, route }) => {
           console.log('Dispatched reduxLogin with data:', result.data);
           // Navigate to Main with notification
           if (navigation && typeof navigation.reset === 'function') {
-            navigation.reset({
-              index: 0,
-              routes: [
-                {
-                  name: 'Main',
-                  params: {
-                    screen: 'Home',
-                    params: { notification: { message: 'Đăng nhập thành công!', type: 'success' } },
-                  },
-                },
-              ],
-            });
+           navigation.reset({
+  index: 0,
+  routes: [
+    {
+      name: 'Main',
+      params: {
+        screen: 'Home',
+        params: {
+          notification: {
+            message: 'Đăng nhập thành công!',
+            type: 'success',
+          },
+        },
+      },
+    },
+  ],
+});
+
             console.log('Navigated to Main with Home tab and success notification');
           } else {
             console.error('Navigation object is invalid:', navigation);

@@ -1,4 +1,3 @@
-// profileService.js
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_URL_LOGIN } from '@env';
@@ -44,15 +43,23 @@ const profileService = {
   },
 
   // Update account information
-  updateAccount: async (payload) => {
+  updateAccount: async (accountId, payload) => {
     try {
       const token = await getAuthToken();
       if (!token) {
         return { success: false, message: 'No authentication token found.' };
       }
+      if (!accountId) {
+        return { success: false, message: 'Account ID is missing.' };
+      }
+      if (!payload || typeof payload !== 'object') {
+        return { success: false, message: 'Invalid payload provided.' };
+      }
 
-      console.log(`Updating account with payload:`, payload);
-      const response = await axios.put(`${API_URL_LOGIN}/api/Account/me`, payload, {
+      // Wrap payload in 'account' object to match API structure
+      const requestPayload = { account: payload };
+      console.log(`Updating account with payload for accountId ${accountId}:`, JSON.stringify(requestPayload, null, 2));
+      const response = await axios.put(`${API_URL_LOGIN}/api/Account/accounts/${accountId}`, requestPayload, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -67,7 +74,7 @@ const profileService = {
       console.error('Update account error:', error);
       const message = error.response?.status === 401 
         ? 'Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại.' 
-        : error.response?.data?.message || 'Error updating account.';
+        : error.response?.data?.message || `Error updating account: ${error.message}`;
       return { success: false, message };
     }
   },
@@ -87,7 +94,6 @@ const profileService = {
           Authorization: `Bearer ${token}`,
         },
       });
-      // console.log('Change Password Response:', response.data);
 
       if (response.status === 200) {
         return { success: true, data: response.data };
@@ -102,7 +108,7 @@ const profileService = {
     }
   },
 
-  // Get delivery addresses (mocked to handle single address from API)
+  // Get delivery addresses
   getDeliveryAddresses: async (accountId) => {
     try {
       const token = await getAuthToken();
@@ -110,7 +116,7 @@ const profileService = {
         return { success: false, message: 'No authentication token found.' };
       }
 
-      // console.log(`Fetching delivery addresses for account ID: ${accountId}`);
+      console.log(`Fetching delivery addresses for account ID: ${accountId}`);
       const response = await axios.get(`${API_URL_LOGIN}/api/Account/me`, {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -119,11 +125,10 @@ const profileService = {
       console.log('Delivery Addresses Response:', response.data);
 
       if (response.status === 200 && response.data.deliveryAddress) {
-        // Convert single deliveryAddress to array for consistency
         const addresses = [response.data.deliveryAddress];
         return { success: true, data: addresses };
       }
-      return { success: true, data: [] }; // Return empty array if no addresses
+      return { success: true, data: [] };
     } catch (error) {
       console.error('Get delivery addresses error:', error);
       const message = error.response?.status === 401 

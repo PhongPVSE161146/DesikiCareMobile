@@ -24,7 +24,7 @@ const Notification = ({ message, type = 'success', autoDismiss = 3000, onDismiss
     } else {
       setVisible(false);
     }
-  }, [message, autoDismiss, fadeAnim]);
+  }, [message]);
 
   const dismissNotification = () => {
     Animated.timing(fadeAnim, {
@@ -39,10 +39,13 @@ const Notification = ({ message, type = 'success', autoDismiss = 3000, onDismiss
 
   if (!visible || !message) return null;
 
-  const backgroundColor = type === 'success' ? '#00FF00' : type === 'error' ? '#FF0000' : '#888888';
+  const backgroundColor =
+    type === 'success' ? '#4CAF50' :
+    type === 'error' ? '#F44336' :
+    '#888';
 
   return (
-    <Animated.View style={[styles.container, { opacity: fadeAnim, backgroundColor }]}>
+    <Animated.View style={[styles.container, { backgroundColor, opacity: fadeAnim }]}>
       <Text style={styles.message}>{message}</Text>
       <TouchableOpacity onPress={dismissNotification} style={styles.closeButton}>
         <Icon name="close" size={20} color="#FFF" />
@@ -53,26 +56,28 @@ const Notification = ({ message, type = 'success', autoDismiss = 3000, onDismiss
 
 const styles = StyleSheet.create({
   container: {
+    position: 'absolute',
+    bottom: 30,
+    left: '10%',
+    right: '10%',
+    borderRadius: 10,
+    padding: 12,
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 15,
-    marginHorizontal: 20,
-    marginTop: 20,
-    borderRadius: 10,
-    elevation: 5,
+    zIndex: 9999,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.3,
+    shadowRadius: 5,
+    elevation: 5,
   },
   message: {
     flex: 1,
     color: '#FFF',
-    fontSize: 16,
-    fontWeight: '500',
+    fontSize: 15,
   },
   closeButton: {
-    padding: 5,
+    marginLeft: 10,
   },
 });
 

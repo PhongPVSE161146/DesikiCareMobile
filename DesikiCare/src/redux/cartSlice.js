@@ -18,21 +18,23 @@ const cartSlice = createSlice({
     applyDiscount(state, action) {
       state.discount = action.payload;
     },
-
-    // ✅ BỔ SUNG NÀY
     addToCart(state, action) {
       const newItem = action.payload;
       const existingItem = state.items.find(item => item.id === newItem.id);
+      const quantityToAdd = newItem.quantity || 1;
+
       if (existingItem) {
-        existingItem.quantity += newItem.quantity;
+        existingItem.quantity += quantityToAdd;
       } else {
-        state.items.push(newItem);
+        state.items.push({
+          ...newItem,
+          quantity: quantityToAdd,
+        });
       }
     },
   },
 });
 
-// ✅ Export cả addToCart
 export const {
   setCartItems,
   removeFromCart,

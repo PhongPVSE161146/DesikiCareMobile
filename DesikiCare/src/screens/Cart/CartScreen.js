@@ -6,7 +6,6 @@ import {
   StyleSheet,
   TouchableOpacity,
   FlatList,
-  TextInput,
   ActivityIndicator,
   Alert,
 } from 'react-native';
@@ -14,6 +13,18 @@ import { useSelector, useDispatch } from 'react-redux';
 import { removeFromCart, updateCartItemQuantity, applyDiscount, setCartItems } from '../../redux/cartSlice';
 import orderService from '../../config/axios/Order/orderService';
 import { useFocusEffect } from '@react-navigation/native';
+
+// Danh sách danh mục cố định
+const predefinedCategories = [
+  { _id: 0, name: 'Tất cả sản phẩm' },
+  { _id: 1, name: 'Sữa rửa mặt' },
+  { _id: 2, name: 'Kem dưỡng' },
+  { _id: 3, name: 'Toner' },
+  { _id: 4, name: 'Serum' },
+  { _id: 5, name: 'Kem chống nắng' },
+  { _id: 6, name: 'Tẩy tế bào chết' },
+  { _id: 7, name: 'Mặt nạ' },
+];
 
 const CartScreen = ({ navigation }) => {
   const cartItems = useSelector(state => state.cart.items) || [];
@@ -118,32 +129,14 @@ const CartScreen = ({ navigation }) => {
     }
   };
 
-  // const handleApplyDiscount = () => {
-  //   if (!discountCode.trim()) {
-  //     Alert.alert('Lỗi', 'Vui lòng nhập mã giảm giá.');
-  //     return;
-  //   }
-  //   if (discountCode.trim() === 'SAVE10') {
-  //     dispatch(applyDiscount({ code: 'SAVE10', amount: 0.1 }));
-  //     Alert.alert('Thành công', 'Mã giảm giá đã được áp dụng!');
-  //     setDiscountCode('');
-  //   } else {
-  //     Alert.alert('Lỗi', 'Mã giảm giá không hợp lệ.');
-  //   }
-  // };
-
   const calculateTotal = () => {
     const subtotal = cartItems.reduce((sum, item) => sum + (item.price || 0) * (item.quantity || 1), 0);
     return discount && discount.amount ? subtotal * (1 - discount.amount) : subtotal;
   };
 
   const getCategoryName = (categoryId) => {
-    switch (categoryId) {
-      case '1': return 'Skincare';
-      case '2': return 'Makeup';
-      case '3': return 'Haircare';
-      default: return `Category ${categoryId}`;
-    }
+    const category = predefinedCategories.find(cat => cat._id === parseInt(categoryId, 10));
+    return category ? category.name : `Category ${categoryId}`;
   };
 
   if (loading) {
@@ -226,17 +219,6 @@ const CartScreen = ({ navigation }) => {
         keyExtractor={(item) => item.id.toString()}
         contentContainerStyle={styles.cartList}
       />
-      {/* <View style={styles.discountContainer}>
-        <TextInput
-          style={styles.discountInput}
-          placeholder="Nhập mã giảm giá"
-          value={discountCode}
-          onChangeText={setDiscountCode}
-        />
-        <TouchableOpacity style={styles.applyDiscountButton} onPress={handleApplyDiscount}>
-          <Text style={styles.applyDiscountButtonText}>Áp dụng</Text>
-        </TouchableOpacity>
-      </View> */}
       <View style={styles.totalContainer}>
         <Text style={styles.totalText}>
           Tổng: {calculateTotal().toLocaleString('vi-VN')} đ

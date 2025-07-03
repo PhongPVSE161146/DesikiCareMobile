@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -58,14 +58,15 @@ const ProductCard = ({ product, onPress }) => {
   );
 };
 
-export default function ProductList() {
-  const navigation = useNavigation();
+export default function ProductList({ navigation }) {
+  const navigationHook = useNavigation();
+  const nav = navigation || navigationHook;
   const [products, setProducts] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
 
-  const fetchProducts = async (pageNum = 1) => {
+  const fetchProducts = useCallback(async (pageNum = 1) => {
     if (isLoading || !hasMore) return;
 
     setIsLoading(true);
@@ -81,17 +82,26 @@ export default function ProductList() {
           setHasMore(false);
           console.log('No more products to load');
         } else {
-          const validProducts = newProducts.filter(
-            (product) => product && product._id && product.name
-          );
+          const validProducts = newProducts
+            .filter((product) => product && product._id && product.name)
+            .filter(
+              (product, index, self) =>
+                self.findIndex((p) => p._id === product._id) === index &&
+                !products.some((existing) => existing._id === product._id)
+            );
           console.log('Valid Products:', validProducts);
-          setProducts((prev) =>
-            pageNum === 1 ? validProducts : [...prev, ...validProducts]
-          );
-          setPage(pageNum);
+          if (validProducts.length > 0) {
+            setProducts((prev) =>
+              pageNum === 1 ? validProducts : [...prev, ...validProducts]
+            );
+            setPage(pageNum);
+          } else {
+            setHasMore(false); // No new valid products, stop loading
+            console.log('No new valid products, stopping pagination');
+          }
         }
       } else {
-        console.log('Fetch Products Failed:', result.message);
+        setHasMore(false); // Stop loading on API failure
         Alert.alert(
           'Lỗi',
           result.message || 'Không thể lấy danh sách sản phẩm. Vui lòng kiểm tra kết nối hoặc thử lại sau.'
@@ -99,31 +109,31 @@ export default function ProductList() {
       }
     } catch (error) {
       console.error('Fetch products error:', error.message);
+      setHasMore(false); // Stop loading on error
       Alert.alert(
         'Lỗi',
         'Có lỗi xảy ra khi lấy danh sách sản phẩm. Vui lòng kiểm tra kết nối hoặc server API.'
       );
     } finally {
       setIsLoading(false);
-      console.log('Current Products State:', products);
     }
-  };
+  }, [isLoading, hasMore, products]);
 
   useEffect(() => {
     fetchProducts(1);
-  }, []);
+  }, [fetchProducts]);
 
-  const loadMoreProducts = () => {
+  const loadMoreProducts = useCallback(() => {
     if (hasMore && !isLoading) {
-      console.log('Loading more products...');
+      console.log('Triggering loadMoreProducts for page:', page + 1);
       fetchProducts(page + 1);
     }
-  };
+  }, [hasMore, isLoading, page, fetchProducts]);
 
   const renderProduct = ({ item }) => (
     <ProductCard
       product={item}
-      onPress={() => navigation.navigate('ProductDetail', { productId: item._id })}
+      onPress={() => nav.navigate('ProductDetail', { productId: item._id })}
     />
   );
 
@@ -149,7 +159,7 @@ export default function ProductList() {
       renderItem={renderProduct}
       ListFooterComponent={renderFooter}
       onEndReached={loadMoreProducts}
-      onEndReachedThreshold={0.5}
+      onEndReachedThreshold={0.2} // Adjusted to prevent premature triggering
     />
   );
 }

@@ -3,194 +3,185 @@ import { StyleSheet } from 'react-native';
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#FFF0F5', // Light pink background
     padding: 16,
-    backgroundColor: '#f0f0f0',
+  },
+  section: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 20,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 5,
+    borderWidth: 1,
+    borderColor: '#FFC1CC', // Soft pink border
+  },
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: '#C71585', // Medium pink for title
+    marginBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#FFB6C1', // Light pink border
+    paddingBottom: 8,
+    textAlign: 'center', // Center the title
+  },
+  imageContainer: {
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  profileImage: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    borderWidth: 2,
+    borderColor: '#FFB6C1', // Light pink border
+    backgroundColor: '#FFF0F5', // Light pink fallback
+  },
+  uploadButton: {
+    backgroundColor: '#FF69B4', // Hot pink for upload button
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    marginTop: 8,
+  },
+  uploadButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+  infoContainer: {
+    marginBottom: 16,
+  },
+  label: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#C71585', // Medium pink for labels
+    marginTop: 12,
+    marginBottom: 4,
+  },
+  infoText: {
+    fontSize: 16,
+    color: '#4B0082', // Dark purple for contrast
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    backgroundColor: '#FFF0F5', // Light pink background
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#FFB6C1', // Light pink border
+  },
+  input: {
+    fontSize: 16,
+    color: '#4B0082', // Dark purple text
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#FFC1CC', // Soft pink border
+    borderRadius: 8,
+    backgroundColor: '#FFFFFF',
+    marginBottom: 8,
+  },
+  buttonContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 16,
+  },
+  doneButton: {
+  backgroundColor: '#FF69B4',
+  paddingVertical: 10,
+  paddingHorizontal: 20,
+  borderRadius: 10,
+  alignSelf: 'flex-end',
+  marginTop: 10,
+},
+
+doneButtonText: {
+  color: '#fff',
+  fontWeight: 'bold',
+},
+  
+  button: {
+    flex: 1,
+    backgroundColor: '#FF69B4', // Hot pink for buttons
+    padding: 14,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginHorizontal: 4,
+  },
+  saveButton: {
+    backgroundColor: 'green', // Hot pink
+  },
+  cancelButton: {
+    backgroundColor: '#DB7093', // Slightly darker pink for cancel
+  },
+  optionBox: {
+  backgroundColor: '#fff',
+  borderRadius: 8,
+  elevation: 2,
+  shadowColor: '#000',
+  shadowOpacity: 0.2,
+  shadowOffset: { width: 0, height: 2 },
+  shadowRadius: 4,
+  marginTop: 8,
+},
+optionItem: {
+  padding: 10,
+  borderBottomWidth: 1,
+  borderBottomColor: '#eee',
+},
+optionText: {
+  fontSize: 16,
+  color: '#333',
+},
+
+  logoutButton: {
+    backgroundColor: 'red', // Medium pink for logout
+    margin: 16,
+    padding: 14,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  buttonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFFFFF',
   },
   centered: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: '#FFF0F5', // Light pink background
+    padding: 16,
   },
   loginPrompt: {
     fontSize: 18,
-    color: '#333',
-    marginBottom: 20,
+    color: '#4B0082', // Dark purple for contrast
+    marginBottom: 16,
+    textAlign: 'center',
   },
   loginButton: {
-    backgroundColor: '#4CAF50',
+    backgroundColor: '#FF69B4', // Hot pink
     paddingVertical: 12,
     paddingHorizontal: 24,
     borderRadius: 8,
   },
   loginText: {
-    color: '#fff',
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: '600',
+    color: '#FFFFFF',
   },
   resetButton: {
-    backgroundColor: '#4CAF50',
-    padding: 12,
+    backgroundColor: '#FF69B4', // Hot pink
+    paddingVertical: 12,
+    paddingHorizontal: 24,
     borderRadius: 8,
   },
   resetText: {
-    color: '#fff',
     fontSize: 16,
-    fontWeight: 'bold',
-  },
-  headerSection: {
-    alignItems: 'center',
-    marginBottom: 20,
-    padding: 16,
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    elevation: 2,
-  },
-  avatar: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    borderWidth: 2,
-    borderColor: '#4CAF50',
-  },
-  username: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#333',
-    marginTop: 8,
-  },
-  emailText: {
-    fontSize: 16,
-    color: '#666',
-    marginTop: 4,
-  },
-  points: {
-    fontSize: 16,
-    color: '#4CAF50',
-    marginTop: 4,
-  },
-  section: {
-    marginBottom: 16,
-    padding: 16,
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    elevation: 2,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 12,
-  },
-  inputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#B0BEC5',
-    borderRadius: 8,
-    marginBottom: 8,
-    paddingHorizontal: 8,
-    backgroundColor: '#fff',
-  },
-  inputIcon: {
-    marginRight: 8,
-  },
-  input: {
-    flex: 1,
-    height: 48,
-    fontSize: 16,
-    color: '#333',
-  },
-  picker: {
-    flex: 1,
-    height: 48,
-    color: '#333',
-  },
-  modalText: {
-    color: '#333',
-    fontSize: 16,
-    lineHeight: 48,
-  },
-  errorText: {
-    fontSize: 14,
-    color: 'red',
-    marginBottom: 8,
-    marginLeft: 8,
-  },
-  button: {
-    backgroundColor: '#4CAF50',
-    paddingVertical: 12,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  buttonDisabled: {
-    backgroundColor: '#A5D6A7',
-    opacity: 0.7,
-  },
-  buttonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  addressList: {
-    marginBottom: 12,
-  },
-  addressItem: {
-    padding: 12,
-    marginBottom: 8,
-    backgroundColor: '#fff',
-    borderRadius: 4,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E0E0E0',
-  },
-  addressContent: {
-    marginBottom: 8,
-  },
-  addressText: {
-    fontSize: 14,
-    color: '#333',
-    marginBottom: 4,
-  },
-  defaultBadge: {
-    fontSize: 12,
-    color: '#4CAF50',
-    fontWeight: 'bold',
-  },
-  addressActions: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-  },
-  actionButton: {
-    backgroundColor: '#2196F3',
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 4,
-    marginLeft: 8,
-  },
-  actionText: {
-    color: '#fff',
-    fontSize: 14,
-  },
-  noAddressText: {
-    fontSize: 14,
-    color: '#666',
-    textAlign: 'center',
-    marginBottom: 12,
-  },
-  logoutButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#FF5722',
-    paddingVertical: 12,
-    borderRadius: 8,
-    marginVertical: 20,
-  },
-  logoutText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginLeft: 8,
+    fontWeight: '600',
+    color: '#FFFFFF',
   },
 });
 
