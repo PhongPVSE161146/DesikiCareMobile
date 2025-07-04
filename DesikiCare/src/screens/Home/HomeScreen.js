@@ -2,12 +2,12 @@ import React, { useEffect, useState } from 'react';
 import { View, FlatList, StyleSheet } from 'react-native';
 import ProductList from '../../components/ProductList';
 import FeatureButton from '../../components/FeatureButton';
-import FlashSale from '../../components/FlashSale';
-import ListItem from '../../components/ListItem';
+// import FlashSale from '../../components/FlashSale';
+import FeaturedBrandsCarousel from '../../components/FeaturedBrandsCarousel';
 import { MaterialIcons } from '@expo/vector-icons';
 import CustomHeader from '../../components/Header/CustomHeader';
 import Notification from '../../components/Notification'; // <- Thêm cái này
-
+import PromoCarousel from '../../components/PromoCarousel'; // <- Thêm cái này
 const features = [
   { title: 'Danh Mục', icon: <MaterialIcons name="menu" size={32} color="#555" /> },
   { title: 'Mini Game', icon: <MaterialIcons name="gamepad" size={32} color="#4CAF50" /> },
@@ -48,6 +48,7 @@ const HomeScreen = ({ navigation, route }) => {
         type={notification?.type}
         onDismiss={() => setNotification(null)}
       />
+      <PromoCarousel />
       <View style={styles.featureContainer}>
         {features.map((feature, index) => (
           <FeatureButton
@@ -58,8 +59,8 @@ const HomeScreen = ({ navigation, route }) => {
           />
         ))}
       </View>
-      <FlashSale />
-      <ListItem />
+      {/* <FlashSale /> */}
+      <FeaturedBrandsCarousel />
     </View>
   );
 

@@ -106,6 +106,26 @@ const orderService = {
       return { success: false, message: error.message || 'Network error. Please try again.' };
     }
   },
+    // Hàm để tạo đơn hàng
+  getOrders: async () => {
+  try {
+    const userToken = await getUserToken();
+
+    const response = await axiosInstance.get('/orders', {
+      headers: { Authorization: `Bearer ${userToken}` },
+    });
+
+    console.log('getOrders Response:', response.data);
+
+    return response.status === 200
+      ? { success: true, data: response.data.orders } // Dữ liệu nằm trong `orders`
+      : { success: false, message: response.data.message || 'Failed to fetch orders' };
+  } catch (error) {
+    console.error('Get orders error:', error.message);
+    return { success: false, message: error.message || 'Network error. Please try again.' };
+  }
+},
+
 };
 
 export default orderService;

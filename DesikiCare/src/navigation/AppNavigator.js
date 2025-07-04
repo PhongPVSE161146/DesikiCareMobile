@@ -10,7 +10,7 @@ import ProductDetailScreen from '../screens/Product/ProductDetailScreen';
 import CategoryScreen from '../screens/Category/CategoryScreen';
 import CartScreen from '../screens/Cart/CartScreen';
 import CheckoutScreen from '../screens/Cart/CheckoutScreen';
-import NotificationScreen from '../screens/Notification/NotificationScreen';
+import OrderHistory from '../screens/History/OrderHistory';
 import AccountScreen from '../screens/Profile/AccountScreen';
 import LoginScreen from '../screens/Auth/Login/LoginScreen';
 import RegisterScreen from '../screens/Auth/Register/RegisterScreen';
@@ -81,8 +81,8 @@ function MainTabs() {
             iconName = focused ? 'list' : 'list-outline';
           } else if (route.name === 'Cart') {
             iconName = focused ? 'cart' : 'cart-outline';
-          } else if (route.name === 'Notification') {
-            iconName = focused ? 'notifications' : 'notifications-outline';
+       } else if (route.name === 'PaidOrderHistory') {
+    iconName = focused ? 'document-text' : 'document-text-outline'; // Thay thế nếu dùng Ionicons
           } else if (route.name === 'Account') {
             iconName = focused ? 'person' : 'person-outline';
           }
@@ -94,19 +94,29 @@ function MainTabs() {
     >
       <Tab.Screen name="Home" component={HomeStack} options={{ title: 'Trang chủ' }} />
       <Tab.Screen name="Category" component={CategoryScreen} options={{ title: 'Danh mục' }} />
-      <Tab.Screen
+ <Tab.Screen
   name="Cart"
   component={CartStack}
   options={{
     title: 'Giỏ hàng',
     headerShown: true,
-    backgroundColor: '#fa7ca6',
+    headerStyle: {
+      backgroundColor: '#fa7ca6', // màu hồng
+    },
+    headerTintColor: '#fff', // màu chữ trắng cho dễ đọc
   }}
 />
+
       <Tab.Screen
-        name="Notification"
-        component={NotificationScreen}
-        options={{ title: 'Thông báo', headerShown: true }}
+        name="PaidOrderHistory"
+        component={OrderHistory}
+        options={{ title: 'Lịch Sử Đơn Hàng', headerShown: true ,
+
+        headerStyle: {
+      backgroundColor: 'red', // màu hồng
+    },
+    headerTintColor: '#fff', // màu chữ trắng cho dễ đọc
+  }}
       />
       <Tab.Screen name="Account" component={AccountScreen} options={{ title: 'Tài khoản' }} />
     </Tab.Navigator>
