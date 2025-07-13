@@ -1,8 +1,9 @@
+
 import * as React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { View, StyleSheet, Platform } from 'react-native'; // ✅ Đã thêm Platform
+import { View, StyleSheet, Platform } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { enableScreens } from 'react-native-screens';
 
@@ -22,7 +23,9 @@ import PolicyScreen from '../screens/Home/FeatureButton/PolicyScreen';
 import Payment from '../screens/Payments/Payment';
 import ConfirmPaymentScreen from '../screens/Payments/ConfirmPaymentScreen';
 
-enableScreens(false);
+import GameEventsScreen from '../screens/Game/GameEventsScreen';
+import RewardsScreen from '../screens/Game/RewardsScreen';
+enableScreens(true); // Enable native screens for better performance
 
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -45,6 +48,52 @@ function CartStack() {
   );
 }
 
+function MiniGame() {
+  return (
+    <Tab.Navigator
+      screenOptions={{
+        tabBarStyle: { backgroundColor: '#fff' },
+        tabBarActiveTintColor: '#6200EE',
+        tabBarInactiveTintColor: '#757575',
+        headerShown: false,
+      }}
+    >
+      <Tab.Screen
+        name="MiniGameTabs"
+        component={MiniGameScreen}
+        options={{
+          tabBarLabel: 'Mini Game',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="game-controller-outline" color={color} size={size} />
+          ),
+        }}
+      />
+      <Tab.Screen
+        name=" GameEvents"
+        component={GameEventsScreen}
+        options={{
+          headerShown: false,
+          tabBarLabel: 'Sự kiện',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="calendar-outline" color={color} size={size} />
+          ),
+        }}
+      />
+      <Tab.Screen
+        name="History"
+        component={RewardsScreen}
+        options={{
+          tabBarLabel: 'Lịch sử điểm',
+        
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="time-outline" color={color} size={size} />
+          ),
+        }}
+      />
+    </Tab.Navigator>
+  );
+}
+
 function MainTabs() {
   return (
     <Tab.Navigator
@@ -56,6 +105,13 @@ function MainTabs() {
           borderTopWidth: 0,
           paddingBottom: 10,
           paddingTop: 5,
+          elevation: 0, // Remove default elevation
+          shadowOpacity: 0, // Remove default shadow
+        },
+        tabBarShowLabel: true, // Enable tab labels
+        tabBarLabelStyle: {
+          fontSize: 12, // Customize label font size
+          marginBottom: 5, // Adjust label position
         },
         tabBarIcon: ({ focused, color, size }) => {
           let iconName;
@@ -85,24 +141,24 @@ function MainTabs() {
               <View
                 style={{
                   backgroundColor: '#ffe6ec',
-                  padding: 10,
-                  borderRadius: 30,
-                  marginBottom: 20,
-                  zIndex: 99,
+                  padding: 8, // Tighter padding for bubble
+                  borderRadius: 20, // Smaller radius for bubble
+                  alignItems: 'center',
+                  justifyContent: 'center',
                   ...Platform.select({
                     ios: {
                       shadowColor: '#000',
                       shadowOffset: { width: 0, height: 2 },
-                      shadowOpacity: 0.3,
-                      shadowRadius: 3,
+                      shadowOpacity: 0.2, // Softer shadow
+                      shadowRadius: 4,
                     },
                     android: {
-                      elevation: 5,
+                      elevation: 3, // Lower elevation for performance
                     },
                   }),
                 }}
               >
-                <Ionicons name={iconName} size={26} color="#ff4d4f" />
+                <Ionicons name={iconName} size={24} color="#ff4d4f" />
               </View>
             );
           }
@@ -131,7 +187,7 @@ function MainTabs() {
         name="PaidOrderHistory"
         component={OrderHistory}
         options={{
-          title: 'Lịch Sử Đơn Hàng',
+          title: 'Đơn Hàng',
           headerShown: true,
           headerStyle: {
             backgroundColor: 'red',
@@ -153,9 +209,10 @@ const AppNavigator = () => {
           <Stack.Screen name="Login" component={LoginScreen} />
           <Stack.Screen name="Register" component={RegisterScreen} />
           <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
-          <Stack.Screen name="MiniGameScreen" component={MiniGameScreen} />
+          <Stack.Screen name="MiniGameTabs" component={MiniGame} />
           <Stack.Screen name="SupportScreen" component={SupportScreen} />
           <Stack.Screen name="PolicyScreen" component={PolicyScreen} />
+         
           <Stack.Screen
             name="Payment"
             component={Payment}

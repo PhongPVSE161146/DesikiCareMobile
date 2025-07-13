@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity } from 'react-native'; // Thêm TouchableOpacity
 import Icon from 'react-native-vector-icons/MaterialIcons';
-import profileService from '../../config/axios/Home/AccountProfile/profileService';
-import styles from './styles';
+import profileService from '../config/axios/Home/AccountProfile/profileService';
+import styles from '../screens/Profile/styles';
 
 const PasswordChangeSection = ({ setNotification, handleUnauthorized, loading, setLoading }) => {
   const [currentPassword, setCurrentPassword] = useState('');

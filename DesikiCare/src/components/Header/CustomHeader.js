@@ -13,8 +13,20 @@ import {
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-// Logo (replace with your actual logo source)
+// Theme colors
+const COLORS = {
+  primary: '#fa7ca6',
+  white: '#fff',
+  gray: '#666',
+  lightGray: '#ccc',
+  darkGray: '#333',
+  borderGray: '#eee',
+  red: 'red',
+};
+
+// Logo (replace with your actual logo source or fallback)
 const logo = require('../../../assets/DesikiCare.jpg'); // Update the path to your logo image
+const fallbackLogo = require('../../../assets/DesikiCare.jpg'); // Fallback image
 
 // Hard-coded notification data in Vietnamese (cosmetics context)
 const notifications = [
@@ -31,15 +43,20 @@ const storeLocations = [
 ];
 
 // Hard-coded notification count
-const notificationCount = notifications.length; // Based on notifications array
+const notificationCount = notifications.length;
 
 // Custom Notification Icon with Badge
 const NotificationIcon = ({ onPress }) => {
   return (
-    <TouchableOpacity onPress={onPress} style={styles.notificationContainer}>
-      <Ionicons name="notifications-outline" size={24} color="#fff" />
+    <TouchableOpacity
+      onPress={onPress}
+      style={styles.notificationContainer}
+      accessibilityLabel={`Thông báo, ${notificationCount} thông báo mới`}
+      accessibilityRole="button"
+    >
+      <Ionicons name="notifications-outline" size={24} color={COLORS.white} />
       {notificationCount > 0 && (
-        <View style={styles.badge}>
+        <View style={[styles.badge, { minWidth: notificationCount > 9 ? 24 : 18 }]}>
           <Text style={styles.badgeText}>{notificationCount}</Text>
         </View>
       )}
@@ -72,8 +89,15 @@ const NotificationModal = ({ visible, onClose }) => {
             renderItem={renderNotification}
             keyExtractor={(item) => item.id}
             style={styles.notificationList}
+            initialNumToRender={10}
+            maxToRenderPerBatch={10}
           />
-          <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+          <TouchableOpacity
+            onPress={onClose}
+            style={styles.closeButton}
+            accessibilityLabel="Đóng thông báo"
+            accessibilityRole="button"
+          >
             <Text style={styles.closeButtonText}>Đóng</Text>
           </TouchableOpacity>
         </View>
@@ -86,7 +110,7 @@ const NotificationModal = ({ visible, onClose }) => {
 const LocationModal = ({ visible, onClose }) => {
   const renderLocation = ({ item }) => (
     <View style={styles.locationItem}>
-      <Text  style={styles.locationName}>{item.name}</Text>
+      <Text style={styles.locationName}>{item.name}</Text>
       <Text style={styles.locationAddress}>{item.address}</Text>
       <Text style={styles.locationPhone}>{item.phone}</Text>
     </View>
@@ -101,16 +125,21 @@ const LocationModal = ({ visible, onClose }) => {
     >
       <View style={styles.modalContainer}>
         <View style={styles.modalContent}>
-          <Text style={styles.modalTitle} >Địa Chỉ Cửa Hàng</Text>
+          <Text style={styles.modalTitle}>Địa Chỉ Cửa Hàng</Text>
           <FlatList
-          
             data={storeLocations}
             renderItem={renderLocation}
-            
             keyExtractor={(item) => item.id}
             style={styles.locationList}
+            initialNumToRender={10}
+            maxToRenderPerBatch={10}
           />
-          <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+          <TouchableOpacity
+            onPress={onClose}
+            style={styles.closeButton}
+            accessibilityLabel="Đóng danh sách cửa hàng"
+            accessibilityRole="button"
+          >
             <Text style={styles.closeButtonText}>Đóng</Text>
           </TouchableOpacity>
         </View>
@@ -123,25 +152,39 @@ const CustomHeader = () => {
   const insets = useSafeAreaInsets();
   const [notificationModalVisible, setNotificationModalVisible] = useState(false);
   const [locationModalVisible, setLocationModalVisible] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   return (
-    <SafeAreaView style={[styles.header, { paddingTop: insets.top }]}>
+    <SafeAreaView style={[styles.header, { paddingTop: insets.bottom }]}>
       <View style={styles.headerContent}>
-        <Image source={logo} style={styles.logo} resizeMode="contain" />
+        <Image
+          source={logo}
+          style={styles.logo}
+          resizeMode="contain"
+          onError={() => console.log('Failed to load logo')}
+          defaultSource={fallbackLogo}
+        />
         <View style={styles.searchContainer}>
-          <Ionicons name="search-outline" size={20} color="#666" style={styles.searchIcon} />
+          <Ionicons name="search-outline" size={20} color={COLORS.gray} style={styles.searchIcon} />
           <TextInput
             style={styles.searchBar}
             placeholder="Tìm kiếm"
-            placeholderTextColor="#ccc"
+            placeholderTextColor={COLORS.lightGray}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            onSubmitEditing={() => console.log('Search query:', searchQuery)}
+            accessibilityLabel="Tìm kiếm sản phẩm"
+            accessibilityRole="textbox"
           />
         </View>
         <View style={styles.iconContainer}>
           <TouchableOpacity
             onPress={() => setLocationModalVisible(true)}
             style={styles.iconSpacing}
+            accessibilityLabel="Xem danh sách cửa hàng"
+            accessibilityRole="button"
           >
-            <Ionicons name="location-outline" size={24} color="#fff" />
+            <Ionicons name="location-outline" size={24} color={COLORS.white} />
           </TouchableOpacity>
           <NotificationIcon onPress={() => setNotificationModalVisible(true)} />
         </View>
@@ -160,38 +203,41 @@ const CustomHeader = () => {
 
 const styles = StyleSheet.create({
   header: {
-    backgroundColor: '#fa7ca6',
+    backgroundColor: COLORS.primary,
     paddingHorizontal: 5,
     paddingBottom: 15,
-    paddingTop: 10, // Dynamic padding based on safe area insets
+    paddingTop: 10,
   },
   headerContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between', // Ensure even spacing
+    justifyContent: 'space-between',
     paddingHorizontal: 10,
-    paddingTop: 10, // Lower all elements in the header
+    paddingTop: 10,
   },
   logo: {
     width: 40,
     height: 40,
     marginRight: 10,
+    paddingBottom: 5,
+    borderRadius: 10,
   },
   searchContainer: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.white,
     borderRadius: 20,
     marginHorizontal: 10,
+    
   },
   searchIcon: {
     paddingHorizontal: 10,
   },
   searchBar: {
     flex: 1,
-    paddingVertical: 8, // Reduced padding for better fit
-    color: '#000',
+    paddingVertical: 8,
+    color: COLORS.darkGray,
     fontSize: 16,
   },
   iconContainer: {
@@ -199,27 +245,26 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   iconSpacing: {
-    marginHorizontal: 10, // Reduced spacing for better alignment
+    marginHorizontal: 10,
   },
   notificationContainer: {
-    position: 'relative', // For positioning the badge
-    marginHorizontal: 10, // Match iconSpacing
+    position: 'relative',
+    marginHorizontal: 10,
   },
   badge: {
     position: 'absolute',
-    top: -5, // Adjust to position badge at top-right of icon
+    top: -5,
     right: -5,
-    backgroundColor: 'red',
+    backgroundColor: COLORS.red,
     borderRadius: 10,
-    minWidth: 18,
     height: 18,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#fff', // White border for contrast
+    borderColor: COLORS.white,
   },
   badgeText: {
-    color: '#fff',
+    color: COLORS.white,
     fontSize: 12,
     fontWeight: 'bold',
     textAlign: 'center',
@@ -228,10 +273,10 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)', // Semi-transparent background
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
   modalContent: {
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.white,
     borderRadius: 10,
     padding: 20,
     width: '90%',
@@ -249,7 +294,7 @@ const styles = StyleSheet.create({
   notificationItem: {
     padding: 10,
     borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    borderBottomColor: COLORS.borderGray,
   },
   notificationTitle: {
     fontSize: 16,
@@ -257,11 +302,11 @@ const styles = StyleSheet.create({
   },
   notificationMessage: {
     fontSize: 14,
-    color: '#333',
+    color: COLORS.darkGray,
   },
   notificationTime: {
     fontSize: 12,
-    color: '#999',
+    color: COLORS.lightGray,
     marginTop: 5,
   },
   locationList: {
@@ -270,7 +315,7 @@ const styles = StyleSheet.create({
   locationItem: {
     padding: 10,
     borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    borderBottomColor: COLORS.borderGray,
   },
   locationName: {
     fontSize: 16,
@@ -278,22 +323,22 @@ const styles = StyleSheet.create({
   },
   locationAddress: {
     fontSize: 14,
-    color: '#333',
+    color: COLORS.darkGray,
   },
   locationPhone: {
     fontSize: 12,
-    color: '#999',
+    color: COLORS.lightGray,
     marginTop: 5,
   },
   closeButton: {
     marginTop: 10,
     padding: 10,
-    backgroundColor: '#fa7ca6',
+    backgroundColor: COLORS.primary,
     borderRadius: 5,
     alignItems: 'center',
   },
   closeButtonText: {
-    color: '#fff',
+    color: COLORS.white,
     fontSize: 16,
     fontWeight: 'bold',
   },

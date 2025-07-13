@@ -1,47 +1,97 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import {
+  View,
+  Text,
+  FlatList,
+  TouchableOpacity,
+  StyleSheet,
+  ActivityIndicator,
+  Image,
+  Alert,
+} from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { fetchGameEvents } from '../../../config/axios/MiniGame/minigameService'; // Adjust the path based on your project structure
 
 const MiniGameScreen = () => {
   const navigation = useNavigation();
-  const [randomNumber, setRandomNumber] = useState(null);
-  const [guess, setGuess] = useState('');
-  const [message, setMessage] = useState('Đoán một số từ 1 đến 100!');
-  const [attempts, setAttempts] = useState(0);
+  const [gameEvents, setGameEvents] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  // Generate a new random number when the component mounts or game restarts
   useEffect(() => {
-    resetGame();
+    const loadGameEvents = async () => {
+      try {
+        setLoading(true);
+        const { gameEvents } = await fetchGameEvents();
+        setGameEvents(gameEvents);
+        setError(null);
+      } catch (err) {
+        setError(err.message);
+        Alert.alert('Lỗi', err.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadGameEvents();
   }, []);
 
-  const resetGame = () => {
-    setRandomNumber(Math.floor(Math.random() * 100) + 1);
-    setGuess('');
-    setMessage('Đoán một số từ 1 đến 100!');
-    setAttempts(0);
+  const handleGamePress = (gameEvent) => {
+    // Navigate to a specific game screen based on gameTypeId
+    const { gameTypeId, _id } = gameEvent.gameEvent;
+    let screenName;
+
+    switch (gameTypeId) {
+      case 0:
+        screenName = 'SpinWheelGame'; // Example screen for "Quay trúng thưởng"
+        break;
+      case 1:
+        screenName = 'MatchPairGame'; // Example screen for "Chọn 2 ô trùng nhau"
+        break;
+      case 2:
+        screenName = 'ScratchCardGame'; // Example screen for "Cào thẻ"
+        break;
+      case 3:
+        screenName = 'FillBlankGame'; // Example screen for "Điền từ còn trống"
+        break;
+      default:
+        Alert.alert('Thông báo', 'Loại trò chơi không được hỗ trợ.');
+        return;
+    }
+
+    navigation.navigate(screenName, { gameEventId: _id });
   };
 
-  const handleGuess = () => {
-    const userGuess = parseInt(guess, 10);
-    setAttempts(attempts + 1);
+  const renderGameEvent = ({ item }) => {
+    const { gameEvent, gameTypeImageUrls } = item;
+    const imageUrl = gameTypeImageUrls?.[0]?.imageUrl || gameEvent.imageUrl;
 
-    if (isNaN(userGuess) || userGuess < 1 || userGuess > 100) {
-      setMessage('Vui lòng nhập số từ 1 đến 100!');
-      return;
-    }
-
-    if (userGuess === randomNumber) {
-      Alert.alert('Chúc mừng!', `Bạn đã đoán đúng sau ${attempts + 1} lần!`, [
-        { text: 'Chơi lại', onPress: resetGame },
-      ]);
-    } else if (userGuess < randomNumber) {
-      setMessage('Quá thấp! Thử lại.');
-    } else {
-      setMessage('Quá cao! Thử lại.');
-    }
-    setGuess('');
+    return (
+      <TouchableOpacity style={styles.gameCard} onPress={() => handleGamePress(item)}>
+        {imageUrl ? (
+          <Image source={{ uri: imageUrl }} style={styles.gameImage} />
+        ) : (
+          <View style={[styles.gameImage, styles.placeholderImage]}>
+            <Text style={styles.placeholderText}>No Image</Text>
+          </View>
+        )}
+        <View style={styles.gameInfo}>
+          <Text style={styles.gameTitle}>{gameEvent.eventName}</Text>
+          <Text style={styles.gameType}>{gameEvent.gameTypeName}</Text>
+          <Text style={styles.gameDescription} numberOfLines={2}>
+            {gameEvent.description}
+          </Text>
+          <Text style={styles.gameDate}>
+            Từ {new Date(gameEvent.startDate).toLocaleDateString()} đến{' '}
+            {new Date(gameEvent.endDate).toLocaleDateString()}
+          </Text>
+          {gameEvent.isDeactivated && (
+            <Text style={styles.deactivatedText}>Sự kiện đã bị hủy</Text>
+          )}
+        </View>
+      </TouchableOpacity>
+    );
   };
 
   return (
@@ -51,27 +101,23 @@ const MiniGameScreen = () => {
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
             <MaterialIcons name="arrow-back" size={24} color="#fff" />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Mini Game</Text>
+          <Text style={styles.headerTitle}>Mini Games</Text>
         </View>
         <View style={styles.content}>
-          <Text style={styles.title}>Trò chơi đoán số</Text>
-          <Text style={styles.message}>{message}</Text>
-          <TextInput
-            style={styles.input}
-            keyboardType="numeric"
-            value={guess}
-            onChangeText={setGuess}
-            placeholder="Nhập số của bạn"
-            placeholderTextColor="#888"
-            onSubmitEditing={handleGuess}
-          />
-          <TouchableOpacity style={styles.button} onPress={handleGuess}>
-            <Text style={styles.buttonText}>Đoán</Text>
-          </TouchableOpacity>
-          <Text style={styles.attempts}>Số lần đoán: {attempts}</Text>
-          <TouchableOpacity style={styles.restartButton} onPress={resetGame}>
-            <Text style={styles.restartButtonText}>Chơi lại</Text>
-          </TouchableOpacity>
+          {loading ? (
+            <ActivityIndicator size="large" color="#4CAF50" />
+          ) : error ? (
+            <Text style={styles.errorText}>{error}</Text>
+          ) : gameEvents.length === 0 ? (
+            <Text style={styles.emptyText}>Không có sự kiện trò chơi nào.</Text>
+          ) : (
+            <FlatList
+              data={gameEvents}
+              renderItem={renderGameEvent}
+              keyExtractor={(item) => item.gameEvent._id}
+              contentContainerStyle={styles.listContainer}
+            />
+          )}
         </View>
       </View>
     </SafeAreaView>
@@ -81,16 +127,16 @@ const MiniGameScreen = () => {
 const styles = StyleSheet.create({
   safeContainer: {
     flex: 1,
-    backgroundColor: '#4CAF50', // Match header color for status bar
+    backgroundColor: '#4CAF50',
   },
   container: {
     flex: 1,
-    backgroundColor: '#E0F7FA', // Match RegisterScreen, PolicyScreen, SupportScreen
+    backgroundColor: '#E0F7FA',
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#4CAF50', // Match RegisterScreen, PolicyScreen, SupportScreen
+    backgroundColor: '#4CAF50',
     paddingHorizontal: 15,
     paddingVertical: 12,
     elevation: 4,
@@ -110,77 +156,78 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    backgroundColor: '#E0F7FA', // Explicitly set to prevent green bleed
     padding: 20,
+  },
+  listContainer: {
+    paddingBottom: 20,
+  },
+  gameCard: {
+    flexDirection: 'row',
+    backgroundColor: '#fff',
+    borderRadius: 10,
+    marginBottom: 15,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+    overflow: 'hidden',
+  },
+  gameImage: {
+    width: 100,
+    height: 100,
+    borderTopLeftRadius: 10,
+    borderBottomLeftRadius: 10,
+  },
+  placeholderImage: {
+    backgroundColor: '#ccc',
+    justifyContent: 'center',
     alignItems: 'center',
   },
-  title: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#333',
-    marginBottom: 20,
+  placeholderText: {
+    color: '#666',
+    fontSize: 14,
   },
-  message: {
+  gameInfo: {
+    flex: 1,
+    padding: 10,
+  },
+  gameTitle: {
     fontSize: 18,
+    fontWeight: '600',
+    color: '#333',
+  },
+  gameType: {
+    fontSize: 14,
+    color: '#4CAF50',
+    marginBottom: 5,
+  },
+  gameDescription: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 5,
+  },
+  gameDate: {
+    fontSize: 12,
+    color: '#888',
+  },
+  deactivatedText: {
+    fontSize: 12,
+    color: '#ff4444',
+    fontWeight: '600',
+    marginTop: 5,
+  },
+  errorText: {
+    fontSize: 16,
+    color: '#ff4444',
+    textAlign: 'center',
+    marginTop: 20,
+  },
+  emptyText: {
+    fontSize: 16,
     color: '#666',
     textAlign: 'center',
-    marginBottom: 20,
-  },
-  input: {
-    width: '80%',
-    height: 50,
-    borderColor: '#B0BEC5',
-    borderWidth: 1,
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    marginBottom: 20,
-    fontSize: 16,
-    backgroundColor: '#fff',
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-  },
-  button: {
-    backgroundColor: '#4CAF50', // Match app theme
-    paddingVertical: 12,
-    paddingHorizontal: 30,
-    borderRadius: 10,
-    marginBottom: 20,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 2,
-  },
-  buttonText: {
-    fontSize: 16,
-    color: '#fff',
-    fontWeight: '600',
-    textAlign: 'center',
-  },
-  attempts: {
-    fontSize: 16,
-    color: '#333',
-    marginBottom: 20,
-  },
-  restartButton: {
-    backgroundColor: '#ff4444', // Keep distinct red for restart
-    paddingVertical: 12,
-    paddingHorizontal: 30,
-    borderRadius: 10,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 2,
-  },
-  restartButtonText: {
-    fontSize: 16,
-    color: '#fff',
-    fontWeight: '600',
-    textAlign: 'center',
+    marginTop: 20,
   },
 });
 

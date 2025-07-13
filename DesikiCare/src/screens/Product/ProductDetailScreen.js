@@ -12,19 +12,18 @@ import {
 } from 'react-native';
 import { useDispatch } from 'react-redux';
 import { addToCart } from '../../redux/cartSlice'; // Verify this path
-console.log('addToCart:', addToCart); // Debug import
 import ProductService from '../../config/axios/Product/productService';
 import orderService from '../../config/axios/Order/orderService';
 import Notification from '../../components/Notification';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { CANCEL_URL, RETURN_URL } from '@env';
+
 const screenWidth = Dimensions.get('window').width;
 
 const ProductDetailScreen = ({ route, navigation }) => {
   const { productId } = route.params || {};
   const dispatch = useDispatch();
   const [productData, setProductData] = useState(null);
-  const [quantity, setQuantity] = useState(1);
   const [notificationMessage, setNotificationMessage] = useState('');
   const [notificationType, setNotificationType] = useState('success');
   const [isLoading, setIsLoading] = useState(true);
@@ -57,7 +56,6 @@ const ProductDetailScreen = ({ route, navigation }) => {
     }
   }, [productId, navigation]);
 
-  // Hàm lấy địa chỉ mặc định của người dùng (giả định có API lấy địa chỉ)
   const getDefaultAddressId = async () => {
     try {
       const userToken = await AsyncStorage.getItem('userToken');
@@ -126,17 +124,15 @@ const ProductDetailScreen = ({ route, navigation }) => {
       return;
     }
     try {
-      const result = await orderService.addCartItem(product._id, quantity);
-      console.log('API Response:', result);
+      const result = await orderService.addCartItem(product._id, 1); // Fixed quantity to 1
       if (result && (result.success || result.message === 'Cart items added successfully')) {
         const productWithId = {
           id: product._id,
           title: name,
           price: salePrice,
-          quantity,
+          quantity: 1,
           image: imageUrl,
         };
-        console.log('Dispatching addToCart with:', productWithId);
         if (typeof addToCart === 'function') {
           dispatch(addToCart(productWithId));
           setNotificationMessage('Đã thêm vào giỏ hàng!');
@@ -169,9 +165,7 @@ const ProductDetailScreen = ({ route, navigation }) => {
       return;
     }
     try {
-      // Bước 1: Thêm sản phẩm vào giỏ hàng
-      const addToCartResult = await orderService.addCartItem(product._id, quantity);
-      console.log('Add to cart API Response:', addToCartResult);
+      const addToCartResult = await orderService.addCartItem(product._id, 1); // Fixed quantity to 1
       if (!addToCartResult.success) {
         setNotificationMessage('');
         if (addToCartResult.message === 'No token found. Please log in.') {
@@ -184,28 +178,24 @@ const ProductDetailScreen = ({ route, navigation }) => {
         return;
       }
 
-      // Bước 2: Lấy địa chỉ mặc định
       const deliveryAddressId = await getDefaultAddressId();
       if (!deliveryAddressId) {
         setNotificationMessage('');
         Alert.alert('Lỗi', 'Vui lòng thiết lập địa chỉ giao hàng trước khi mua.', [
-          { text: 'OK', onPress: () => navigation.navigate('AddressScreen') }, // Giả định có màn hình AddressScreen
+          { text: 'OK', onPress: () => navigation.navigate('AddressScreen') },
         ]);
         return;
       }
 
-      // Bước 3: Lấy link thanh toán
       const paymentResult = await orderService.getPaymentLink(
         { pointUsed: 0, deliveryAddressId },
         {
-         cancelUrl: CANCEL_URL,
-         returnUrl: RETURN_URL,
+          cancelUrl: CANCEL_URL,
+          returnUrl: RETURN_URL,
         }
       );
 
-      console.log('Payment link API Response:', paymentResult);
       if (paymentResult.success && paymentResult.data.paymentUrl) {
-        // Chuyển hướng tới màn hình thanh toán (WebView)
         navigation.navigate('PaymentScreen', { paymentUrl: paymentResult.data.paymentUrl });
         setNotificationMessage('Đang chuyển tới trang thanh toán...');
         setNotificationType('success');
@@ -218,14 +208,6 @@ const ProductDetailScreen = ({ route, navigation }) => {
       setNotificationMessage('');
       Alert.alert('Lỗi', 'Có lỗi xảy ra khi xử lý mua ngay: ' + error.message);
     }
-  };
-
-  const increaseQuantity = () => {
-    setQuantity(prev => prev + 1);
-  };
-
-  const decreaseQuantity = () => {
-    setQuantity(prev => (prev > 1 ? prev - 1 : 1));
   };
 
   const imageSource = imageUrl && imageUrl !== 'string'
@@ -287,25 +269,6 @@ const ProductDetailScreen = ({ route, navigation }) => {
             )}
           </View>
           <View style={styles.buttonContainer}>
-            <View style={styles.quantityContainer}>
-              <TouchableOpacity
-                style={[styles.quantityButton, isDeactivated ? styles.disabledButton : null]}
-                onPress={decreaseQuantity}
-                disabled={isDeactivated}
-                accessibilityLabel="Giảm số lượng"
-              >
-                <Text style={styles.quantityButtonText}>−</Text>
-              </TouchableOpacity>
-              <Text style={styles.quantityText}>{quantity}</Text>
-              <TouchableOpacity
-                style={[styles.quantityButton, isDeactivated ? styles.disabledButton : null]}
-                onPress={increaseQuantity}
-                disabled={isDeactivated}
-                accessibilityLabel="Tăng số lượng"
-              >
-                <Text style={styles.quantityButtonText}>+</Text>
-              </TouchableOpacity>
-            </View>
             <TouchableOpacity
               style={[styles.addToCartButton, isDeactivated ? styles.disabledButton : null]}
               onPress={handleAddToCart}
@@ -395,7 +358,7 @@ const styles = StyleSheet.create({
   specificationContainer: {
     marginBottom: 20,
   },
-  specification: {
+ 仕様: {
     fontSize: 14,
     color: '#555',
     lineHeight: 20,
@@ -405,30 +368,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 20,
-  },
-  quantityContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginRight: 10,
-  },
-  quantityButton: {
-    backgroundColor: '#eee',
-    width: 32,
-    height: 32,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderRadius: 4,
-  },
-  quantityButtonText: {
-    fontSize: 20,
-    color: '#333',
-  },
-  quantityText: {
-    fontSize: 16,
-    color: '#333',
-    marginHorizontal: 10,
-    width: 30,
-    textAlign: 'center',
   },
   addToCartButton: {
     backgroundColor: '#FFA500',
