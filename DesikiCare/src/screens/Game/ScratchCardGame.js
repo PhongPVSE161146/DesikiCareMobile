@@ -6,9 +6,21 @@ import {
   StyleSheet,
   Alert,
   ActivityIndicator,
+  Dimensions,
 } from 'react-native';
 import { useRoute } from '@react-navigation/native';
 import { fetchGameEvents } from '../../config/axios/MiniGame/minigameService';
+
+// Fallback for ConfettiCannon if module is not resolved
+let ConfettiCannon;
+try {
+  ConfettiCannon = require('react-native-confetti-cannon').default;
+} catch (e) {
+  console.warn('react-native-confetti-cannon not found, using fallback');
+  ConfettiCannon = null;
+}
+
+const { width } = Dimensions.get('window');
 
 const ScratchCardGame = () => {
   const route = useRoute();
@@ -18,6 +30,8 @@ const ScratchCardGame = () => {
   const [error, setError] = useState(null);
   const [scratchedCards, setScratchedCards] = useState([]);
   const [scratchCount, setScratchCount] = useState(0);
+  const [showFireworks, setShowFireworks] = useState(false);
+  const [fireworkTrigger, setFireworkTrigger] = useState(0); // Track each firework instance
 
   useEffect(() => {
     const loadGameEvent = async () => {
@@ -43,13 +57,21 @@ const ScratchCardGame = () => {
             throw new Error('Cấu hình trò chơi không hợp lệ');
           }
         } else {
+          // Default configuration with more cards and "Chúc bạn may mắn"
           setConfig({
             cards: [
               { id: 1, reward: '100 điểm' },
               { id: 2, reward: '50 điểm' },
               { id: 3, reward: 'Thử lại' },
+              { id: 4, reward: '200 điểm' },
+              { id: 5, reward: 'Chúc bạn may mắn' },
+              { id: 6, reward: '300 điểm' },
+              { id: 7, reward: '50 điểm' },
+              { id: 8, reward: 'Thử lại' },
+              { id: 9, reward: 'Chúc bạn may mắn' },
+              { id: 10, reward: '150 điểm' },
             ],
-            maxScratch: 3,
+            maxScratch: 5,
           });
         }
         setError(null);
@@ -64,11 +86,18 @@ const ScratchCardGame = () => {
     loadGameEvent();
   }, [gameTypeId]);
 
-  const handleScratch = (cardId) => {
+  const handleScratch = (cardId, reward) => {
     if (!config || scratchCount >= config.maxScratch || scratchedCards.includes(cardId)) return;
 
     setScratchedCards([...scratchedCards, cardId]);
     setScratchCount(scratchCount + 1);
+
+    // Trigger fireworks for rewards containing "điểm"
+    if (reward.includes('điểm')) {
+      setShowFireworks(true);
+      setFireworkTrigger((prev) => prev + 1); // Increment to trigger new animation
+      setTimeout(() => setShowFireworks(false), 3000); // Stop after 3 seconds
+    }
   };
 
   if (loading) {
@@ -101,7 +130,7 @@ const ScratchCardGame = () => {
               styles.card,
               scratchedCards.includes(card.id) ? styles.cardScratched : styles.cardCovered,
             ]}
-            onPress={() => handleScratch(card.id)}
+            onPress={() => handleScratch(card.id, card.reward)}
             disabled={scratchCount >= maxScratch || scratchedCards.includes(card.id)}
           >
             <Text style={styles.cardText}>
@@ -113,6 +142,20 @@ const ScratchCardGame = () => {
       <Text style={styles.scratchCount}>
         Lượt cào còn lại: {maxScratch - scratchCount}
       </Text>
+      {showFireworks && ConfettiCannon ? (
+        <ConfettiCannon
+          key={fireworkTrigger} // Ensure new animation per scratch
+          count={100}
+          origin={{ x: width / 2, y: -10 }}
+          autoStart={true}
+          fadeOut={true}
+          useNativeDriver={true}
+        />
+      ) : (
+        showFireworks && (
+          <Text style={styles.fallbackFireworks}>🎉 Chúc mừng! 🎉</Text>
+        )
+      )}
     </View>
   );
 };
@@ -134,11 +177,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'center',
+    gap: 10,
   },
   card: {
-    width: 100,
+    width: (width - 60) / 3, // 3 cards per row
     height: 100,
-    margin: 10,
+    margin: 5,
     borderRadius: 8,
     justifyContent: 'center',
     alignItems: 'center',
@@ -172,6 +216,13 @@ const styles = StyleSheet.create({
     color: '#ff4444',
     textAlign: 'center',
     marginTop: 20,
+  },
+  fallbackFireworks: {
+    fontSize: 18,
+    color: '#FFD700',
+    marginTop: 10,
+    fontWeight: 'bold',
+    textAlign: 'center',
   },
 });
 

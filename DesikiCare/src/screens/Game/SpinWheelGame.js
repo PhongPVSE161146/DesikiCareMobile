@@ -12,6 +12,7 @@ import {
 import { useRoute } from '@react-navigation/native';
 import { fetchGameEvents } from '../../config/axios/MiniGame/minigameService';
 import { Easing } from 'react-native';
+import Svg, { Path, Text as SvgText } from 'react-native-svg';
 
 const SpinWheelGame = () => {
   const route = useRoute();
@@ -20,11 +21,21 @@ const SpinWheelGame = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const spinAnimation = useRef(new Animated.Value(0)).current;
+  const buttonScale = useRef(new Animated.Value(1)).current;
+  const fireworksAnimations = useRef(
+    Array(8) // Increased number of fireworks
+      .fill()
+      .map(() => ({
+        opacity: new Animated.Value(0),
+        scale: new Animated.Value(0),
+        translateX: new Animated.Value(0),
+        translateY: new Animated.Value(0),
+      }))
+  ).current;
   const totalRotation = useRef(0);
   const [isSpinning, setIsSpinning] = useState(false);
   const [spinCount, setSpinCount] = useState(0);
   const [result, setResult] = useState(null);
-  const [resultHistory, setResultHistory] = useState([]);
 
   useEffect(() => {
     const loadGameEvent = async () => {
@@ -44,21 +55,20 @@ const SpinWheelGame = () => {
 
         if (event && event.gameEvent?.configJson) {
           const { sectors, maxSpin } = event.gameEvent.configJson;
-          if (Array.isArray(sectors) && sectors.length > 0 && maxSpin > 0) {
+          if (Array.isArray(sectors) && sectors.length === 4 && maxSpin > 0) {
             setConfig(event.gameEvent.configJson);
           } else {
-            throw new Error('Cấu hình trò chơi không hợp lệ');
+            throw new Error('Cấu hình trò chơi không hợp lệ, yêu cầu 4 ô');
           }
         } else {
-          // Fallback config
           setConfig({
             sectors: [
-              { label: '100 điểm', color: '#FF6F61', text: '#FFF' },
-              { label: '50 điểm', color: '#6B7280', text: '#FFF' },
-              { label: 'Thử lại', color: '#FBBF24', text: '#000' },
-              { label: '200 điểm', color: '#34D399', text: '#000' },
+              { label: 'Beatriz', color: '#DC3545', text: '#FFF' },
+              { label: 'Diya', color: '#28A745', text: '#000' },
+              { label: 'Charles', color: '#FFC107', text: '#000' },
+              { label: 'Prize', color: '#007BFF', text: '#FFF' },
             ],
-            maxSpin: 3,
+            maxSpin: 10,
           });
         }
         setError(null);
@@ -73,39 +83,101 @@ const SpinWheelGame = () => {
     loadGameEvent();
   }, [gameTypeId]);
 
+  useEffect(() => {
+    if (!isSpinning && spinCount < (config?.maxSpin || 3)) {
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(buttonScale, {
+            toValue: 1.1,
+            duration: 500,
+            useNativeDriver: true,
+          }),
+          Animated.timing(buttonScale, {
+            toValue: 1,
+            duration: 500,
+            useNativeDriver: true,
+          }),
+        ])
+      ).start();
+    }
+  }, [isSpinning, spinCount, config]);
+
+  useEffect(() => {
+    if (result) {
+      fireworksAnimations.forEach((anim, index) => {
+        const angle = (index * 2 * Math.PI) / fireworksAnimations.length;
+        const distance = 150; // Increased distance for larger spread
+        Animated.parallel([
+          Animated.sequence([
+            Animated.timing(anim.opacity, {
+              toValue: 1,
+              duration: 400,
+              useNativeDriver: true,
+            }),
+            Animated.timing(anim.opacity, {
+              toValue: 0,
+              duration: 800,
+              useNativeDriver: true,
+            }),
+          ]),
+          Animated.timing(anim.scale, {
+            toValue: 1.5, // Increased scale for larger fireworks
+            duration: 1200,
+            easing: Easing.out(Easing.cubic),
+            useNativeDriver: true,
+          }),
+          Animated.timing(anim.translateX, {
+            toValue: distance * Math.cos(angle),
+            duration: 1200,
+            easing: Easing.out(Easing.cubic),
+            useNativeDriver: true,
+          }),
+          Animated.timing(anim.translateY, {
+            toValue: distance * Math.sin(angle),
+            duration: 1200,
+            easing: Easing.out(Easing.cubic),
+            useNativeDriver: true,
+          }),
+        ]).start(() => {
+          anim.scale.setValue(0);
+          anim.translateX.setValue(0);
+          anim.translateY.setValue(0);
+        });
+      });
+    }
+  }, [result]);
+
   const spin = () => {
     if (isSpinning || spinCount >= (config?.maxSpin || 3)) return;
 
     const sectors = config?.sectors || [];
-    const randomIndex = Math.floor(Math.random() * sectors.length);
-    const degreesPerSector = 360 / sectors.length;
-    const extraRotation =
-      360 * 5 + (360 - randomIndex * degreesPerSector - degreesPerSector / 2);
+    const randomIndex = Math.floor(Math.random() * 4);
+    const degreesPerSector = 360 / 4; // 90 degrees
+    // Calculate target rotation to land in the middle of the selected sector
+    const targetAngle = randomIndex * degreesPerSector + degreesPerSector / 2;
+    const extraRotations = 360 * 5; // 5 full rotations
+    const finalRotation = extraRotations + targetAngle;
 
-    totalRotation.current += extraRotation;
+    totalRotation.current = finalRotation;
 
     setIsSpinning(true);
     setResult(null);
 
     Animated.timing(spinAnimation, {
-      toValue: totalRotation.current,
+      toValue: finalRotation,
       duration: 4000,
       useNativeDriver: true,
       easing: Easing.out(Easing.cubic),
     }).start(() => {
-      const normalizedRotation = totalRotation.current % 360;
-      const index = Math.floor((360 - (normalizedRotation % 360)) / degreesPerSector);
-      const selectedIndex = index % sectors.length;
-
-      const selected = sectors[selectedIndex]?.label || 'Không xác định';
+      // Normalize rotation to 0-360 degrees
+      const normalizedRotation = finalRotation % 360;
+      // Calculate sector index (inverted due to clockwise rotation)
+      const index = Math.floor((360 - normalizedRotation + degreesPerSector / 2) / degreesPerSector) % 4;
+      const selected = sectors[index]?.label || 'Không xác định';
 
       setIsSpinning(false);
       setSpinCount((prev) => prev + 1);
       setResult(selected);
-      setResultHistory((prev) => [
-        ...prev,
-        { id: `${Date.now()}-${selected}`, value: selected },
-      ]);
     });
   };
 
@@ -120,48 +192,78 @@ const SpinWheelGame = () => {
   });
 
   const renderSector = (sector, index) => {
-    const rotate = (360 / (config?.sectors.length || 1)) * index;
-    const skewY = -(90 - 360 / (config?.sectors.length || 1));
+    const startAngle = (90 * index * Math.PI) / 180;
+    const endAngle = (90 * (index + 1) * Math.PI) / 180;
+    const radius = 170;
+    const centerX = 170;
+    const centerY = 170;
+
+    const startX = centerX + radius * Math.cos(startAngle);
+    const startY = centerY + radius * Math.sin(startAngle);
+    const endX = centerX + radius * Math.cos(endAngle);
+    const endY = centerY + radius * Math.sin(endAngle);
+
+    const largeArcFlag = 90 <= 180 ? 0 : 1;
+    const path = `
+      M ${centerX} ${centerY}
+      L ${startX} ${startY}
+      A ${radius} ${radius} 0 ${largeArcFlag} 1 ${endX} ${endY}
+      Z
+    `;
+
+    const textAngle = startAngle + 45 * (Math.PI / 180);
+    const textRadius = radius * 0.6;
+    const textX = centerX + textRadius * Math.cos(textAngle);
+    const textY = centerY + textRadius * Math.sin(textAngle);
+
     return (
-      <View
-        key={index}
-        style={[
-          styles.sector,
-          {
-            transform: [{ rotate: `${rotate}deg` }, { skewY: `${skewY}deg` }],
-            backgroundColor: sector.color,
-          },
-        ]}
-      >
-        <Text
-          style={[
-            styles.sectorText,
-            {
-              transform: [
-                { skewY: `${-skewY}deg` },
-                { rotate: `${360 / (config?.sectors.length || 1) / 2}deg` },
-              ],
-              color: sector.text,
-            },
-          ]}
+      <Svg key={index}>
+        <Path d={path} fill={sector.color} stroke="#FFF" strokeWidth={1} />
+        <SvgText
+          x={textX}
+          y={textY}
+          fill={sector.text}
+          fontSize={12}
+          fontWeight="bold"
+          textAnchor="middle"
+          transform={`rotate(${90 * index + 45}, ${textX}, ${textY})`}
         >
           {sector.label}
-        </Text>
-      </View>
+        </SvgText>
+      </Svg>
     );
   };
 
-  // Render loading state
+  const renderFireworks = () => {
+    return fireworksAnimations.map((anim, index) => (
+      <Animated.View
+        key={index}
+        style={[
+          styles.fireworks,
+          {
+            opacity: anim.opacity,
+            transform: [
+              { scale: anim.scale },
+              { translateX: anim.translateX },
+              { translateY: anim.translateY },
+            ],
+          },
+        ]}
+      >
+       <Text style={styles.fireworksText}>✨</Text>
+      </Animated.View>
+    ));
+  };
+
   if (loading) {
     return (
       <View style={styles.container}>
-        <ActivityIndicator size="large" color="#4CAF50" />
-        <Text style={styles.loadingText}>Đang tải...</Text>
+        <ActivityIndicator size="large" color="#DC3545" />
+        <Text style={styles.loadingText}>Đang tải vòng quay...</Text>
       </View>
     );
   }
 
-  // Render error or no config state
   if (error || !config) {
     return (
       <View style={styles.container}>
@@ -170,9 +272,9 @@ const SpinWheelGame = () => {
     );
   }
 
-  // Main render
   return (
     <View style={styles.container}>
+      <Text style={styles.title}>Vòng Quay May Mắn</Text>
       <View style={styles.wheelContainer}>
         <Animated.View
           style={[
@@ -190,28 +292,28 @@ const SpinWheelGame = () => {
           ]}
           {...panResponder.panHandlers}
         >
-          {config.sectors.map(renderSector)}
+          <Svg width={340} height={340}>
+            {config.sectors.map(renderSector)}
+          </Svg>
+          <View style={styles.wheelBorder} />
         </Animated.View>
         <View style={styles.pointer} />
+        {result && renderFireworks()}
       </View>
-      <TouchableOpacity
-        style={[styles.spinButton, (isSpinning || spinCount >= config.maxSpin) && styles.disabledButton]}
-        onPress={spin}
-        disabled={isSpinning || spinCount >= config.maxSpin}
-      >
-        <Text style={styles.spinButtonText}>Quay Ngay</Text>
-      </TouchableOpacity>
+      <Animated.View style={[styles.spinButtonContainer, { transform: [{ scale: buttonScale }] }]}>
+        <TouchableOpacity
+          style={[styles.spinButton, (isSpinning || spinCount >= config.maxSpin) && styles.disabledButton]}
+          onPress={spin}
+          disabled={isSpinning || spinCount >= config.maxSpin}
+        >
+          <Text style={styles.spinButtonText}>QUAY NGAY</Text>
+        </TouchableOpacity>
+      </Animated.View>
       {result && (
         <View style={styles.result}>
           <Text style={styles.resultText}>
-            Kết quả vừa quay: <Text style={styles.resultHighlight}>{result}</Text>
+            Kết quả: <Text style={styles.resultHighlight}>{result}</Text>
           </Text>
-          <Text style={styles.historyTitle}>Lịch sử quay:</Text>
-          {resultHistory.map((item) => (
-            <Text key={item.id} style={styles.historyItem}>
-              Lượt {resultHistory.indexOf(item) + 1}: {item.value}
-            </Text>
-          ))}
         </View>
       )}
       <Text style={styles.spinCount}>
@@ -224,103 +326,126 @@ const SpinWheelGame = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#E0F7FA',
+    backgroundColor: '#FFF5E1',
     alignItems: 'center',
+    justifyContent: 'center',
     padding: 20,
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#DC3545',
+    marginBottom: 20,
+    textTransform: 'uppercase',
   },
   wheelContainer: {
     position: 'relative',
-    width: 300,
-    height: 300,
+    width: 349,
+    height: 340,
     justifyContent: 'center',
     alignItems: 'center',
+    marginVertical: 30,
   },
   wheel: {
-    width: 300,
-    height: 300,
-    borderRadius: 150,
+    width: 340,
+    height: 340,
+    borderRadius: 170,
     overflow: 'hidden',
-    position: 'absolute',
+    backgroundColor: '#FFF',
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 5 },
   },
-  sector: {
+  wheelBorder: {
     position: 'absolute',
-    width: 150,
-    height: 300,
-    left: 150,
-    top: 0,
-    transformOrigin: '0 150px',
-  },
-  sectorText: {
-    position: 'absolute',
-    top: 10,
-    left: 10,
-    fontSize: 16,
-    fontWeight: 'bold',
-    textAlign: 'center',
+    width: 340,
+    height: 340,
+    borderRadius: 170,
+    borderWidth: 5,
+    borderColor: '#FFC107',
   },
   pointer: {
     position: 'absolute',
-    top: -20,
+    top: -15,
     width: 0,
     height: 0,
-    borderLeftWidth: 10,
-    borderRightWidth: 10,
-    borderBottomWidth: 20,
+    borderLeftWidth: 15,
+    borderRightWidth: 15,
+    borderBottomWidth: 25,
     borderStyle: 'solid',
     borderLeftColor: 'transparent',
     borderRightColor: 'transparent',
-    borderBottomColor: '#FF0000',
+    borderBottomColor: '#DC3545',
+    zIndex: 10,
   },
-  spinButton: {
-    backgroundColor: '#4CAF50',
-    borderRadius: 8,
-    padding: 12,
+  spinButtonContainer: {
     marginTop: 20,
   },
+  spinButton: {
+    backgroundColor: '#DC3545',
+    borderRadius: 30,
+    paddingVertical: 16,
+    paddingHorizontal: 50,
+    elevation: 5,
+    borderWidth: 2,
+    borderColor: '#FFC107',
+  },
   disabledButton: {
-    backgroundColor: '#a5d6a7',
+    backgroundColor: '#FFCDD2',
+    borderColor: '#B0BEC5',
   },
   spinButtonText: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: '600',
+    color: '#FFF',
+    fontSize: 20,
+    fontWeight: 'bold',
+    textTransform: 'uppercase',
+    letterSpacing: 2,
   },
   result: {
     marginTop: 20,
     alignItems: 'center',
+    backgroundColor: '#FFF',
+    padding: 15,
+    borderRadius: 10,
+    elevation: 3,
   },
   resultText: {
-    fontSize: 16,
-    color: '#333',
+    fontSize: 18,
+    color: '#212121',
+    marginBottom: 10,
   },
   resultHighlight: {
     fontWeight: 'bold',
-    color: '#4CAF50',
-  },
-  historyTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginTop: 10,
-  },
-  historyItem: {
-    fontSize: 14,
-    color: '#666',
+    color: '#DC3545',
   },
   spinCount: {
     fontSize: 16,
-    color: '#333',
-    marginTop: 10,
+    color: '#DC3545',
+    marginTop: 20,
+    fontWeight: '600',
   },
   loadingText: {
-    fontSize: 16,
-    color: '#333',
+    fontSize: 18,
+    color: '#DC3545',
     marginTop: 10,
   },
   errorText: {
-    fontSize: 16,
-    color: '#ff4444',
+    fontSize: 18,
+    color: '#B71C1C',
     textAlign: 'center',
     marginTop: 20,
+  },
+  fireworks: {
+    position: 'absolute',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 50,
+  },
+  fireworksText: {
+    fontSize: 50, // Increased size for bigger fireworks
+    color: '#FFD700', // Changed to golden color for more vibrancy
   },
 });
 
