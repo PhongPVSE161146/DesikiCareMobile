@@ -38,9 +38,9 @@ const notifications = [
 
 // Hard-coded store location data in Vietnamese with coordinates for Google Maps
 const storeLocations = [
-  { id: '1', name: 'Cửa Hàng DesikiCare TP.HCM', address: '6B Trần Cao Vân, Đa Kao, Quận 1, Hồ Chí Minh 700000, Vietnam', phone: '0901234567', lat: 21.0153, lng: 105.8017 },
-  { id: '2', name: 'Cửa Hàng DesikiCare TP.HCM', address: 'VINCOM GRAND PARK 88, Nguyễn Xiển, Long Thạnh Mỹ, Thủ Đức, Hồ Chí Minh 70000, Vietnam', phone: '0917654321', lat: 10.8418, lng: 106.8115 },
-  { id: '3', name: 'Cửa Hàng DesikiCare TP.HCM', address: '6B Trần Cao Vân, Đa Kao, Quận 1, Hồ Chí Minh 700000, Vietnam', phone: '0936258147', lat: 10.7869, lng: 106.6992 },
+  { id: '1', name: 'Cửa Hàng DesikiCare TP.HCM', address: '6B Trần Cao Vân, Đa Kao, Quận 1, Hồ Chí Minh 700000, Vietnam', phone: '0901234567', lat: 10.785160368265332, lng: 106.69805416143762 }, 
+  { id: '2', name: 'Cửa Hàng DesikiCare TP.HCM', address: 'VINCOM GRAND PARK 88, Nguyễn Xiển, Long Thạnh Mỹ, Thủ Đức, Hồ Chí Minh 70000, Vietnam', phone: '0917654321', lat: 10.843333101144372, lng: 106.84249976723999 }, 
+  { id: '3', name: 'Cửa Hàng DesikiCare TP.HCM', address: '369 Nguyễn Văn Tăng, Long Thạnh Mỹ, Thủ Đức, Hồ Chí Minh 71300, Vietnam', phone: '0936258147', lat: 10.841207879370142, lng: 106.82554051482401 }, 
 ];
 // Hard-coded notification count
 const notificationCount = notifications.length;
