@@ -11,7 +11,7 @@ import HomeScreen from '../screens/Home/HomeScreen';
 import ProductDetailScreen from '../screens/Product/ProductDetailScreen';
 import CategoryScreen from '../screens/Category/CategoryScreen';
 import CartScreen from '../screens/Cart/CartScreen';
-import CheckoutScreen from '../screens/Cart/CheckoutScreen';
+
 import OrderHistory from '../screens/History/OrderHistory';
 import AccountScreen from '../screens/Profile/AccountScreen';
 import LoginScreen from '../screens/Auth/Login/LoginScreen';
@@ -43,7 +43,7 @@ function CartStack() {
   return (
     <Stack.Navigator>
       <Stack.Screen name="CartMain" component={CartScreen} options={{ headerShown: false }} />
-      <Stack.Screen name="Checkout" component={CheckoutScreen} />
+     
     </Stack.Navigator>
   );
 }

@@ -131,6 +131,7 @@ const HomeScreen = ({ navigation, route }) => {
         onDismiss={() => setNotification(null)}
       />
       <PromoCarousel />
+     
       <View style={styles.featureContainer}>
         {features.map((feature, index) => (
           <FeatureButton
@@ -145,10 +146,13 @@ const HomeScreen = ({ navigation, route }) => {
     </View>
   );
 
+
   return (
     <View style={styles.container}>
-      <Canvas ref={canvasRef} style={styles.canvas} />
+   
       <CustomHeader />
+      <Canvas ref={canvasRef} style={styles.canvas} />
+      
       <FlatList
         ListHeaderComponent={renderHeader}
         data={[]}
@@ -165,9 +169,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  // scrollContainer: {
-  //   paddingBottom: 20,
-  // },
+  scrollContainer: {
+    paddingBottom: 20,
+  },
   headerContainer: {
     position: 'relative',
     zIndex: 5, // Ensure header components are above FlatList but below canvas

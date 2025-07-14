@@ -1,13 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Image, StyleSheet, Switch } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, Image, StyleSheet, Animated, Easing } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useDispatch } from 'react-redux';
 import { login as reduxLogin } from '../../../redux/authSlice';
-import authService from '../../../config/axios/Auth/authService'; // Adjust the import path
-import Notification from '../../../components/Notification'; // Adjust the import path
+import authService from '../../../config/axios/Auth/authService';
+import Notification from '../../../components/Notification';
 import { Alert } from 'react-native';
 
-// Logo image (replace with your actual path)
+// Try core Switch first; if error persists, use the alternative import below
+import { Switch } from 'react-native';
+// Alternative: import Switch from '@react-native-community/react-native-switch';
+
+// Logo image
 const logoImage = require('../../../../assets/DesikiCare.jpg');
 
 const LoginScreen = ({ navigation, route }) => {
@@ -16,6 +20,9 @@ const LoginScreen = ({ navigation, route }) => {
   const [isRemember, setIsRemember] = useState(false);
   const [notification, setNotification] = useState(null);
   const [errors, setErrors] = useState({ email: '', password: '' });
+  const [isLoading, setIsLoading] = useState(false);
+  const [fadeAnim] = useState(new Animated.Value(1));
+  const [spinAnim] = useState(new Animated.Value(0));
   const dispatch = useDispatch();
 
   // Load saved credentials on mount
@@ -32,6 +39,7 @@ const LoginScreen = ({ navigation, route }) => {
         }
       } catch (error) {
         console.error('Error loading credentials:', error);
+        setNotification({ message: 'Lỗi khi tải thông tin đăng nhập.', type: 'error' });
       }
     };
     loadCredentials();
@@ -44,11 +52,26 @@ const LoginScreen = ({ navigation, route }) => {
     }
   }, [route.params?.notification]);
 
+  // Start spinner animation when loading
+  useEffect(() => {
+    if (isLoading) {
+      Animated.loop(
+        Animated.timing(spinAnim, {
+          toValue: 1,
+          duration: 1000,
+          easing: Easing.linear,
+          useNativeDriver: true,
+        })
+      ).start();
+    } else {
+      spinAnim.setValue(0);
+    }
+  }, [isLoading, spinAnim]);
+
   const validateForm = () => {
     const newErrors = { email: '', password: '' };
     let isValid = true;
 
-    // Validate email
     if (!email.trim()) {
       newErrors.email = 'Vui lòng nhập email.';
       isValid = false;
@@ -57,7 +80,6 @@ const LoginScreen = ({ navigation, route }) => {
       isValid = false;
     }
 
-    // Validate password
     if (!password) {
       newErrors.password = 'Vui lòng nhập mật khẩu.';
       isValid = false;
@@ -78,11 +100,12 @@ const LoginScreen = ({ navigation, route }) => {
       return;
     }
 
+    setIsLoading(true);
     try {
       const result = await authService.login(email.trim(), password);
-      console.log('Login result:', result); // Debugging login response
+      console.log('Login result:', result);
+
       if (result.success) {
-        // Save credentials if "Remember" is enabled
         if (isRemember) {
           try {
             await AsyncStorage.setItem('savedEmail', email.trim());
@@ -90,6 +113,7 @@ const LoginScreen = ({ navigation, route }) => {
             await AsyncStorage.setItem('isRemember', 'true');
           } catch (e) {
             console.error('Error saving credentials:', e);
+            setNotification({ message: 'Lỗi khi lưu thông tin đăng nhập.', type: 'error' });
           }
         } else {
           try {
@@ -102,44 +126,53 @@ const LoginScreen = ({ navigation, route }) => {
         }
 
         try {
-          // Dispatch Redux login action
           dispatch(reduxLogin(result.data));
           console.log('Dispatched reduxLogin with data:', result.data);
-          // Navigate to Main with notification
-          if (navigation && typeof navigation.reset === 'function') {
-           navigation.reset({
-  index: 0,
-  routes: [
-    {
-      name: 'Main',
-      params: {
-        screen: 'Home',
-        params: {
-          notification: {
-            message: 'Đăng nhập thành công!',
-            type: 'success',
-          },
-        },
-      },
-    },
-  ],
-});
 
-            console.log('Navigated to Main with Home tab and success notification');
-          } else {
-            console.error('Navigation object is invalid:', navigation);
-            setNotification({ message: 'Lỗi điều hướng. Vui lòng thử lại.', type: 'error' });
-          }
+          Animated.timing(fadeAnim, {
+            toValue: 0,
+            duration: 500,
+            useNativeDriver: true,
+          }).start(() => {
+            if (navigation && typeof navigation.reset === 'function') {
+              navigation.reset({
+                index: 0,
+                routes: [
+                  {
+                    name: 'Main',
+                    params: {
+                      screen: 'Home',
+                      params: {
+                        notification: {
+                          message: 'Đăng nhập thành công!',
+                          type: 'success',
+                        },
+                      },
+                    },
+                  },
+                ],
+              });
+              console.log('Navigated to Main with Home tab and success notification');
+            } else {
+              throw new Error('Invalid navigation object');
+            }
+          });
         } catch (dispatchError) {
           console.error('Dispatch or navigation error:', dispatchError);
           setNotification({ message: 'Lỗi khi đăng nhập. Vui lòng thử lại.', type: 'error' });
+          setIsLoading(false);
+          fadeAnim.setValue(1);
         }
       } else {
         setNotification({ message: result.message, type: 'error' });
+        setIsLoading(false);
+        fadeAnim.setValue(1);
       }
     } catch (error) {
       console.error('Login error:', error);
       setNotification({ message: 'Đã xảy ra lỗi không mong muốn.', type: 'error' });
+      setIsLoading(false);
+      fadeAnim.setValue(1);
     }
   };
 
@@ -147,67 +180,88 @@ const LoginScreen = ({ navigation, route }) => {
     Alert.alert('Thông tin', 'Chức năng đăng nhập Google sẽ được triển khai.');
   };
 
+  const spin = spinAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0deg', '360deg'],
+  });
+
   return (
     <View style={styles.container}>
-      <Notification
-        message={notification?.message}
-        type={notification?.type}
-        onDismiss={() => setNotification(null)}
-      />
-      <View style={styles.header}>
-        <Image source={logoImage} style={styles.logo} />
-        <Text style={styles.headerText}>Đăng Nhập</Text>
-      </View>
-      <View style={styles.formContainer}>
-        <View style={[styles.inputContainer, { borderColor: errors.email ? 'red' : '#B0BEC5' }]}>
-          <TextInput
-            style={styles.input}
-            placeholder="Email"
-            value={email}
-            onChangeText={setEmail}
-            keyboardType="email-address"
-            placeholderTextColor="#888"
-            autoCapitalize="none"
+      {isLoading ? (
+        <Animated.View style={[styles.loadingContainer, { opacity: fadeAnim }]}>
+          <Animated.View style={[styles.spinner, { transform: [{ rotate: spin }] }]}>
+            <View style={styles.spinnerDot} />
+            <View style={[styles.spinnerDot, styles.dot2]} />
+            <View style={[styles.spinnerDot, styles.dot3]} />
+            <View style={[styles.spinnerDot, styles.dot4]} />
+          </Animated.View>
+          <Text style={styles.loadingText}>Đang đăng nhập...</Text>
+        </Animated.View>
+      ) : (
+        <>
+          <Notification
+            message={notification?.message}
+            type={notification?.type}
+            onDismiss={() => setNotification(null)}
           />
-        </View>
-        {errors.email ? <Text style={styles.errorText}>{errors.email}</Text> : null}
-        <View style={[styles.inputContainer, { borderColor: errors.password ? 'red' : '#B0BEC5' }]}>
-          <TextInput
-            style={styles.input}
-            placeholder="Mật khẩu"
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry
-            placeholderTextColor="#888"
-          />
-        </View>
-        {errors.password ? <Text style={styles.errorText}>{errors.password}</Text> : null}
-        <View style={styles.rememberRow}>
-          <Switch
-            trackColor={{ false: '#ccc', true: '#4CAF50' }}
-            thumbColor={isRemember ? '#fff' : '#f4f3f4'}
-            onValueChange={setIsRemember}
-            value={isRemember}
-          />
-          <Text style={styles.rememberText}>Ghi nhớ</Text>
-          <TouchableOpacity onPress={() => navigation.navigate('ForgotPassword')}>
-            <Text style={styles.forgotText}>Quên mật khẩu?</Text>
-          </TouchableOpacity>
-        </View>
-        <TouchableOpacity style={styles.loginButton} onPress={handleLogin}>
-          <Text style={styles.loginButtonText}>Đăng nhập</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.googleButton} onPress={handleGoogleLogin}>
-          <Image
-            source={{ uri: 'https://img.icons8.com/color/48/000000/google-logo.png' }}
-            style={styles.googleIcon}
-          />
-          <Text style={styles.googleButtonText}>Đăng nhập với Google</Text>
-        </TouchableOpacity>
-        <TouchableOpacity onPress={() => navigation.navigate('Register')}>
-          <Text style={styles.linkText}>Chưa có tài khoản? Đăng ký</Text>
-        </TouchableOpacity>
-      </View>
+          <Animated.View style={[styles.contentContainer, { opacity: fadeAnim }]}>
+            <View style={styles.header}>
+              <Image source={logoImage} style={styles.logo} />
+              <Text style={styles.headerText}>Đăng Nhập</Text>
+            </View>
+            <View style={styles.formContainer}>
+              <View style={[styles.inputContainer, { borderColor: errors.email ? 'red' : '#B0BEC5' }]}>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Email"
+                  value={email}
+                  onChangeText={setEmail}
+                  keyboardType="email-address"
+                  placeholderTextColor="#888"
+                  autoCapitalize="none"
+                />
+              </View>
+              {errors.email ? <Text style={styles.errorText}>{errors.email}</Text> : null}
+              <View style={[styles.inputContainer, { borderColor: errors.password ? 'red' : '#B0BEC5' }]}>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Mật khẩu"
+                  value={password}
+                  onChangeText={setPassword}
+                  secureTextEntry
+                  placeholderTextColor="#888"
+                />
+              </View>
+              {errors.password ? <Text style={styles.errorText}>{errors.password}</Text> : null}
+              <View style={styles.rememberRow}>
+                <Switch
+                  trackColor={{ false: '#ccc', true: '#4CAF50' }}
+                  thumbColor={isRemember ? '#fff' : '#f4f3f4'}
+                  onValueChange={setIsRemember}
+                  value={isRemember}
+                />
+                <Text style={styles.rememberText}>Ghi nhớ</Text>
+                <TouchableOpacity onPress={() => navigation.navigate('ForgotPassword')}>
+                  <Text style={styles.forgotText}>Quên mật khẩu?</Text>
+                </TouchableOpacity>
+              </View>
+              <TouchableOpacity style={styles.loginButton} onPress={handleLogin}>
+                <Text style={styles.loginButtonText}>Đăng nhập</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.googleButton} onPress={handleGoogleLogin}>
+                <Image
+                  source={{ uri: 'https://img.icons8.com/color/48/000000/google-logo.png' }}
+                  style={styles.googleIcon}
+                />
+                <Text style={styles.googleButtonText}>Đăng nhập với Google</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => navigation.navigate('Register')}>
+                <Text style={styles.linkText}>Chưa có tài khoản? Đăng ký</Text>
+              </TouchableOpacity>
+            </View>
+          </Animated.View>
+        </>
+      )}
     </View>
   );
 };
@@ -218,6 +272,50 @@ const styles = StyleSheet.create({
     backgroundColor: '#E0F7FA',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#E0F7FA',
+  },
+  spinner: {
+    width: 60,
+    height: 60,
+    position: 'relative',
+  },
+  spinnerDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: '#007AFF',
+    position: 'absolute',
+    top: 24,
+    left: 24,
+  },
+  dot2: {
+    transform: [{ translateX: 20 }],
+    backgroundColor: '#34C759',
+  },
+  dot3: {
+    transform: [{ translateY: 20 }],
+    backgroundColor: '#FF9500',
+  },
+  dot4: {
+    transform: [{ translateX: -20 }],
+    backgroundColor: '#FF3B30',
+  },
+  loadingText: {
+    marginTop: 20,
+    fontSize: 18,
+    fontWeight: '500',
+    color: '#333',
+  },
+  contentContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
   },
   header: {
     alignItems: 'center',
@@ -272,9 +370,6 @@ const styles = StyleSheet.create({
   forgotText: {
     color: '#FF5722',
     marginLeft: 50,
-  },
-  forgotTextContainer: {
-    marginLeft: 'auto',
   },
   linkText: {
     color: '#4CAF50',

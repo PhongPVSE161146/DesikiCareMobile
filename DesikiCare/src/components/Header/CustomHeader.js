@@ -9,6 +9,7 @@ import {
   Modal,
   TouchableOpacity,
   FlatList,
+  Linking,
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -35,13 +36,12 @@ const notifications = [
   { id: '3', title: 'Nhắc Nhở', message: 'Hoàn thiện hồ sơ để nhận thưởng.', time: '2 Ngày Trước' },
 ];
 
-// Hard-coded store location data in Vietnamese (cosmetics stores in Vietnam)
+// Hard-coded store location data in Vietnamese with coordinates for Google Maps
 const storeLocations = [
-  { id: '1', name: 'Cửa Hàng DesikiCare Hà Nội', address: '123 Đường Láng, Hà Nội', phone: '0901234567' },
-  { id: '2', name: 'Cửa Hàng DesikiCare TP.HCM', address: '456 Lê Lợi, TP. Hồ Chí Minh', phone: '0917654321' },
-  { id: '3', name: 'Cửa Hàng DesikiCare Đà Nẵng', address: '789 Nguyễn Văn Linh, Đà Nẵng', phone: '0936258147' },
+  { id: '1', name: 'Cửa Hàng DesikiCare TP.HCM', address: '6B Trần Cao Vân, Đa Kao, Quận 1, Hồ Chí Minh 700000, Vietnam', phone: '0901234567', lat: 21.0153, lng: 105.8017 },
+  { id: '2', name: 'Cửa Hàng DesikiCare TP.HCM', address: 'VINCOM GRAND PARK 88, Nguyễn Xiển, Long Thạnh Mỹ, Thủ Đức, Hồ Chí Minh 70000, Vietnam', phone: '0917654321', lat: 10.8418, lng: 106.8115 },
+  { id: '3', name: 'Cửa Hàng DesikiCare TP.HCM', address: '6B Trần Cao Vân, Đa Kao, Quận 1, Hồ Chí Minh 700000, Vietnam', phone: '0936258147', lat: 10.7869, lng: 106.6992 },
 ];
-
 // Hard-coded notification count
 const notificationCount = notifications.length;
 
@@ -106,14 +106,32 @@ const NotificationModal = ({ visible, onClose }) => {
   );
 };
 
-// Location Modal Component
+// Location Modal Component with Google Maps Integration
 const LocationModal = ({ visible, onClose }) => {
+  const openGoogleMaps = (lat, lng, name) => {
+    const url = `https://www.google.com/maps/search/?api=1&query=${lat},${lng}&query_place_id=${encodeURIComponent(name)}`;
+    Linking.canOpenURL(url)
+      .then((supported) => {
+        if (supported) {
+          Linking.openURL(url);
+        } else {
+          console.log("Không thể mở Google Maps");
+        }
+      })
+      .catch((err) => console.error('Lỗi khi mở Google Maps:', err));
+  };
+
   const renderLocation = ({ item }) => (
-    <View style={styles.locationItem}>
+    <TouchableOpacity
+      onPress={() => openGoogleMaps(item.lat, item.lng, item.name)}
+      style={styles.locationItem}
+      accessibilityLabel={`Mở ${item.name} trên Google Maps`}
+      accessibilityRole="button"
+    >
       <Text style={styles.locationName}>{item.name}</Text>
       <Text style={styles.locationAddress}>{item.address}</Text>
       <Text style={styles.locationPhone}>{item.phone}</Text>
-    </View>
+    </TouchableOpacity>
   );
 
   return (
@@ -229,7 +247,6 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.white,
     borderRadius: 20,
     marginHorizontal: 10,
-    
   },
   searchIcon: {
     paddingHorizontal: 10,

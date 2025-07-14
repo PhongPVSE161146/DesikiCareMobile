@@ -147,38 +147,27 @@ export default function ProductList({ navigation }) {
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.headerTitle}>Tất cả sản phẩm</Text>
-      <FlatList
-        data={products}
-        keyExtractor={(item) => item._id.toString()}
-        numColumns={2}
-        columnWrapperStyle={{
-          justifyContent: 'space-between',
-          paddingHorizontal: 10,
-        }}
-        contentContainerStyle={{ paddingVertical: 10, paddingHorizontal: 5 }}
-        renderItem={renderProduct}
-        ListFooterComponent={renderFooter}
-        onEndReached={loadMoreProducts}
-        onEndReachedThreshold={0.2}
-      />
-    </View>
+
+    
+    <FlatList
+    
+      data={products}
+      keyExtractor={(item) => item._id.toString()}
+      numColumns={2}
+      columnWrapperStyle={{
+        justifyContent: 'space-between',
+        paddingHorizontal: 10,
+      }}
+      contentContainerStyle={{ paddingVertical: 10, paddingHorizontal: 5 }}
+      renderItem={renderProduct}
+      ListFooterComponent={renderFooter}
+      onEndReached={loadMoreProducts}
+      onEndReachedThreshold={0.2} // Adjusted to prevent premature triggering
+    />
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f5f5f5',
-  },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    textAlign: 'center',
-    marginVertical: 15,
-    color: '#333',
-  },
   card: {
     backgroundColor: '#fff',
     width: (screenWidth - 40) / 2,
