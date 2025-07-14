@@ -6,7 +6,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { View, StyleSheet, Platform } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { enableScreens } from 'react-native-screens';
-
+import GameEventDetailScreen from '../screens/Game/GameEventDetailScreen';
 import HomeScreen from '../screens/Home/HomeScreen';
 import ProductDetailScreen from '../screens/Product/ProductDetailScreen';
 import CategoryScreen from '../screens/Category/CategoryScreen';
@@ -26,6 +26,13 @@ import ConfirmPaymentScreen from '../screens/Payments/ConfirmPaymentScreen';
 import GameEventsScreen from '../screens/Game/GameEventsScreen';
 import RewardsScreen from '../screens/Game/RewardsScreen';
 enableScreens(true); // Enable native screens for better performance
+//Game import
+// import GameEventDetailScreen from '../screens/Game/GameEventDetailScreen';
+import FillBlankGame from '../screens/Game/FillBlankGame';
+import SpinWheelGame from '../screens/Game/SpinWheelGame';
+import ScratchCardGame from '../screens/Game/ScratchCardGame';
+import MatchPairGame from '../screens/Game/MatchPairGame';
+
 
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -212,7 +219,51 @@ const AppNavigator = () => {
           <Stack.Screen name="MiniGameTabs" component={MiniGame} />
           <Stack.Screen name="SupportScreen" component={SupportScreen} />
           <Stack.Screen name="PolicyScreen" component={PolicyScreen} />
-         
+          <Stack.Screen name="SpinWheelGame" component={SpinWheelGame}
+           options={{
+              headerShown: true,
+              title: 'Vòng quay may',
+              headerStyle: { backgroundColor: '#5dd36dff' },
+              headerTintColor: '#fff',
+              headerTitleStyle: { fontWeight: 'bold' },
+            }}
+            />
+          <Stack.Screen name="ScratchCardGame" component={ScratchCardGame}
+           options={{
+              headerShown: true,
+              title: 'Cào thẻ',
+              headerStyle: { backgroundColor: '#5dd36dff' },
+              headerTintColor: '#fff',
+              headerTitleStyle: { fontWeight: 'bold' },
+            }}
+            />
+          <Stack.Screen name="MatchPairGame" component={MatchPairGame}
+           options={{
+              headerShown: true,
+              title: 'Nối cặp',
+              headerStyle: { backgroundColor: '#5dd36dff' },
+              headerTintColor: '#fff',
+              headerTitleStyle: { fontWeight: 'bold' },
+            }}
+            />
+          <Stack.Screen name="FillBlankGame" component={FillBlankGame}
+           options={{
+              headerShown: true,
+              title: 'Điền từ',
+              headerStyle: { backgroundColor: '#5dd36dff' },
+              headerTintColor: '#fff',
+              headerTitleStyle: { fontWeight: 'bold' },
+            }}
+            />
+          <Stack.Screen name="GameEventDetail" component={GameEventDetailScreen}
+            options={{
+              headerShown: true,
+              title: 'Chi tiết sự kiện',
+              headerStyle: { backgroundColor: '#5dd36dff' },
+              headerTintColor: '#fff',
+              headerTitleStyle: { fontWeight: 'bold' },
+            }}
+           />
           <Stack.Screen
             name="Payment"
             component={Payment}

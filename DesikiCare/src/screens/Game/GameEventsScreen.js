@@ -1,124 +1,98 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Alert, FlatList } from 'react-native';
+import {
+  View,
+  Text,
+  FlatList,
+  TouchableOpacity,
+  StyleSheet,
+  ActivityIndicator,
+  Image,
+  Alert,
+} from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { fetchGameEvents, fetchGameTypes } from '../../config/axios/MiniGame/minigameService';
+import { fetchGameEvents } from '../../config/axios/MiniGame/minigameService'; // Adjust the path based on your project structure
 
 const GameEventsScreen = () => {
   const navigation = useNavigation();
   const [gameEvents, setGameEvents] = useState([]);
-  const [gameTypes, setGameTypes] = useState([]);
-  const [loadingEvents, setLoadingEvents] = useState(true);
-  const [loadingGameTypes, setLoadingGameTypes] = useState(false);
-  const [selectedGameType, setSelectedGameType] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
-    fetchGameEventsData();
-    fetchGameTypesData();
+    const loadGameEvents = async () => {
+      try {
+        setLoading(true);
+        const { gameEvents } = await fetchGameEvents();
+        setGameEvents(gameEvents);
+        setError(null);
+      } catch (err) {
+        setError(err.message);
+        Alert.alert('Lỗi', err.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadGameEvents();
   }, []);
 
-  const fetchGameEventsData = async () => {
-    try {
-      const events = await fetchGameEvents();
-      setGameEvents(events.gameEvents || []);
-      setLoadingEvents(false);
-    } catch (error) {
-      setLoadingEvents(false);
-      handleApiError(error, 'Không thể tải danh sách sự kiện game.');
-    }
+  const handleGamePress = (gameEvent) => {
+    // Navigate to GameEventDetailScreen with gameEventId
+    const { _id } = gameEvent.gameEvent;
+    navigation.navigate('GameEventDetail', { gameEventId: _id });
   };
 
-  const fetchGameTypesData = async () => {
-    setLoadingGameTypes(true);
-    try {
-      const types = await fetchGameTypes();
-      setGameTypes(types || []);
-      setLoadingGameTypes(false);
-    } catch (error) {
-      setLoadingGameTypes(false);
-      handleApiError(error, 'Không thể tải danh sách loại game.');
-    }
-  };
+  const renderGameEvent = ({ item }) => {
+    const { gameEvent, gameTypeImageUrls } = item;
+    const imageUrl = gameTypeImageUrls?.[0]?.imageUrl || gameEvent.imageUrl;
 
-  const handleApiError = (error, defaultMessage) => {
-    const errorMessage = error.message || defaultMessage;
-    if (errorMessage.includes('401') || errorMessage.includes('Unauthorized')) {
-      Alert.alert('Lỗi', 'Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại.', [
-        { text: 'OK', onPress: () => navigation.navigate('Login') },
-      ]);
-    } else {
-      Alert.alert('Lỗi', errorMessage);
-    }
-  };
-
-  const filteredEvents = selectedGameType
-    ? gameEvents.filter(event => event.gameEvent.gameTypeId === selectedGameType)
-    : gameEvents;
-
-  const renderGameEvent = ({ item }) => (
-    <TouchableOpacity
-      style={styles.eventCard}
-      onPress={() => navigation.navigate('GameEventDetail', { gameEventId: item.gameEvent._id })}
-    >
-      <Text style={styles.eventTitle}>{item.gameEvent.eventName || 'Không có tên'}</Text>
-      <Text style={styles.eventDescription}>{item.gameEvent.description || 'Không có mô tả'}</Text>
-      <Text style={styles.eventType}>Loại game: {item.gameEvent.gameTypeName}</Text>
-      <Text style={styles.eventDate}>
-        Từ: {new Date(item.gameEvent.startDate).toLocaleDateString()} - Đến: {new Date(item.gameEvent.endDate).toLocaleDateString()}
-      </Text>
-      <Text style={styles.eventPoints}>Điểm thưởng: {item.gameEvent.balancePoints || 0}</Text>
-      {item.gameEventRewardResults?.length > 0 && (
-        <Text style={styles.eventRewards}>
-          Phần thưởng: {item.gameEventRewardResults[0].gameEventRewardResult.points || 0} điểm
-        </Text>
-      )}
-    </TouchableOpacity>
-  );
-
-  const renderGameTypeFilter = () => (
-    <View style={styles.filterContainer}>
-      <TouchableOpacity
-        style={[styles.filterButton, !selectedGameType && styles.filterButtonActive]}
-        onPress={() => setSelectedGameType(null)}
-      >
-        <Text style={styles.filterButtonText}>Tất cả</Text>
+    return (
+      <TouchableOpacity style={styles.gameCard} onPress={() => handleGamePress(item)}>
+        {imageUrl ? (
+          <Image source={{ uri: imageUrl }} style={styles.gameImage} />
+        ) : (
+          <View style={[styles.gameImage, styles.placeholderImage]}>
+            <Text style={styles.placeholderText}>No Image</Text>
+          </View>
+        )}
+        <View style={styles.gameInfo}>
+          <Text style={styles.gameTitle}>{gameEvent.eventName}</Text>
+          <Text style={styles.gameType}>{gameEvent.gameTypeName}</Text>
+          <Text style={styles.gameDescription} numberOfLines={2}>
+            {gameEvent.description}
+          </Text>
+          <Text style={styles.gameDate}>
+            Từ {new Date(gameEvent.startDate).toLocaleDateString('vi-VN')} đến{' '}
+            {new Date(gameEvent.endDate).toLocaleDateString('vi-VN')}
+          </Text>
+          {gameEvent.isDeactivated && (
+            <Text style={styles.deactivatedText}>Sự kiện đã bị hủy</Text>
+          )}
+        </View>
       </TouchableOpacity>
-      {gameTypes.map(type => (
-        <TouchableOpacity
-          key={type.id}
-          style={[styles.filterButton, selectedGameType === type.id && styles.filterButtonActive]}
-          onPress={() => setSelectedGameType(type.id)}
-        >
-          <Text style={styles.filterButtonText}>{type.name || GAME_TYPES[type.id]}</Text>
-        </TouchableOpacity>
-      ))}
-    </View>
-  );
+    );
+  };
 
   return (
     <SafeAreaView style={styles.safeContainer} edges={['top']}>
       <View style={styles.container}>
         <View style={styles.header}>
-     
           <Text style={styles.headerTitle}>Sự Kiện</Text>
         </View>
         <View style={styles.content}>
-          <Text style={styles.title}>Danh Sách Sự Kiện</Text>
-          {loadingGameTypes ? (
-            <Text style={styles.loadingText}>Đang tải loại game...</Text>
-          ) : (
-            renderGameTypeFilter()
-          )}
-          {loadingEvents ? (
-            <Text style={styles.loadingText}>Đang tải sự kiện...</Text>
+          {loading ? (
+            <ActivityIndicator size="large" color="#4CAF50" />
+          ) : error ? (
+            <Text style={styles.errorText}>{error}</Text>
+          ) : gameEvents.length === 0 ? (
+            <Text style={styles.emptyText}>Không có sự kiện trò chơi nào.</Text>
           ) : (
             <FlatList
-              data={filteredEvents}
+              data={gameEvents}
               renderItem={renderGameEvent}
-              keyExtractor={(item) => item.gameEvent._id || Math.random().toString()}
-              ListEmptyComponent={<Text style={styles.noEvents}>Không có sự kiện nào.</Text>}
-              style={styles.eventList}
+              keyExtractor={(item) => item.gameEvent._id}
+              contentContainerStyle={styles.listContainer}
             />
           )}
         </View>
@@ -148,11 +122,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 4,
   },
-  backButton: {
-    marginRight: 15,
-    padding: 8,
-  },
- headerTitle: {
+  headerTitle: {
     fontSize: 20,
     fontWeight: '600',
     color: '#fff',
@@ -161,88 +131,75 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    backgroundColor: '#E0F7FA',
     padding: 20,
   },
-  title: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#333',
-    marginBottom: 20,
-    textAlign: 'center',
+  listContainer: {
+    paddingBottom: 20,
   },
-  filterContainer: {
+  
+  gameCard: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
-    marginBottom: 10,
-  },
-  filterButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 15,
-    borderRadius: 5,
-    margin: 5,
-    backgroundColor: '#f0f0f0',
-  },
-  filterButtonActive: {
-    backgroundColor: '#4CAF50',
-  },
-  filterButtonText: {
-    fontSize: 14,
-    color: '#333',
-    fontWeight: '500',
-  },
-  eventList: {
-    width: '100%',
-    marginTop: 20,
-  },
-  eventCard: {
     backgroundColor: '#fff',
     borderRadius: 10,
-    padding: 15,
-    marginBottom: 10,
+    marginBottom: 15,
     elevation: 2,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.2,
     shadowRadius: 2,
+    overflow: 'hidden',
   },
-  eventTitle: {
+  gameImage: {
+    width: 100,
+    height: 100,
+    borderTopLeftRadius: 10,
+    borderBottomLeftRadius: 10,
+  },
+  placeholderImage: {
+    backgroundColor: '#ccc',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  placeholderText: {
+    color: '#666',
+    fontSize: 14,
+  },
+  gameInfo: {
+    flex: 1,
+    padding: 10,
+  },
+  gameTitle: {
     fontSize: 18,
     fontWeight: '600',
     color: '#333',
   },
-  eventDescription: {
-    fontSize: 14,
-    color: '#666',
-    marginVertical: 5,
-  },
-  eventType: {
+  gameType: {
     fontSize: 14,
     color: '#4CAF50',
-    fontWeight: '600',
+    marginBottom: 5,
   },
-  eventDate: {
+  gameDescription: {
     fontSize: 14,
+    color: '#666',
+    marginBottom: 5,
+  },
+  gameDate: {
+    fontSize: 12,
     color: '#888',
   },
-  eventPoints: {
-    fontSize: 14,
-    color: '#4CAF50',
+  deactivatedText: {
+    fontSize: 12,
+    color: '#ff4444',
     fontWeight: '600',
+    marginTop: 5,
   },
-  eventRewards: {
-    fontSize: 14,
-    color: '#4CAF50',
-    fontWeight: '600',
-  },
-  loadingText: {
+  errorText: {
     fontSize: 16,
-    color: '#666',
-    marginTop: 20,
+    color: '#ff4444',
     textAlign: 'center',
+    marginTop: 20,
   },
-  noEvents: {
+  emptyText: {
     fontSize: 16,
     color: '#666',
     textAlign: 'center',
