@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
   View,
   Text,
@@ -8,9 +8,10 @@ import {
   FlatList,
   ActivityIndicator,
   Alert,
+  TextInput,
 } from 'react-native';
 import { useSelector, useDispatch } from 'react-redux';
-import { removeFromCart, updateCartItemQuantity, applyDiscount, setCartItems } from '../../redux/cartSlice';
+import { removeFromCart, updateCartItemQuantity, applyPoints, setCartItems } from '../../redux/cartSlice';
 import orderService from '../../config/axios/Order/orderService';
 import { useFocusEffect } from '@react-navigation/native';
 
@@ -28,33 +29,57 @@ const predefinedCategories = [
 
 const CartScreen = ({ navigation }) => {
   const cartItems = useSelector(state => state.cart.items) || [];
-  const discount = useSelector(state => state.cart.discount) || null;
+  const pointsApplied = useSelector(state => state.cart.points) || 0;
   const dispatch = useDispatch();
-  const [discountCode, setDiscountCode] = React.useState('');
-  const [loading, setLoading] = React.useState(true);
-  const [error, setError] = React.useState('');
+  const [pointsInput, setPointsInput] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   const fetchCart = useCallback(async () => {
     setLoading(true);
     setError('');
     try {
       const result = await orderService.getCart();
-      if (result.success && Array.isArray(result.data.cartItems)) {
-        const mappedItems = result.data.cartItems.map(({ cartItem, product }) => ({
-          id: cartItem._id && typeof cartItem._id === 'string' ? cartItem._id : `temp-${Math.random().toString(36).substr(2, 9)}`,
-          title: product.name && typeof product.name === 'string' ? product.name : 'Sản phẩm không tên',
-          price: typeof product.salePrice === 'number' ? product.salePrice : 0,
-          quantity: typeof cartItem.quantity === 'number' && cartItem.quantity > 0 ? cartItem.quantity : 1,
-          image: product.imageUrl && typeof product.imageUrl === 'string' ? product.imageUrl : 'https://via.placeholder.com/100x100.png?text=No+Image',
-          categoryId: typeof product.categoryId === 'number' ? product.categoryId.toString() : '0',
+      console.log('Fetched cart result:', JSON.stringify(result, null, 2)); // Debugging full response
+      let cartItems = [];
+      if (result.success) {
+        if (Array.isArray(result.data?.cartItems)) {
+          cartItems = result.data.cartItems.map(({ cartItem, product }) => ({
+            _id: cartItem._id,
+            quantity: cartItem.quantity,
+            product: {
+              name: product.name,
+              salePrice: product.salePrice,
+              imageUrl: product.imageUrl,
+              categoryId: product.categoryId,
+            },
+          }));
+        } else if (Array.isArray(result.data?.items)) {
+          cartItems = result.data.items;
+        } else if (Array.isArray(result.data?.cart?.items)) {
+          cartItems = result.data.cart.items;
+        } else {
+          setError('Dữ liệu giỏ hàng không đúng định dạng.');
+          return;
+        }
+        const mappedItems = cartItems.map(item => ({
+          id: item._id && typeof item._id === 'string' ? item._id : `temp-${Math.random().toString(36).substr(2, 9)}`,
+          title: item.product?.name && typeof item.product.name === 'string' ? item.product.name : 'Sản phẩm không tên',
+          price: typeof item.product?.salePrice === 'number' ? item.product.salePrice : 0,
+          quantity: typeof item.quantity === 'number' && item.quantity > 0 ? item.quantity : 1,
+          image: item.product?.imageUrl && typeof item.product.imageUrl === 'string' && item.product.imageUrl.startsWith('http') 
+            ? item.product.imageUrl 
+            : 'https://placehold.co/100x100?text=No+Image',
+          categoryId: typeof item.product?.categoryId === 'number' ? item.product.categoryId.toString() : '0',
         }));
+        console.log('Mapped cart items:', JSON.stringify(mappedItems, null, 2)); // Debugging mapped items
         dispatch(setCartItems(mappedItems));
       } else {
         setError(result.message || 'Không thể tải giỏ hàng.');
       }
     } catch (e) {
-      console.error('Fetch cart error:', e.message);
-      setError('Lỗi kết nối. Vui lòng thử lại.');
+      console.error('Fetch cart error:', e.message, e.response?.data);
+      setError(e.response?.data?.message || e.message || 'Lỗi kết nối. Vui lòng thử lại.');
     } finally {
       setLoading(false);
     }
@@ -92,7 +117,7 @@ const CartScreen = ({ navigation }) => {
               }
             }
           } catch (error) {
-            console.error('Remove item error:', error.message);
+            console.error('Remove item error:', error.message, error.response?.data);
             Alert.alert('Lỗi', 'Có lỗi xảy ra khi xóa sản phẩm. Vui lòng thử lại.');
           }
         },
@@ -105,14 +130,12 @@ const CartScreen = ({ navigation }) => {
       Alert.alert('Lỗi', 'Không thể cập nhật số lượng cho sản phẩm với ID tạm thời.');
       return;
     }
-    if (newQuantity < 1) {
-      Alert.alert('Lỗi', 'Số lượng phải lớn hơn hoặc bằng 1.');
-      return;
-    }
+    const quantity = Math.max(1, newQuantity);
     try {
-      const result = await orderService.updateCartItemQuantity(id, newQuantity);
+      console.log('Updating cart item:', { id, quantity });
+      const result = await orderService.updateCartItemQuantity(id, quantity);
       if (result.success) {
-        dispatch(updateCartItemQuantity({ id, quantity: newQuantity }));
+        dispatch(updateCartItemQuantity({ id, quantity }));
         Alert.alert('Thành công', 'Số lượng đã được cập nhật.');
       } else {
         if (result.message === 'No token found. Please log in.') {
@@ -124,14 +147,48 @@ const CartScreen = ({ navigation }) => {
         }
       }
     } catch (error) {
-      console.error('Update quantity error:', error.message);
-      Alert.alert('Lỗi', 'Có lỗi xảy ra khi cập nhật số lượng. Vui lòng thử lại.');
+      console.error('Update quantity error:', error.response?.status, error.response?.data);
+      Alert.alert('Lỗi', `Có lỗi khi cập nhật số lượng: ${error.message}`);
+    }
+  };
+
+  const handleApplyPoints = async () => {
+    const points = parseInt(pointsInput, 10);
+    if (isNaN(points) || points <= 0) {
+      Alert.alert('Lỗi', 'Vui lòng nhập số điểm hợp lệ (lớn hơn 0).');
+      return;
+    }
+    const subtotal = cartItems.reduce((sum, item) => sum + (item.price || 0) * (item.quantity || 1), 0);
+    const maxPoints = Math.floor(subtotal / 1000); // 1 point = 1000 VND
+    if (points > maxPoints) {
+      Alert.alert('Lỗi', `Bạn chỉ có thể sử dụng tối đa ${maxPoints} điểm cho đơn hàng này.`);
+      return;
+    }
+    try {
+      const result = await orderService.applyPoints(points);
+      if (result.success) {
+        dispatch(applyPoints(points));
+        Alert.alert('Thành công', `Đã áp dụng ${points} điểm (giảm ${points * 1000} đ).`);
+        setPointsInput('');
+      } else {
+        Alert.alert('Lỗi', result.message || 'Không thể áp dụng điểm.');
+      }
+    } catch (error) {
+      console.error('Apply points error:', error.message, error.response?.data);
+      Alert.alert('Lỗi', 'Có lỗi xảy ra khi áp dụng điểm. Vui lòng thử lại.');
     }
   };
 
   const calculateTotal = () => {
     const subtotal = cartItems.reduce((sum, item) => sum + (item.price || 0) * (item.quantity || 1), 0);
-    return discount && discount.amount ? subtotal * (1 - discount.amount) : subtotal;
+    const discount = pointsApplied * 1000; // 1 point = 1000 VND
+    const shippingFee = subtotal > 500000 ? 0 : 30000; // Free shipping if subtotal > 500,000 VND
+    return {
+      subtotal,
+      discount,
+      shippingFee,
+      total: Math.max(0, subtotal - discount + shippingFee),
+    };
   };
 
   const getCategoryName = (categoryId) => {
@@ -163,7 +220,7 @@ const CartScreen = ({ navigation }) => {
     return (
       <View style={styles.centered}>
         <Image
-          source={{ uri: 'https://media.istockphoto.com/id/1306977523/vi/anh/giỏ-hàng-bị-cô-lập-trên-nền-trắng.jpg?s=1024x1024&w=is&k=20&c=zIab22_ExyGuEiSrti1QsVR3ZygxEQcHYVVXmx2ClcM=' }}
+          source={{ uri: 'https://placehold.co/100x100?text=No+Image' }}
           style={styles.icon}
           resizeMode="contain"
         />
@@ -182,9 +239,16 @@ const CartScreen = ({ navigation }) => {
     );
   }
 
+  const { subtotal, discount, shippingFee, total } = calculateTotal();
+
   const renderCartItem = ({ item }) => (
     <View style={styles.cartItem}>
-      <Image source={{ uri: item.image }} style={styles.cartItemImage} resizeMode="contain" />
+      <Image
+        source={{ uri: item.image || 'https://placehold.co/100x100?text=No+Image' }}
+        style={styles.cartItemImage}
+        resizeMode="contain"
+        onError={(e) => console.log(`Failed to load image for ${item.title}: ${item.image}, error: ${e.nativeEvent.error}, using fallback: https://placehold.co/100x100?text=No+Image`)}
+      />
       <View style={styles.cartItemDetails}>
         <Text style={styles.cartItemName} numberOfLines={2}>{item.title}</Text>
         <Text style={styles.cartItemCategory}>Danh mục: {getCategoryName(item.categoryId)}</Text>
@@ -193,8 +257,9 @@ const CartScreen = ({ navigation }) => {
           <TouchableOpacity
             style={styles.quantityButton}
             onPress={() => handleQuantityChange(item.id, (item.quantity || 1) - 1)}
+            disabled={item.quantity <= 1}
           >
-            <Text style={styles.quantityButtonText}>−</Text>
+            <Text style={[styles.quantityButtonText, item.quantity <= 1 && { color: '#ccc' }]}>−</Text>
           </TouchableOpacity>
           <Text style={styles.quantityText}>{item.quantity || 1}</Text>
           <TouchableOpacity
@@ -219,11 +284,40 @@ const CartScreen = ({ navigation }) => {
         keyExtractor={(item) => item.id.toString()}
         contentContainerStyle={styles.cartList}
       />
+      <View style={styles.pointsContainer}>
+        <TextInput
+          style={styles.pointsInput}
+          value={pointsInput}
+          onChangeText={setPointsInput}
+          placeholder="Nhập số điểm"
+          keyboardType="numeric"
+        />
+        <TouchableOpacity style={styles.applyPointsButton} onPress={handleApplyPoints}>
+          <Text style={styles.applyPointsButtonText}>Áp dụng điểm</Text>
+        </TouchableOpacity>
+      </View>
       <View style={styles.totalContainer}>
-        <Text style={styles.totalText}>
-          Tổng: {calculateTotal().toLocaleString('vi-VN')} đ
-          {discount && <Text style={styles.discountApplied}> (Đã áp dụng {discount.code})</Text>}
-        </Text>
+        <View style={styles.totalRow}>
+          <Text style={styles.totalLabel}>Tạm tính:</Text>
+          <Text style={styles.totalValue}>{subtotal.toLocaleString('vi-VN')} đ</Text>
+        </View>
+        {discount > 0 && (
+          <View style={styles.totalRow}>
+            <Text style={styles.discountLabel}>Giảm giá ({pointsApplied} điểm):</Text>
+            <Text style={styles.discountValue}>-{discount.toLocaleString('vi-VN')} đ</Text>
+          </View>
+        )}
+        <View style={styles.totalRow}>
+          <Text style={styles.totalLabel}>Phí vận chuyển:</Text>
+          <Text style={styles.totalValue}>
+            {shippingFee.toLocaleString('vi-VN')} đ
+            {shippingFee === 0 && <Text style={styles.discountLabel}> (Miễn phí cho đơn hàng trên 500,000 đ)</Text>}
+          </Text>
+        </View>
+        <View style={[styles.totalRow, styles.totalFinalRow]}>
+          <Text style={styles.totalFinalLabel}>Tổng cộng:</Text>
+          <Text style={styles.totalFinalValue}>{total.toLocaleString('vi-VN')} đ</Text>
+        </View>
       </View>
       <TouchableOpacity style={styles.checkoutButton} onPress={() => navigation.navigate('Payment')}>
         <Text style={styles.checkoutButtonText}>Tiến hành đặt hàng</Text>
@@ -241,9 +335,9 @@ const styles = StyleSheet.create({
   buttonText: { color: '#fff', fontWeight: 'bold', fontSize: 14 },
   cartList: { paddingVertical: 10 },
   cartItem: { flexDirection: 'row', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#eee', alignItems: 'center' },
-  cartItemImage: { width: 80, height: 80, marginRight: 10, borderRadius: 5 },
+  cartItemImage: { width: 80, height: 80, marginRight: 10, borderRadius: 5, backgroundColor: '#f5f5f5' },
   cartItemDetails: { flex: 1, justifyContent: 'center' },
-  cartItemName: { fontSize: 16, color: '#333', marginBottom: 5 },
+  cartItemName: { fontSize: 16, color: '#333', marginBottom: 5, fontWeight: '600' },
   cartItemCategory: { fontSize: 14, color: '#666', marginBottom: 5 },
   cartItemPrice: { fontSize: 16, color: '#E53935', fontWeight: 'bold', marginBottom: 5 },
   quantityContainer: { flexDirection: 'row', alignItems: 'center' },
@@ -252,13 +346,60 @@ const styles = StyleSheet.create({
   quantityText: { fontSize: 16, color: '#333', marginHorizontal: 10, width: 30, textAlign: 'center' },
   removeButton: { padding: 5, backgroundColor: '#f5f5f5', borderRadius: 4 },
   removeButtonText: { fontSize: 14, color: '#E53935', fontWeight: 'bold' },
-  discountContainer: { flexDirection: 'row', marginVertical: 10 },
-  discountInput: { flex: 1, borderWidth: 1, borderColor: '#ddd', borderRadius: 5, padding: 10, marginRight: 10, fontSize: 16 },
-  applyDiscountButton: { backgroundColor: '#E53935', paddingVertical: 10, paddingHorizontal: 20, borderRadius: 5, justifyContent: 'center' },
-  applyDiscountButtonText: { color: '#fff', fontWeight: 'bold', fontSize: 14 },
-  totalContainer: { marginVertical: 10, alignItems: 'flex-end' },
-  totalText: { fontSize: 18, fontWeight: 'bold', color: '#333' },
-  discountApplied: { fontSize: 14, color: '#E53935' },
+  pointsContainer: { flexDirection: 'row', marginVertical: 10 },
+  pointsInput: { flex: 1, borderWidth: 1, borderColor: '#ddd', borderRadius: 5, padding: 10, marginRight: 10, fontSize: 16 },
+  applyPointsButton: { backgroundColor: '#E53935', paddingVertical: 10, paddingHorizontal: 20, borderRadius: 5, justifyContent: 'center' },
+  applyPointsButtonText: { color: '#fff', fontWeight: 'bold', fontSize: 14 },
+  totalContainer: { 
+    marginVertical: 15, 
+    padding: 15, 
+    backgroundColor: '#f9f9f9', 
+    borderRadius: 8, 
+    borderWidth: 1, 
+    borderColor: '#ddd',
+  },
+  totalRow: { 
+    flexDirection: 'row', 
+    justifyContent: 'space-between', 
+    alignItems: 'center', 
+    marginBottom: 8 
+  },
+  totalFinalRow: { 
+    marginTop: 10, 
+    paddingTop: 10, 
+    borderTopWidth: 1, 
+    borderTopColor: '#ddd' 
+  },
+  totalLabel: { 
+    fontSize: 16, 
+    color: '#333', 
+    fontWeight: '500' 
+  },
+  totalValue: { 
+    fontSize: 16, 
+    color: '#333', 
+    fontWeight: '600' 
+  },
+  discountLabel: { 
+    fontSize: 14, 
+    color: '#E53935', 
+    fontWeight: '500' 
+  },
+  discountValue: { 
+    fontSize: 14, 
+    color: '#E53935', 
+    fontWeight: '600' 
+  },
+  totalFinalLabel: { 
+    fontSize: 18, 
+    color: '#333', 
+    fontWeight: '700' 
+  },
+  totalFinalValue: { 
+    fontSize: 18, 
+    color: '#E53935', 
+    fontWeight: '700' 
+  },
   checkoutButton: { backgroundColor: '#E53935', paddingVertical: 15, borderRadius: 5, alignItems: 'center', marginVertical: 10 },
   checkoutButtonText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
 });

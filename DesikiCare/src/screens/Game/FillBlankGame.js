@@ -12,7 +12,6 @@ import {
 } from 'react-native';
 import ConfettiCannon from 'react-native-confetti-cannon';
 import * as Haptics from 'expo-haptics';
-import { Audio } from 'expo-av';
 
 const { width } = Dimensions.get('window');
 
@@ -38,7 +37,6 @@ const FillBlankGame = () => {
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [isCorrect, setIsCorrect] = useState(false);
   const [snowflakes, setSnowflakes] = useState([]);
-  const [sound, setSound] = useState(null);
   const confettiRef = useRef(null);
 
   useEffect(() => {
@@ -55,21 +53,7 @@ const FillBlankGame = () => {
     });
     setSnowflakes(flakes);
 
-    // Nhạc nền
-    const playMusic = async () => {
-      const { sound } = await Audio.Sound.createAsync(
-        require('../../assets/sounds/Nơi Này Có Anh - Sơn Tùng M-TP.mp3'), // Đặt file đúng chỗ này!
-        { isLooping: true, volume: 0.2 }
-      );
-      setSound(sound);
-      await sound.playAsync();
-    };
-
-    playMusic();
-
-    return () => {
-      sound?.unloadAsync();
-    };
+    // No audio cleanup needed since audio is removed
   }, []);
 
   const currentQuestion = questions[currentIndex];

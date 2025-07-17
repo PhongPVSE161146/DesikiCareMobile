@@ -19,7 +19,34 @@ const axiosInstance = axios.create({
 });
 
 const paymentService = {
-  getPaymentLink: async (orderData, metaData) => {
+  // API 1: Lấy liên kết thanh toán cho đơn hàng có sẵn
+  getOrderPaymentLink: async (orderId, metaData) => {
+    try {
+      const userToken = await getUserToken();
+      const response = await axiosInstance.post(
+        `/orders/${orderId}/getPaymentLink`,
+        {
+          metaData: {
+            cancelUrl: metaData.cancelUrl,
+            returnUrl: metaData.returnUrl,
+          },
+        },
+        {
+          headers: { Authorization: `Bearer ${userToken}` },
+        }
+      );
+
+      return response.status === 200
+        ? { success: true, data: response.data } // Trả về { paymentLink: "string" }
+        : { success: false, message: response.data.message || 'Failed to generate payment link for order' };
+    } catch (error) {
+      console.error('Get order payment link error:', error.message);
+      return { success: false, message: error.message || 'Network error. Please try again.' };
+    }
+  },
+
+  // API 2: Lấy liên kết thanh toán cho giỏ hàng đang hoạt động
+  getCartPaymentLink: async (orderData, metaData) => {
     try {
       const userToken = await getUserToken();
       const response = await axiosInstance.post(
@@ -40,33 +67,21 @@ const paymentService = {
       );
 
       return response.status === 200
-        ? { success: true, data: response.data }
-        : { success: false, message: response.data.message || 'Failed to generate payment link' };
+        ? { success: true, data: response.data } // Trả về { paymentLink: "string" }
+        : { success: false, message: response.data.message || 'Failed to generate payment link for cart' };
     } catch (error) {
-      console.error('Get payment link error:', error.message);
+      console.error('Get cart payment link error:', error.message);
       return { success: false, message: error.message || 'Network error. Please try again.' };
     }
   },
 
-  confirmPayment: async (orderData, metaData) => {
+  // API 3: Xác nhận thanh toán
+  confirmPayment: async (paymentData) => {
     try {
       const userToken = await getUserToken();
       const response = await axiosInstance.post(
         '/confirmPayment',
-        {
-          order: {
-            fullName: orderData.fullName,
-            phone: orderData.phone,
-            address: orderData.address,
-            note: orderData.note || '',
-            paymentMethod: orderData.paymentMethod,
-            cartItems: orderData.cartItems || [],
-          },
-          metaData: {
-            cancelUrl: metaData.cancelUrl,
-            returnUrl: metaData.returnUrl,
-          },
-        },
+        paymentData,
         {
           headers: { Authorization: `Bearer ${userToken}` },
         }
@@ -75,12 +90,12 @@ const paymentService = {
       return response.status === 200
         ? {
             success: response.data.success,
+            message: response.data.message || 'Payment confirmed successfully',
             data: response.data.data,
-            message: response.data.desc || 'Payment confirmed successfully',
             code: response.data.code,
             signature: response.data.signature,
           }
-        : { success: false, message: response.data.desc || 'Failed to confirm payment' };
+        : { success: false, message: response.data.message || 'Failed to confirm payment' };
     } catch (error) {
       console.error('Confirm payment error:', error.message);
       return { success: false, message: error.message || 'Network error. Please try again.' };

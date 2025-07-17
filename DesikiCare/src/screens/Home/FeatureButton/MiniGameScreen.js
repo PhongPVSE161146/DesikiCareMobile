@@ -32,16 +32,21 @@ const MiniGameScreen = () => {
       try {
         setLoading(true);
         const response = await fetchGameTypes();
-        // Handle case where response structure might differ
-        const gameTypesData = response.gameTypes || response.data || response;
+        console.log('fetchGameTypes response:', JSON.stringify(response, null, 2)); // Log for debugging
+        const gameTypesData = response.gameTypes || response.data || response || [];
+        if (!Array.isArray(gameTypesData)) {
+          throw new Error('Invalid game types response');
+        }
         const mappedGameTypes = gameTypesData.map(type => ({
           ...type,
-          displayName: GAME_TYPES[type._id] || type.name || 'Không xác định',
+          _id: String(type._id), // Ensure _id is a string
+          displayName: GAME_TYPES[String(type._id)] || type.name || 'Không xác định',
         }));
         setGameTypes(mappedGameTypes);
         setError(null);
       } catch (err) {
         const errorMessage = err.message || 'Không thể tải danh sách trò chơi';
+        console.error('Error loading game types:', err);
         setError(errorMessage);
         Alert.alert('Lỗi', errorMessage);
       } finally {
@@ -55,8 +60,7 @@ const MiniGameScreen = () => {
     const { _id } = gameType;
     let screenName;
 
-    // Use string comparison for _id
-    switch (_id.toString()) {
+    switch (_id) {
       case '1':
         screenName = 'SpinWheelGame';
         break;
@@ -105,7 +109,7 @@ const MiniGameScreen = () => {
             <FlatList
               data={gameTypes}
               renderItem={renderGameType}
-              keyExtractor={(item) => item._id.toString()}
+              keyExtractor={(item) => item._id}
               contentContainerStyle={styles.listContainer}
             />
           )}

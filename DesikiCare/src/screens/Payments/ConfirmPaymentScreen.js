@@ -1,10 +1,39 @@
-import React from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import { Card } from 'react-native-elements';
+import paymentService from '../../config/axios/Payments/paymentService'; // Adjust the import path as necessary
 
 const ConfirmPaymentScreen = ({ route, navigation }) => {
   const { paymentData } = route.params || {};
-  const { data, code, desc, success, signature } = paymentData || {};
+  const [isLoading, setIsLoading] = useState(true);
+  const [confirmedData, setConfirmedData] = useState(null);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    const confirmPayment = async () => {
+      if (!paymentData) {
+        setError('Không có dữ liệu thanh toán.');
+        setIsLoading(false);
+        return;
+      }
+
+      try {
+        setIsLoading(true);
+        const response = await paymentService.confirmPayment(paymentData);
+        if (response.success) {
+          setConfirmedData(response);
+        } else {
+          setError(response.message || 'Không thể xác nhận thanh toán.');
+        }
+      } catch (err) {
+        setError(err.message || 'Có lỗi xảy ra khi xác nhận thanh toán.');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    confirmPayment();
+  }, [paymentData]);
 
   const formatDateTime = (dateTimeString) => {
     if (!dateTimeString) return 'N/A';
@@ -18,15 +47,41 @@ const ConfirmPaymentScreen = ({ route, navigation }) => {
     });
   };
 
+  if (isLoading) {
+    return (
+      <View style={styles.container}>
+        <ActivityIndicator size="large" color="#f06292" />
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <ScrollView style={styles.container}>
+        <Text style={styles.title}>Xác nhận thanh toán thất bại</Text>
+        <Card containerStyle={styles.card}>
+          <Text style={styles.errorText}>{error}</Text>
+          <TouchableOpacity
+            onPress={() => navigation.navigate('Home')}
+            style={styles.submitButton}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.submitButtonText}>Quay về trang chủ</Text>
+          </TouchableOpacity>
+        </Card>
+      </ScrollView>
+    );
+  }
+
+  const { data, code, desc, success, signature } = confirmedData || {};
+
   return (
     <ScrollView style={styles.container}>
       <Text style={styles.title}>
         {success ? 'Xác nhận thanh toán thành công' : 'Xác nhận thanh toán thất bại'}
       </Text>
-
       <Card containerStyle={styles.card}>
         <Text style={styles.cardTitle}>Chi tiết thanh toán</Text>
-
         <View style={styles.detailItem}>
           <Text style={styles.detailLabel}>Mã trạng thái:</Text>
           <Text style={styles.detailValue}>{code || 'N/A'}</Text>
@@ -46,54 +101,9 @@ const ConfirmPaymentScreen = ({ route, navigation }) => {
           </Text>
         </View>
         <View style={styles.detailItem}>
-          <Text style={styles.detailLabel}>Mô tả đơn hàng:</Text>
-          <Text style={styles.detailValue}>{data?.description || 'N/A'}</Text>
-        </View>
-        <View style={styles.detailItem}>
-          <Text style={styles.detailLabel}>Số tài khoản:</Text>
-          <Text style={styles.detailValue}>{data?.accountNumber || 'N/A'}</Text>
-        </View>
-        <View style={styles.detailItem}>
-          <Text style={styles.detailLabel}>Mã tham chiếu:</Text>
-          <Text style={styles.detailValue}>{data?.reference || 'N/A'}</Text>
-        </View>
-        <View style={styles.detailItem}>
           <Text style={styles.detailLabel}>Thời gian giao dịch:</Text>
           <Text style={styles.detailValue}>{formatDateTime(data?.transactionDateTime)}</Text>
         </View>
-        <View style={styles.detailItem}>
-          <Text style={styles.detailLabel}>Mã liên kết thanh toán:</Text>
-          <Text style={styles.detailValue}>{data?.paymentLinkId || 'N/A'}</Text>
-        </View>
-        <View style={styles.detailItem}>
-          <Text style={styles.detailLabel}>Mã ngân hàng:</Text>
-          <Text style={styles.detailValue}>{data?.counterAccountBankId || 'N/A'}</Text>
-        </View>
-        <View style={styles.detailItem}>
-          <Text style={styles.detailLabel}>Tên ngân hàng:</Text>
-          <Text style={styles.detailValue}>{data?.counterAccountBankName || 'N/A'}</Text>
-        </View>
-        <View style={styles.detailItem}>
-          <Text style={styles.detailLabel}>Tên tài khoản đối tác:</Text>
-          <Text style={styles.detailValue}>{data?.counterAccountName || 'N/A'}</Text>
-        </View>
-        <View style={styles.detailItem}>
-          <Text style={styles.detailLabel}>Số tài khoản đối tác:</Text>
-          <Text style={styles.detailValue}>{data?.counterAccountNumber || 'N/A'}</Text>
-        </View>
-        <View style={styles.detailItem}>
-          <Text style={styles.detailLabel}>Tên tài khoản ảo:</Text>
-          <Text style={styles.detailValue}>{data?.virtualAccountName || 'N/A'}</Text>
-        </View>
-        <View style={styles.detailItem}>
-          <Text style={styles.detailLabel}>Số tài khoản ảo:</Text>
-          <Text style={styles.detailValue}>{data?.virtualAccountNumber || 'N/A'}</Text>
-        </View>
-        <View style={styles.detailItem}>
-          <Text style={styles.detailLabel}>Chữ ký:</Text>
-          <Text style={styles.detailValue}>{signature || 'N/A'}</Text>
-        </View>
-
         <TouchableOpacity
           onPress={() => navigation.navigate('Home')}
           style={styles.submitButton}
@@ -114,7 +124,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 24,
-    fontWeight: 'bold',
+    fontWeight: '700',
     textAlign: 'center',
     marginBottom: 24,
     color: '#333',
@@ -123,11 +133,11 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     marginBottom: 24,
     padding: 16,
-    elevation: 2,
+    elevation: 4,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.04,
-    shadowRadius: 10,
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
     backgroundColor: '#fff',
   },
   cardTitle: {
@@ -139,13 +149,13 @@ const styles = StyleSheet.create({
   detailItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingVertical: 6,
+    paddingVertical: 8,
     marginBottom: 8,
   },
   detailLabel: {
     fontSize: 15,
-    color: '#333',
     fontWeight: '500',
+    color: '#333',
   },
   detailValue: {
     fontSize: 15,
@@ -156,15 +166,21 @@ const styles = StyleSheet.create({
   submitButton: {
     backgroundColor: '#f06292',
     borderRadius: 8,
-    paddingVertical: 12,
+    paddingVertical: 14,
     alignItems: 'center',
     marginTop: 24,
-    height: 45,
+    height: 48,
   },
   submitButtonText: {
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
+  },
+  errorText: {
+    fontSize: 16,
+    color: '#d32f2f',
+    textAlign: 'center',
+    marginBottom: 16,
   },
 });
 

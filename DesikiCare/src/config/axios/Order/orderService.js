@@ -56,7 +56,7 @@ const orderService = {
   updateCartItemQuantity: async (cartItemId, quantity) => {
     try {
       const userToken = await getUserToken();
-      const response = await axiosInstance.patch(`/cartItems/${cartItemId}`, { quantity }, {
+      const response = await axiosInstance.put(`/cartItems/${cartItemId}`, { quantity }, {
         headers: { Authorization: `Bearer ${userToken}` },
       });
 

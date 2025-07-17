@@ -1,6 +1,7 @@
 
 import * as React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
+import { HeaderBackButton } from '@react-navigation/elements';
 import { createStackNavigator } from '@react-navigation/stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { View, StyleSheet, Platform } from 'react-native';
@@ -11,7 +12,7 @@ import HomeScreen from '../screens/Home/HomeScreen';
 import ProductDetailScreen from '../screens/Product/ProductDetailScreen';
 import CategoryScreen from '../screens/Category/CategoryScreen';
 import CartScreen from '../screens/Cart/CartScreen';
-
+import DeliveryAddressScreen from '../screens/Profile/DeliveryAddressScreen';
 import OrderHistory from '../screens/History/OrderHistory';
 import AccountScreen from '../screens/Profile/AccountScreen';
 import LoginScreen from '../screens/Auth/Login/LoginScreen';
@@ -41,7 +42,7 @@ function HomeStack() {
   return (
     <Stack.Navigator>
       <Stack.Screen name="HomeMain" component={HomeScreen} options={{ headerShown: false }} />
-      <Stack.Screen name="ProductDetail" component={ProductDetailScreen} />
+      
     </Stack.Navigator>
   );
 }
@@ -148,7 +149,7 @@ function MainTabs() {
               <View
                 style={{
                   backgroundColor: '#ffe6ec',
-                  padding: 8, // Tighter padding for bubble
+                  padding: 2, // Tighter padding for bubble
                   borderRadius: 20, // Smaller radius for bubble
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -191,17 +192,17 @@ function MainTabs() {
         }}
       />
       <Tab.Screen
-        name="PaidOrderHistory"
-        component={OrderHistory}
-        options={{
-          title: 'Đơn Hàng',
-          headerShown: true,
-          headerStyle: {
-            backgroundColor: 'red',
-          },
-          headerTintColor: '#fff',
-        }}
-      />
+  name="PaidOrderHistory"
+  component={OrderHistory}
+  options={{
+    title: 'Đơn Hàng',
+    headerShown: true,
+    headerStyle: {
+      backgroundColor: 'red',
+    },
+    headerTintColor: '#fff',
+  }}
+/>
       <Tab.Screen name="Account" component={AccountScreen} options={{ title: 'Tài khoản' }} />
     </Tab.Navigator>
   );
@@ -213,6 +214,23 @@ const AppNavigator = () => {
       <NavigationContainer>
         <Stack.Navigator screenOptions={{ headerShown: false }}>
           <Stack.Screen name="Main" component={MainTabs} />
+        <Stack.Screen
+  name="ProductDetail"
+  component={ProductDetailScreen}
+  options={({ navigation }) => ({
+    headerShown: true,
+    title: 'Chi tiết sản phẩm',
+    headerStyle: { backgroundColor: '#5dd36dff' },
+    headerTintColor: '#fff',
+    headerTitleStyle: { fontWeight: 'bold' },
+    headerLeft: () => (
+      <HeaderBackButton
+        onPress={() => navigation.goBack()}
+        tintColor="#fff"
+      />
+    ),
+  })}
+/>
           <Stack.Screen name="Login" component={LoginScreen} />
           <Stack.Screen name="Register" component={RegisterScreen} />
           <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
@@ -276,6 +294,23 @@ const AppNavigator = () => {
             }}
           />
           <Stack.Screen name="ConfirmPayment" component={ConfirmPaymentScreen} />
+     <Stack.Screen
+  name="DeliveryAddress"
+  component={DeliveryAddressScreen}
+  options={({ navigation }) => ({
+    headerShown: true,
+    title: 'Địa chỉ giao hàng',
+    headerStyle: { backgroundColor: '#fa7ca6' },
+    headerTintColor: '#fff',
+    headerTitleStyle: { fontWeight: 'bold' },
+    headerLeft: () => (
+      <HeaderBackButton
+        onPress={() => navigation.goBack()}
+        tintColor="#fff"
+      />
+    ),
+  })}
+/>
         </Stack.Navigator>
       </NavigationContainer>
     </View>
