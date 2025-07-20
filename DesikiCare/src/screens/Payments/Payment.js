@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
@@ -118,7 +117,8 @@ const Payment = ({ route, navigation }) => {
       try {
         await fetchProvinces();
         const response = await profileService.getDeliveryAddresses();
-        if (response.success) {
+        console.log('getDeliveryAddresses Response:', JSON.stringify(response, null, 2));
+        if (response.success && response.data?.length > 0) {
           const mappedAddresses = await Promise.all(
             response.data.map(async (address) => {
               const { province, district, ward } = await mapCodeToName(
@@ -135,7 +135,6 @@ const Payment = ({ route, navigation }) => {
             })
           );
           setAddresses(mappedAddresses);
-          // Set default address if available
           const defaultAddress = mappedAddresses.find((addr) => addr.isDefault);
           if (defaultAddress && formikRef.current) {
             formikRef.current.setValues({
@@ -144,13 +143,24 @@ const Payment = ({ route, navigation }) => {
               fullName: defaultAddress.receiverName,
               phone: defaultAddress.receiverPhone,
             });
+          } else {
+            setNotification({
+              message: 'Không có địa chỉ mặc định. Vui lòng chọn hoặc thêm địa chỉ.',
+              type: 'error',
+            });
+            setShowAddressModal(true);
           }
         } else {
-          setNotification({ message: response.message || 'Không thể tải danh sách địa chỉ.', type: 'error' });
+          setNotification({
+            message: 'Không có địa chỉ giao hàng. Vui lòng thêm địa chỉ mới.',
+            type: 'error',
+          });
+          setShowAddressModal(true);
         }
       } catch (error) {
         console.error('Lỗi tải địa chỉ:', error);
-        setNotification({ message: 'Không thể tải danh sách địa chỉ.', type: 'error' });
+        setNotification({ message: 'Không thể tải danh sách địa chỉ: ' + error.message, type: 'error' });
+        setShowAddressModal(true);
       } finally {
         setIsLoading(false);
       }
@@ -186,9 +196,9 @@ const Payment = ({ route, navigation }) => {
       const response = await orderService.post(
         'https://api.vietqr.io/v2/generate',
         {
-          accountNo: '113366668888', // Default account number (Vietcombank)
+          accountNo: '113366668888',
           accountName: 'YOUR_ACCOUNT_NAME',
-          acqId: '970415', // Vietcombank BIN
+          acqId: '970415',
           amount: amount.toString(),
           addInfo: orderId,
           template: 'compact',
@@ -215,6 +225,12 @@ const Payment = ({ route, navigation }) => {
       return;
     }
 
+    if (!values.addressId || !addresses.find((addr) => addr._id === values.addressId)) {
+      setNotification({ message: 'Vui lòng chọn một địa chỉ giao hàng hợp lệ.', type: 'error' });
+      setShowAddressModal(true);
+      return;
+    }
+
     const metaData = {
       cancelUrl: CANCEL_URL,
       returnUrl: `${RETURN_URL}?orderId=${orderId}`,
@@ -223,8 +239,9 @@ const Payment = ({ route, navigation }) => {
     try {
       setIsLoading(true);
       const formattedCartItems = cartItems.map((item) => ({
-        id: item.id,
+        productId: item.id,
         quantity: item.quantity,
+        price: item.price,
       }));
 
       const totalAmount = cartItems.reduce((total, item) => total + item.price * item.quantity, 0) + 30000;
@@ -235,25 +252,57 @@ const Payment = ({ route, navigation }) => {
         cartItems: formattedCartItems,
         paymentMethod: values.paymentMethod,
         totalAmount,
+        note: values.note || '',
       };
+
+      console.log('Order Payload (flat):', JSON.stringify(orderPayload, null, 2));
 
       if (values.paymentMethod === 'cod') {
         const orderResponse = await orderService.createOrder(orderPayload);
         if (orderResponse.success) {
-          navigation.navigate('ConfirmPaymentScreen', { paymentData: orderResponse });
+          const payload = {
+            code: '00',
+            desc: 'Xác nhận đơn hàng COD thành công',
+            success: true,
+            data: {
+              orderCode: orderId,
+              amount: totalAmount,
+              description: 'Thanh toán khi nhận hàng (COD)',
+              accountNumber: '',
+              reference: '',
+              transactionDateTime: new Date().toISOString(),
+              currency: 'VND',
+              paymentLinkId: '',
+              code: '00',
+              desc: 'Xác nhận đơn hàng COD',
+              counterAccountBankId: '',
+              counterAccountBankName: '',
+              counterAccountName: '',
+              counterAccountNumber: '',
+              virtualAccountName: '',
+              virtualAccountNumber: '',
+            },
+            signature: 'cod_signature',
+          };
+          const confirmResponse = await orderService.post('/api/Order/confirmPayment', payload);
+          if (confirmResponse.success) {
+            navigation.navigate('ConfirmPaymentScreen', { paymentData: confirmResponse });
+          } else {
+            setNotification({ message: confirmResponse.message || 'Không thể xác nhận thanh toán COD.', type: 'error' });
+          }
         } else {
           setNotification({ message: orderResponse.message || 'Không thể tạo đơn hàng.', type: 'error' });
         }
       } else if (values.paymentMethod === 'qr') {
         const qrUrl = await generateQR(totalAmount);
         if (qrUrl) {
-          setQrImageUrl(qrUrl);
+          setQrString(qrUrl);
           setShowQRModal(true);
         } else {
           setNotification({ message: 'Không thể tạo mã QR.', type: 'error' });
         }
       } else if (values.paymentMethod === 'momo') {
-        const paymentResult = await paymentService.getCartPaymentLink(orderPayload, metaData);
+        const paymentResult = await paymentService.getCartPaymentLink({ order: orderPayload }, metaData);
         if (paymentResult.success && paymentResult.data?.paymentLink) {
           setPaymentLink(paymentResult.data.paymentLink);
           setShowWebView(true);
@@ -262,8 +311,8 @@ const Payment = ({ route, navigation }) => {
         }
       }
     } catch (error) {
-      console.error('Payment error:', error.message);
-      setNotification({ message: 'Có lỗi xảy ra: ' + error.message, type: 'error' });
+      console.error('Payment error:', error.message, error.response?.data);
+      setNotification({ message: 'Có lỗi xảy ra: ' + (error.response?.data?.message || error.message), type: 'error' });
     } finally {
       setIsLoading(false);
       setSubmitting(false);
@@ -274,19 +323,22 @@ const Payment = ({ route, navigation }) => {
   const handleConfirmQRPayment = async () => {
     try {
       setIsLoading(true);
+      const totalAmount = cartItems.reduce((total, item) => total + item.price * item.quantity, 0) + 30000;
       const payload = {
         code: '00',
         desc: 'Thanh toán QR thành công',
         success: true,
         data: {
           orderCode: orderId,
-          amount: cartItems.reduce((total, item) => total + item.price * item.quantity, 0) + 30000,
+          amount: totalAmount,
           description: 'Thanh toán qua QR',
-          transactionDateTime: new Date().toISOString(),
-          currency: 'VND',
           accountNumber: '113366668888',
           reference: '',
+          transactionDateTime: new Date().toISOString(),
+          currency: 'VND',
           paymentLinkId: '',
+          code: '00',
+          desc: 'Thanh toán QR thành công',
           counterAccountBankId: '970415',
           counterAccountBankName: 'Vietcombank',
           counterAccountName: '',
@@ -296,7 +348,7 @@ const Payment = ({ route, navigation }) => {
         },
         signature: 'qr_signature',
       };
-      const response = await paymentService.confirmPayment(payload);
+      const response = await orderService.post('/api/Order/confirmPayment', payload);
       if (response.success) {
         setShowQRModal(false);
         navigation.navigate('ConfirmPaymentScreen', { paymentData: response });
@@ -316,19 +368,22 @@ const Payment = ({ route, navigation }) => {
     if (navState.url.includes('myapp://payment/success')) {
       const urlObj = new URL(navState.url);
       const params = Object.fromEntries(urlObj.searchParams);
+      const totalAmount = cartItems.reduce((total, item) => total + item.price * item.quantity, 0) + 30000;
       const payload = {
         code: '00',
         desc: 'Thanh toán thành công',
         success: true,
         data: {
           orderCode: params.orderId || orderId,
-          amount: cartItems.reduce((total, item) => total + item.price * item.quantity, 0) + 30000,
+          amount: totalAmount,
           description: 'Thanh toán qua MoMo',
+          accountNumber: '',
+          reference: params.transId || '',
           transactionDateTime: new Date().toISOString(),
           currency: 'VND',
           paymentLinkId: paymentLink,
-          accountNumber: '',
-          reference: params.transId || '',
+          code: '00',
+          desc: 'Thanh toán MoMo thành công',
           counterAccountBankId: '',
           counterAccountBankName: '',
           counterAccountName: '',
@@ -338,7 +393,7 @@ const Payment = ({ route, navigation }) => {
         },
         signature: params.signature || 'momo_signature',
       };
-      const response = await paymentService.confirmPayment(payload);
+      const response = await orderService.post('/api/Order/confirmPayment', payload);
       if (response.success) {
         setShowWebView(false);
         navigation.navigate('ConfirmPaymentScreen', { paymentData: response });
@@ -423,19 +478,19 @@ const Payment = ({ route, navigation }) => {
                 <Text style={styles.summaryText}>
                   {item.title} (x{item.quantity})
                 </Text>
-                <Text style={styles.summaryText}>
+                <Text style={styles.summaryPrice}>
                   {(item.price * item.quantity).toLocaleString('vi-VN')}₫
                 </Text>
               </View>
             ))}
             <View style={styles.summaryItem}>
               <Text style={styles.summaryText}>Phí giao hàng</Text>
-              <Text style={styles.summaryText}>30.000₫</Text>
+              <Text style={styles.summaryPrice}>30.000₫</Text>
             </View>
             <View style={styles.divider} />
             <View style={styles.summaryTotal}>
               <Text style={styles.summaryTotalText}>Tổng cộng:</Text>
-              <Text style={styles.summaryTotalText}>
+              <Text style={styles.summaryTotalPrice}>
                 {(cartItems.reduce((total, item) => total + item.price * item.quantity, 0) + 30000).toLocaleString('vi-VN')}₫
               </Text>
             </View>
@@ -469,7 +524,13 @@ const Payment = ({ route, navigation }) => {
       <Modal
         visible={showAddressModal}
         animationType="slide"
-        onRequestClose={() => setShowAddressModal(false)}
+        onRequestClose={() => {
+          if (addresses.length === 0) {
+            setNotification({ message: 'Vui lòng thêm địa chỉ mới trước khi tiếp tục.', type: 'error' });
+          } else {
+            setShowAddressModal(false);
+          }
+        }}
       >
         <View style={styles.modalContainer}>
           <Text style={styles.modalTitle}>Chọn địa chỉ giao hàng</Text>
@@ -485,6 +546,10 @@ const Payment = ({ route, navigation }) => {
               setShowAddressModal(false);
               const userInfo = await AsyncStorage.getItem('userInfo');
               const accountId = userInfo ? JSON.parse(userInfo).accountId : null;
+              if (!accountId) {
+                setNotification({ message: 'Không tìm thấy thông tin tài khoản. Vui lòng đăng nhập lại.', type: 'error' });
+                return;
+              }
               navigation.navigate('DeliveryAddressScreen', { accountId });
             }}
           >
@@ -492,7 +557,13 @@ const Payment = ({ route, navigation }) => {
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.closeButton}
-            onPress={() => setShowAddressModal(false)}
+            onPress={() => {
+              if (addresses.length === 0) {
+                setNotification({ message: 'Vui lòng thêm địa chỉ mới trước khi tiếp tục.', type: 'error' });
+              } else {
+                setShowAddressModal(false);
+              }
+            }}
           >
             <Text style={styles.closeButtonText}>Đóng</Text>
           </TouchableOpacity>
@@ -611,7 +682,7 @@ const Payment = ({ route, navigation }) => {
                     <Text style={styles.summaryText}>
                       {item.title} (x{item.quantity})
                     </Text>
-                    <Text style={styles.summaryText}>
+                    <Text style={styles.summaryPrice}>
                       {(item.price * item.quantity).toLocaleString('vi-VN')}₫
                     </Text>
                   </View>
@@ -619,25 +690,25 @@ const Payment = ({ route, navigation }) => {
               ) : (
                 <View style={styles.summaryItem}>
                   <Text style={styles.summaryText}>Không có sản phẩm</Text>
-                  <Text style={styles.summaryText}>0₫</Text>
+                  <Text style={styles.summaryPrice}>0₫</Text>
                 </View>
               )}
               <View style={styles.summaryItem}>
                 <Text style={styles.summaryText}>Phí giao hàng</Text>
-                <Text style={styles.summaryText}>30.000₫</Text>
+                <Text style={styles.summaryPrice}>30.000₫</Text>
               </View>
               <View style={styles.divider} />
               <View style={styles.summaryTotal}>
                 <Text style={styles.summaryTotalText}>Tổng cộng:</Text>
-                <Text style={styles.summaryTotalText}>
+                <Text style={styles.summaryTotalPrice}>
                   {(cartItems.reduce((total, item) => total + item.price * item.quantity, 0) + 30000).toLocaleString('vi-VN')}₫
                 </Text>
               </View>
               <TouchableOpacity
                 onPress={handleSubmit}
-                style={[styles.submitButton, isLoading && styles.disabledButton]}
+                style={[styles.submitButton, isLoading || !values.addressId ? styles.disabledButton : null]}
                 activeOpacity={0.8}
-                disabled={isLoading}
+                disabled={isLoading || !values.addressId}
               >
                 <Text style={styles.submitButtonText}>
                   {values.paymentMethod === 'cod' ? 'Xác nhận đơn hàng' : 'Thanh toán'}
@@ -685,7 +756,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     marginBottom: 16,
     color: '#212121',
-    textAlign: 'center',
   },
   input: {
     borderWidth: 1,
@@ -819,6 +889,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#fff',
     padding: 16,
+    paddingTop: 50,
   },
   modalTitle: {
     fontSize: 24,
@@ -826,6 +897,14 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 16,
     color: '#333',
+    backgroundColor: '#c47385ff',
+    padding: 16,
+    borderRadius: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
   },
   qrContainer: {
     alignItems: 'center',
@@ -845,10 +924,16 @@ const styles = StyleSheet.create({
   },
   closeButton: {
     backgroundColor: '#E53935',
-    borderRadius: 8,
+    borderRadius: 40,
     paddingVertical: 14,
     alignItems: 'center',
     marginTop: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+    marginBottom: 16,
   },
   closeButtonText: {
     color: '#fff',
@@ -857,10 +942,16 @@ const styles = StyleSheet.create({
   },
   addAddressButton: {
     backgroundColor: '#E53935',
-    borderRadius: 8,
+    borderRadius: 40,
     paddingVertical: 14,
     alignItems: 'center',
     marginTop: 16,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
   },
   addAddressButtonText: {
     color: '#fff',

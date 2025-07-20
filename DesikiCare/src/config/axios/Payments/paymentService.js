@@ -1,5 +1,3 @@
-// services/paymentService.js
-
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 import { API_URL_LOGIN } from '@env';
@@ -19,7 +17,6 @@ const axiosInstance = axios.create({
 });
 
 const paymentService = {
-  // API 1: Lấy liên kết thanh toán cho đơn hàng có sẵn
   getOrderPaymentLink: async (orderId, metaData) => {
     try {
       const userToken = await getUserToken();
@@ -37,15 +34,14 @@ const paymentService = {
       );
 
       return response.status === 200
-        ? { success: true, data: response.data } // Trả về { paymentLink: "string" }
+        ? { success: true, data: response.data }
         : { success: false, message: response.data.message || 'Failed to generate payment link for order' };
     } catch (error) {
-      console.error('Get order payment link error:', error.message);
-      return { success: false, message: error.message || 'Network error. Please try again.' };
+      console.error('Get order payment link error:', error.message, error.response?.data);
+      return { success: false, message: error.response?.data?.message || error.message || 'Network error. Please try again.' };
     }
   },
 
-  // API 2: Lấy liên kết thanh toán cho giỏ hàng đang hoạt động
   getCartPaymentLink: async (orderData, metaData) => {
     try {
       const userToken = await getUserToken();
@@ -55,6 +51,14 @@ const paymentService = {
           order: {
             pointUsed: orderData.pointUsed || 0,
             deliveryAddressId: orderData.deliveryAddressId,
+            cartItems: orderData.cartItems.map((item) => ({
+              productId: item.productId,
+              quantity: item.quantity,
+              price: item.price,
+            })),
+            paymentMethod: orderData.paymentMethod,
+            totalAmount: orderData.totalAmount,
+            note: orderData.note || '',
           },
           metaData: {
             cancelUrl: metaData.cancelUrl,
@@ -67,15 +71,14 @@ const paymentService = {
       );
 
       return response.status === 200
-        ? { success: true, data: response.data } // Trả về { paymentLink: "string" }
+        ? { success: true, data: response.data }
         : { success: false, message: response.data.message || 'Failed to generate payment link for cart' };
     } catch (error) {
-      console.error('Get cart payment link error:', error.message);
-      return { success: false, message: error.message || 'Network error. Please try again.' };
+      console.error('Get cart payment link error:', error.message, error.response?.data);
+      return { success: false, message: error.response?.data?.message || error.message || 'Network error. Please try again.' };
     }
   },
 
-  // API 3: Xác nhận thanh toán
   confirmPayment: async (paymentData) => {
     try {
       const userToken = await getUserToken();
@@ -97,8 +100,8 @@ const paymentService = {
           }
         : { success: false, message: response.data.message || 'Failed to confirm payment' };
     } catch (error) {
-      console.error('Confirm payment error:', error.message);
-      return { success: false, message: error.message || 'Network error. Please try again.' };
+      console.error('Confirm payment error:', error.message, error.response?.data);
+      return { success: false, message: error.response?.data?.message || error.message || 'Network error. Please try again.' };
     }
   },
 };

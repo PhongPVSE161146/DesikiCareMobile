@@ -90,13 +90,36 @@ const orderService = {
   createOrder: async (orderPayload) => {
     try {
       const userToken = await getUserToken();
-      const response = await axiosInstance.post('/orders', {
-        ...orderPayload,
+      // Validate payload
+      if (!orderPayload.deliveryAddressId) {
+        throw new Error('Delivery address ID is required');
+      }
+      if (!orderPayload.cartItems || !orderPayload.cartItems.length) {
+        throw new Error('Cart items are required');
+      }
+      if (!orderPayload.paymentMethod) {
+        throw new Error('Payment method is required');
+      }
+      if (typeof orderPayload.totalAmount !== 'number' || orderPayload.totalAmount <= 0) {
+        throw new Error('Invalid total amount');
+      }
+
+      const payload = {
+        pointUsed: orderPayload.pointUsed || 0,
+        deliveryAddressId: orderPayload.deliveryAddressId,
         cartItems: orderPayload.cartItems.map((item) => ({
-          productId: item.id, // Map `id` to `productId` for backend
+          productId: item.productId,
           quantity: item.quantity,
+          price: item.price,
         })),
-      }, {
+        paymentMethod: orderPayload.paymentMethod,
+        totalAmount: orderPayload.totalAmount,
+        note: orderPayload.note || '',
+      };
+
+      console.log('createOrder Payload:', JSON.stringify(payload, null, 2));
+
+      const response = await axiosInstance.post('/orders', payload, {
         headers: { Authorization: `Bearer ${userToken}` },
       });
 
@@ -105,8 +128,11 @@ const orderService = {
         ? { success: true, data: response.data }
         : { success: false, message: response.data.message || 'Failed to create order' };
     } catch (error) {
-      console.error('Create order error:', error.message);
-      return { success: false, message: error.message || 'Network error. Please try again.' };
+      console.error('Create order error:', error.message, error.response?.data);
+      return {
+        success: false,
+        message: error.response?.data?.message || error.message || 'Failed to create order due to server error.',
+      };
     }
   },
 
@@ -114,12 +140,19 @@ const orderService = {
     try {
       const userToken = await getUserToken();
       const response = await axiosInstance.post('/carts/getPaymentLink', {
-        ...orderData,
-        cartItems: orderData.cartItems.map((item) => ({
-          productId: item.id, // Map `id` to `productId` for backend
-          quantity: item.quantity,
-        })),
-        ...urls,
+        order: {
+          pointUsed: orderData.pointUsed || 0,
+          deliveryAddressId: orderData.deliveryAddressId,
+          cartItems: orderData.cartItems.map((item) => ({
+            productId: item.productId,
+            quantity: item.quantity,
+            price: item.price,
+          })),
+          paymentMethod: orderData.paymentMethod,
+          totalAmount: orderData.totalAmount,
+          note: orderData.note || '',
+        },
+        metaData: urls,
       }, {
         headers: { Authorization: `Bearer ${userToken}` },
       });
@@ -129,8 +162,8 @@ const orderService = {
         ? { success: true, data: response.data }
         : { success: false, message: response.data.message || 'Failed to get payment link' };
     } catch (error) {
-      console.error('Get cart payment link error:', error.message);
-      return { success: false, message: error.message || 'Network error. Please try again.' };
+      console.error('Get cart payment link error:', error.message, error.response?.data);
+      return { success: false, message: error.response?.data?.message || error.message || 'Network error. Please try again.' };
     }
   },
 
@@ -138,12 +171,19 @@ const orderService = {
     try {
       const userToken = await getUserToken();
       const response = await axiosInstance.post(`/orders/${orderId}/getPaymentLink`, {
-        ...orderData,
-        cartItems: orderData.cartItems.map((item) => ({
-          productId: item.id, // Map `id` to `productId` for backend
-          quantity: item.quantity,
-        })),
-        ...urls,
+        order: {
+          pointUsed: orderData.pointUsed || 0,
+          deliveryAddressId: orderData.deliveryAddressId,
+          cartItems: orderData.cartItems.map((item) => ({
+            productId: item.productId,
+            quantity: item.quantity,
+            price: item.price,
+          })),
+          paymentMethod: orderData.paymentMethod,
+          totalAmount: orderData.totalAmount,
+          note: orderData.note || '',
+        },
+        metaData: urls,
       }, {
         headers: { Authorization: `Bearer ${userToken}` },
       });
@@ -153,25 +193,25 @@ const orderService = {
         ? { success: true, data: response.data }
         : { success: false, message: response.data.message || 'Failed to get payment link' };
     } catch (error) {
-      console.error('Get order payment link error:', error.message);
-      return { success: false, message: error.message || 'Network error. Please try again.' };
+      console.error('Get order payment link error:', error.message, error.response?.data);
+      return { success: false, message: error.response?.data?.message || error.message || 'Network error. Please try again.' };
     }
   },
 
-  confirmPayment: async (paymentData) => {
+  post: async (url, data, config = {}) => {
     try {
       const userToken = await getUserToken();
-      const response = await axiosInstance.post('/confirmPayment', paymentData, {
-        headers: { Authorization: `Bearer ${userToken}` },
+      const response = await axiosInstance.post(url, data, {
+        ...config,
+        headers: {
+          ...config.headers,
+          Authorization: `Bearer ${userToken}`,
+        },
       });
-
-      console.log('confirmPayment Response:', JSON.stringify(response.data, null, 2));
-      return response.status === 200
-        ? { success: true, data: response.data }
-        : { success: false, message: response.data.message || 'Failed to confirm payment' };
+      return response.data;
     } catch (error) {
-      console.error('Confirm payment error:', error.message);
-      return { success: false, message: error.message || 'Network error. Please try again.' };
+      console.error(`POST ${url} error:`, error.message, error.response?.data);
+      throw error;
     }
   },
 
