@@ -1,13 +1,29 @@
+
 import React, { useState, useEffect, useRef } from 'react';
+import {
+  View,
+  Text,
+  ScrollView,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
+  ActivityIndicator,
+  Modal,
+  FlatList,
+  Alert,
+} from 'react-native';
+import { WebView } from 'react-native-webview';
 import { Formik } from 'formik';
 import * as Yup from 'yup';
-import QRCode from 'qrcode.react';
-import AsyncStorage from '@react-native-async-storage/async-storage'; // Simulated for web
+import QRCode from 'react-native-qrcode-svg';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import orderService from '../../config/axios/Order/orderService';
 import paymentService from '../../config/axios/Payments/paymentService';
 import profileService from '../../config/axios/Home/AccountProfile/profileService';
+import Icon from 'react-native-vector-icons/MaterialIcons';
 import { VIETQR_CLIENT_ID, VIETQR_API_KEY, CANCEL_URL, RETURN_URL } from '@env';
 
+// Validation schema
 const validationSchema = Yup.object().shape({
   fullName: Yup.string().required('Vui lòng nhập họ và tên'),
   phone: Yup.string()
@@ -17,82 +33,87 @@ const validationSchema = Yup.object().shape({
   paymentMethod: Yup.string().required('Vui lòng chọn phương thức thanh toán'),
 });
 
-const Payment = ({ cartItems }) => {
+const initialRadioButtons = [
+  { id: 'cod', label: 'Thanh toán khi nhận hàng (COD)', value: 'cod', selected: true },
+  { id: 'qr', label: 'Thanh toán qua mã QR', value: 'qr', selected: false },
+  { id: 'momo', label: 'Thanh toán qua MoMo', value: 'momo', selected: false },
+];
+
+const Payment = ({ route, navigation }) => {
+  const { cartItems: passedCartItems } = route.params || {};
   const [isLoading, setIsLoading] = useState(false);
+  const [showWebView, setShowWebView] = useState(false);
   const [showQRModal, setShowQRModal] = useState(false);
   const [paymentLink, setPaymentLink] = useState(null);
+  const [radioButtons, setRadioButtons] = useState(initialRadioButtons);
   const [qrImageUrl, setQrImageUrl] = useState(null);
-  const [banks, setBanks] = useState([]);
   const [addresses, setAddresses] = useState([]);
   const [orderId, setOrderId] = useState(`ORDER${Date.now()}`);
   const [showAddressModal, setShowAddressModal] = useState(false);
   const formikRef = useRef(null);
 
-  useEffect(() => {
-    const fetchBanks = async () => {
-      try {
-        const response = await orderService.get('https://api.vietqr.io/v2/banks', {
-          headers: {
-            'x-client-id': VIETQR_CLIENT_ID,
-            'x-api-key': VIETQR_API_KEY,
-          },
-        });
-        if (response.data.code === '00') {
-          setBanks(response.data.data.map(bank => ({
-            label: bank.shortName || bank.name,
-            value: bank.bin,
-          })));
-        }
-      } catch (error) {
-        console.error('Error fetching banks:', error.message);
-      }
-    };
-    fetchBanks();
-  }, []);
+  const cartItems = passedCartItems?.length > 0 ? passedCartItems : [];
 
+  // Fetch delivery addresses
   useEffect(() => {
     const fetchAddresses = async () => {
       try {
+        setIsLoading(true);
         const response = await profileService.getDeliveryAddresses();
         if (response.success) {
           setAddresses(response.data);
+          // Set default address if available
+          const defaultAddress = response.data.find(addr => addr.isDefault);
+          if (defaultAddress && formikRef.current) {
+            formikRef.current.setValues({
+              ...formikRef.current.values,
+              addressId: defaultAddress._id,
+              fullName: defaultAddress.receiverName,
+              phone: defaultAddress.receiverPhone,
+            });
+          }
+        } else {
+          Alert.alert('Lỗi', response.message || 'Không thể tải địa chỉ giao hàng.');
         }
       } catch (error) {
-        console.error('Error fetching addresses:', error.message);
+        Alert.alert('Lỗi', 'Có lỗi khi tải địa chỉ: ' + error.message);
+      } finally {
+        setIsLoading(false);
       }
     };
     fetchAddresses();
   }, []);
 
-  const getUserInfo = async () => {
-    try {
-      const userInfo = await AsyncStorage.getItem('userInfo');
-      return userInfo ? JSON.parse(userInfo) : { fullName: '', phone: '' };
-    } catch (error) {
-      return { fullName: '', phone: '' };
-    }
-  };
-
+  // Load user info
   useEffect(() => {
     const loadUserInfo = async () => {
-      const userInfo = await getUserInfo();
-      formikRef.current?.setValues({
-        ...formikRef.current.values,
-        fullName: userInfo.fullName,
-        phone: userInfo.phone,
-      });
+      try {
+        const userInfo = await AsyncStorage.getItem('userInfo');
+        const parsedUserInfo = userInfo ? JSON.parse(userInfo) : { fullName: '', phone: '' };
+        if (formikRef.current) {
+          formikRef.current.setValues({
+            ...formikRef.current.values,
+            fullName: parsedUserInfo.fullName || '',
+            phone: parsedUserInfo.phone || '',
+          });
+        }
+        setRadioButtons(initialRadioButtons);
+      } catch (error) {
+        console.error('Error fetching user info:', error.message);
+      }
     };
     loadUserInfo();
   }, []);
 
+  // Generate QR code
   const generateQR = async (amount) => {
     try {
       const response = await orderService.post(
         'https://api.vietqr.io/v2/generate',
         {
-          accountNo: '113366668888', // Default account number
+          accountNo: '113366668888', // Default account number (Vietcombank)
           accountName: 'YOUR_ACCOUNT_NAME',
-          acqId: '970415', // Default bank (Vietcombank)
+          acqId: '970415', // Vietcombank BIN
           amount: amount.toString(),
           addInfo: orderId,
           template: 'compact',
@@ -112,9 +133,10 @@ const Payment = ({ cartItems }) => {
     }
   };
 
+  // Handle form submission
   const handleSubmit = async (values, { setSubmitting }) => {
     if (!cartItems || cartItems.length === 0) {
-      alert('Giỏ hàng trống. Vui lòng thêm sản phẩm trước khi thanh toán.');
+      Alert.alert('Lỗi', 'Giỏ hàng trống. Vui lòng thêm sản phẩm trước khi thanh toán.');
       return;
     }
 
@@ -143,9 +165,9 @@ const Payment = ({ cartItems }) => {
       if (values.paymentMethod === 'cod') {
         const orderResponse = await orderService.createOrder(orderPayload);
         if (orderResponse.success) {
-          window.location.href = '/confirm-payment?success=true';
+          navigation.navigate('ConfirmPaymentScreen', { paymentData: orderResponse });
         } else {
-          alert(orderResponse.message || 'Không thể tạo đơn hàng.');
+          Alert.alert('Lỗi', orderResponse.message || 'Không thể tạo đơn hàng.');
         }
       } else if (values.paymentMethod === 'qr') {
         const qrUrl = await generateQR(totalAmount);
@@ -153,25 +175,27 @@ const Payment = ({ cartItems }) => {
           setQrImageUrl(qrUrl);
           setShowQRModal(true);
         } else {
-          alert('Không thể tạo mã QR.');
+          Alert.alert('Lỗi', 'Không thể tạo mã QR.');
         }
       } else if (values.paymentMethod === 'momo') {
         const paymentResult = await paymentService.getCartPaymentLink(orderPayload, metaData);
         if (paymentResult.success && paymentResult.data?.paymentLink) {
           setPaymentLink(paymentResult.data.paymentLink);
-          window.location.href = paymentResult.data.paymentLink;
+          setShowWebView(true);
         } else {
-          alert(paymentResult.message || 'Không thể tạo link thanh toán.');
+          Alert.alert('Lỗi', paymentResult.message || 'Không thể tạo link thanh toán.');
         }
       }
     } catch (error) {
-      alert('Có lỗi xảy ra: ' + error.message);
+      console.error('Payment error:', error.message);
+      Alert.alert('Lỗi', 'Có lỗi xảy ra: ' + error.message);
     } finally {
       setIsLoading(false);
       setSubmitting(false);
     }
   };
 
+  // Handle QR payment confirmation
   const handleConfirmQRPayment = async () => {
     try {
       setIsLoading(true);
@@ -200,97 +224,202 @@ const Payment = ({ cartItems }) => {
       const response = await paymentService.confirmPayment(payload);
       if (response.success) {
         setShowQRModal(false);
-        window.location.href = '/confirm-payment?success=true';
+        navigation.navigate('ConfirmPaymentScreen', { paymentData: response });
       } else {
-        alert(response.message || 'Không thể xác nhận thanh toán.');
+        Alert.alert('Lỗi', response.message || 'Không thể xác nhận thanh toán.');
       }
     } catch (error) {
-      alert('Có lỗi xảy ra khi xác nhận thanh toán: ' + error.message);
+      console.error('Confirm QR payment error:', error);
+      Alert.alert('Lỗi', 'Có lỗi xảy ra khi xác nhận thanh toán: ' + error.message);
     } finally {
       setIsLoading(false);
     }
   };
 
+  // Handle WebView navigation for MoMo
+  const handleWebViewNavigation = async (navState) => {
+    if (navState.url.includes('myapp://payment/success')) {
+      const urlObj = new URL(navState.url);
+      const params = Object.fromEntries(urlObj.searchParams);
+      const payload = {
+        code: '00',
+        desc: 'Thanh toán thành công',
+        success: true,
+        data: {
+          orderCode: params.orderId || orderId,
+          amount: cartItems.reduce((total, item) => total + item.price * item.quantity, 0) + 30000,
+          description: 'Thanh toán qua MoMo',
+          transactionDateTime: new Date().toISOString(),
+          currency: 'VND',
+          paymentLinkId: paymentLink,
+          accountNumber: '',
+          reference: params.transId || '',
+          counterAccountBankId: '',
+          counterAccountBankName: '',
+          counterAccountName: '',
+          counterAccountNumber: '',
+          virtualAccountName: '',
+          virtualAccountNumber: '',
+        },
+        signature: params.signature || 'momo_signature',
+      };
+      const response = await paymentService.confirmPayment(payload);
+      if (response.success) {
+        setShowWebView(false);
+        navigation.navigate('ConfirmPaymentScreen', { paymentData: response });
+      } else {
+        Alert.alert('Lỗi', response.message || 'Không thể xác nhận thanh toán.');
+      }
+    } else if (navState.url.includes('myapp://payment/cancel')) {
+      setShowWebView(false);
+      navigation.navigate('CartScreen');
+    }
+  };
+
+  // Render address item for modal
+  const renderAddressItem = ({ item }) => (
+    <TouchableOpacity
+      style={styles.addressItem}
+      onPress={() => {
+        setShowAddressModal(false);
+        formikRef.current?.setValues({
+          ...formikRef.current.values,
+          addressId: item._id,
+          fullName: item.receiverName,
+          phone: item.receiverPhone,
+        });
+      }}
+    >
+      <Text style={styles.addressText}>
+        {item.receiverName} - {item.receiverPhone}
+      </Text>
+      <Text style={styles.addressText}>
+        {item.addressDetailDescription}, {item.wardName}, {item.districtName}, {item.provinceName}
+      </Text>
+      {item.isDefault && <Text style={styles.defaultText}>Mặc định</Text>}
+    </TouchableOpacity>
+  );
+
+  if (isLoading) {
+    return (
+      <View style={styles.container}>
+        <ActivityIndicator size="large" color="#E53935" />
+        <Text style={styles.summaryText}>Đang tải...</Text>
+      </View>
+    );
+  }
+
+  if (showWebView && paymentLink) {
+    return (
+      <WebView
+        source={{ uri: paymentLink }}
+        style={styles.webview}
+        onError={(syntheticEvent) => {
+          const { nativeEvent } = syntheticEvent;
+          console.error('WebView error:', nativeEvent);
+          Alert.alert('Lỗi', 'Lỗi khi tải trang thanh toán.');
+          setShowWebView(false);
+        }}
+        onNavigationStateChange={handleWebViewNavigation}
+      />
+    );
+  }
+
   return (
-    <div className="container mx-auto p-4 bg-white">
-      <h1 className="text-2xl font-bold text-center mb-4">Thanh toán đơn hàng</h1>
+    <ScrollView style={styles.container}>
+      <Text style={styles.title}>Thanh toán đơn hàng</Text>
 
-      {showQRModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-          <div className="bg-white p-6 rounded-lg max-w-md w-full">
-            <h2 className="text-xl font-bold text-center mb-4">Quét mã QR để thanh toán</h2>
-            <div className="p-4 bg-gray-100 rounded-lg mb-4">
-              <h3 className="text-lg font-semibold mb-2">Chi tiết đơn hàng</h3>
-              {cartItems.map((item, index) => (
-                <div key={index} className="flex justify-between mb-2">
-                  <span>{item.title} (x{item.quantity})</span>
-                  <span>{(item.price * item.quantity).toLocaleString('vi-VN')}₫</span>
-                </div>
-              ))}
-              <div className="flex justify-between mb-2">
-                <span>Phí giao hàng</span>
-                <span>30.000₫</span>
-              </div>
-              <div className="border-t border-gray-300 my-2" />
-              <div className="flex justify-between font-bold">
-                <span>Tổng cộng:</span>
-                <span>{(cartItems.reduce((total, item) => total + item.price * item.quantity, 0) + 30000).toLocaleString('vi-VN')}₫</span>
-              </div>
-            </div>
-            {qrImageUrl && (
-              <div className="flex justify-center mb-4">
-                <QRCode value={qrImageUrl} size={200} />
-              </div>
-            )}
-            <button
-              className="w-full bg-green-500 text-white py-3 rounded-lg mb-2"
-              onClick={handleConfirmQRPayment}
-            >
-              Xác nhận đã thanh toán
-            </button>
-            <button
-              className="w-full bg-red-500 text-white py-3 rounded-lg"
-              onClick={() => setShowQRModal(false)}
-            >
-              Hủy
-            </button>
-          </div>
-        </div>
-      )}
-
-      {showAddressModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-          <div className="bg-white p-6 rounded-lg max-w-md w-full">
-            <h2 className="text-xl font-bold text-center mb-4">Chọn địa chỉ giao hàng</h2>
-            {addresses.map(item => (
-              <div
-                key={item._id}
-                className="p-3 border-b border-gray-300 cursor-pointer"
-                onClick={() => {
-                  formikRef.current?.setValues({
-                    ...formikRef.current.values,
-                    addressId: item._id,
-                    fullName: item.receiverName,
-                    phone: item.receiverPhone,
-                  });
-                  setShowAddressModal(false);
-                }}
-              >
-                <p>{item.receiverName} - {item.receiverPhone}</p>
-                <p>{item.addressDetailDescription}, {item.wardName}, {item.districtName}, {item.provinceName}</p>
-                {item.isDefault && <p className="text-red-500 font-medium">Mặc định</p>}
-              </div>
+      <Modal
+        visible={showQRModal}
+        animationType="slide"
+        onRequestClose={() => setShowQRModal(false)}
+      >
+        <View style={styles.modalContainer}>
+          <Text style={styles.modalTitle}>Quét mã QR để thanh toán</Text>
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Chi tiết đơn hàng</Text>
+            {cartItems.map((item, index) => (
+              <View key={index} style={styles.summaryItem}>
+                <Text style={styles.summaryText}>
+                  {item.title} (x{item.quantity})
+                </Text>
+                <Text style={styles.summaryText}>
+                  {(item.price * item.quantity).toLocaleString('vi-VN')}₫
+                </Text>
+              </View>
             ))}
-            {addresses.length === 0 && <p className="text-center">Chưa có địa chỉ nào</p>}
-            <button
-              className="w-full bg-red-500 text-white py-3 rounded-lg mt-4"
-              onClick={() => setShowAddressModal(false)}
-            >
-              Đóng
-            </button>
-          </div>
-        </div>
-      )}
+            <View style={styles.summaryItem}>
+              <Text style={styles.summaryText}>Phí giao hàng</Text>
+              <Text style={styles.summaryText}>30.000₫</Text>
+            </View>
+            <View style={styles.divider} />
+            <View style={styles.summaryTotal}>
+              <Text style={styles.summaryTotalText}>Tổng cộng:</Text>
+              <Text style={styles.summaryTotalText}>
+                {(
+                  cartItems.reduce((total, item) => total + item.price * item.quantity39, 0) + 30000
+                ).toLocaleString('vi-VN')}₫
+              </Text>
+            </View>
+          </View>
+          {qrImageUrl ? (
+            <View style={styles.qrContainer}>
+              <QRCode value={qrImageUrl} size={200} />
+            </View>
+          ) : (
+            <Text style={styles.summaryText}>Đang tạo mã QR...</Text>
+          )}
+          <TouchableOpacity
+            style={[styles.confirmButton, isLoading && styles.disabledButton]}
+            onPress={handleConfirmQRPayment}
+            disabled={isLoading}
+          >
+            <Text style={styles.confirmButtonText}>Xác nhận đã thanh toán</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.closeButton}
+            onPress={() => {
+              setShowQRModal(false);
+              navigation.navigate('CartScreen');
+            }}
+          >
+            <Text style={styles.closeButtonText}>Hủy</Text>
+          </TouchableOpacity>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={showAddressModal}
+        animationType="slide"
+        onRequestClose={() => setShowAddressModal(false)}
+      >
+        <View style={styles.modalContainer}>
+          <Text style={styles.modalTitle}>Chọn địa chỉ giao hàng</Text>
+          <FlatList
+            data={addresses}
+            renderItem={renderAddressItem}
+            keyExtractor={(item) => item._id}
+            ListEmptyComponent={<Text style={styles.summaryText}>Chưa có địa chỉ nào</Text>}
+          />
+          <TouchableOpacity
+            style={styles.addAddressButton}
+            onPress={async () => {
+              setShowAddressModal(false);
+              const userInfo = await AsyncStorage.getItem('userInfo');
+              const accountId = userInfo ? JSON.parse(userInfo).accountId : null;
+              navigation.navigate('DeliveryAddressScreen', { accountId });
+            }}
+          >
+            <Text style={styles.addAddressButtonText}>Thêm địa chỉ mới</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.closeButton}
+            onPress={() => setShowAddressModal(false)}
+          >
+            <Text style={styles.closeButtonText}>Đóng</Text>
+          </TouchableOpacity>
+        </View>
+      </Modal>
 
       <Formik
         innerRef={formikRef}
@@ -299,121 +428,356 @@ const Payment = ({ cartItems }) => {
           phone: '',
           addressId: '',
           note: '',
-          paymentMethod: 'cod',
         }}
         validationSchema={validationSchema}
         onSubmit={handleSubmit}
       >
-        {({ handleChange, handleBlur, handleSubmit, values, errors, touched, setFieldValue }) => (
-          <div className="space-y-4">
-            <div className="p-4 bg-gray-100 rounded-lg border">
-              <h2 className="text-lg font-semibold mb-3">Thông tin giao hàng</h2>
-              <div
-                className="border border-gray-300 rounded-lg p-3 flex justify-between items-center cursor-pointer"
-                onClick={() => setShowAddressModal(true)}
+        {({
+          handleChange,
+          handleBlur,
+          handleSubmit,
+          setFieldValue,
+          values,
+          errors,
+          touched,
+        }) => (
+          <View style={styles.formContainer}>
+            <View style={styles.card}>
+              <Text style={styles.cardTitle}>Thông tin giao hàng</Text>
+              <TouchableOpacity
+                style={styles.input}
+                onPress={() => setShowAddressModal(true)}
               >
-                <span className={values.addressId ? 'text-black' : 'text-gray-500'}>
+                <Text style={values.addressId ? styles.inputText : styles.placeholderText}>
                   {addresses.find(addr => addr._id === values.addressId)
                     ? `${addresses.find(addr => addr._id === values.addressId).receiverName} - ${addresses.find(addr => addr._id === values.addressId).addressDetailDescription}, ${addresses.find(addr => addr._id === values.addressId).wardName}, ${addresses.find(addr => addr._id === values.addressId).districtName}, ${addresses.find(addr => addr._id === values.addressId).provinceName}`
                     : 'Chọn địa chỉ giao hàng'}
-                </span>
-                <span>▼</span>
-              </div>
+                </Text>
+                <Icon name="arrow-drop-down" size={24} color="#E53935" />
+              </TouchableOpacity>
               {touched.addressId && errors.addressId && (
-                <p className="text-red-500 text-sm">{errors.addressId}</p>
+                <Text style={styles.errorText}>{errors.addressId}</Text>
               )}
-              <label className="block text-sm font-medium mt-2">Họ và tên</label>
-              <input
-                className="w-full border border-gray-300 rounded-lg p-3"
+              <Text style={styles.label}>Họ và tên</Text>
+              <TextInput
+                style={styles.input}
                 value={values.fullName}
-                onChange={handleChange('fullName')}
+                onChangeText={handleChange('fullName')}
                 onBlur={handleBlur('fullName')}
                 placeholder="Nhập họ và tên"
+                placeholderTextColor="#999"
               />
               {touched.fullName && errors.fullName && (
-                <p className="text-red-500 text-sm">{errors.fullName}</p>
+                <Text style={styles.errorText}>{errors.fullName}</Text>
               )}
-              <label className="block text-sm font-medium mt-2">Số điện thoại</label>
-              <input
-                className="w-full border border-gray-300 rounded-lg p-3"
+              <Text style={styles.label}>Số điện thoại</Text>
+              <TextInput
+                style={styles.input}
                 value={values.phone}
-                onChange={handleChange('phone')}
+                onChangeText={handleChange('phone')}
                 onBlur={handleBlur('phone')}
                 placeholder="Nhập số điện thoại"
-                type="tel"
+                keyboardType="phone-pad"
+                placeholderTextColor="#999"
               />
               {touched.phone && errors.phone && (
-                <p className="text-red-500 text-sm">{errors.phone}</p>
+                <Text style={styles.errorText}>{errors.phone}</Text>
               )}
-              <label className="block text-sm font-medium mt-2">Ghi chú</label>
-              <textarea
-                className="w-full border border-gray-300 rounded-lg p-3"
+              <TextInput
+                style={[styles.input, { height: 80, textAlignVertical: 'top' }]}
                 value={values.note}
-                onChange={handleChange('note')}
+                onChangeText={handleChange('note')}
                 onBlur={handleBlur('note')}
                 placeholder="Ghi chú (nếu có)"
-                rows="3"
+                multiline
+                numberOfLines={3}
+                placeholderTextColor="#999"
               />
-              <label className="block text-sm font-medium mt-2">Phương thức thanh toán</label>
-              <div className="space-y-2">
-                {[
-                  { id: 'cod', label: 'Thanh toán khi nhận hàng (COD)', value: 'cod' },
-                  { id: 'qr', label: 'Thanh toán qua mã QR', value: 'qr' },
-                  { id: 'momo', label: 'Thanh toán qua MoMo', value: 'momo' },
-                ].map(button => (
-                  <div
+              <Text style={styles.label}>Phương thức thanh toán</Text>
+              <View style={styles.radioContainer}>
+                {radioButtons.map((button) => (
+                  <TouchableOpacity
                     key={button.id}
-                    className={`flex items-center p-3 rounded-lg border ${values.paymentMethod === button.value ? 'border-red-500 bg-red-50' : 'border-gray-300'}`}
-                    onClick={() => setFieldValue('paymentMethod', button.value)}
+                    style={[
+                      styles.radioButton,
+                      button.selected && styles.radioButtonSelected,
+                    ]}
+                    onPress={() => {
+                      const updatedButtons = radioButtons.map((b) => ({
+                        ...b,
+                        selected: b.id === button.id,
+                      }));
+                      setRadioButtons(updatedButtons);
+                      setFieldValue('paymentMethod', button.value);
+                    }}
                   >
-                    <span className="flex-1">{button.label}</span>
-                    <div className={`w-6 h-6 rounded-full border-2 border-red-500 flex items-center justify-center ${values.paymentMethod === button.value ? 'bg-red-500' : ''}`}>
-                      {values.paymentMethod === button.value && <div className="w-3 h-3 rounded-full bg-white" />}
-                    </div>
-                  </div>
+                    <Text style={styles.radioLabel}>{button.label}</Text>
+                    <View style={styles.radioCircle}>
+                      {button.selected && <View style={styles.radioInnerCircle} />}
+                    </View>
+                  </TouchableOpacity>
                 ))}
                 {touched.paymentMethod && errors.paymentMethod && (
-                  <p className="text-red-500 text-sm">{errors.paymentMethod}</p>
+                  <Text style={styles.errorText}>{errors.paymentMethod}</Text>
                 )}
-              </div>
-            </div>
-            <div className="p-4 bg-gray-100 rounded-lg border">
-              <h2 className="text-lg font-semibold mb-3">Tóm tắt đơn hàng</h2>
+              </View>
+            </View>
+            <View style={styles.card}>
+              <Text style={styles.cardTitle}>Tóm tắt đơn hàng</Text>
               {cartItems && cartItems.length > 0 ? (
                 cartItems.map((item, index) => (
-                  <div key={index} className="flex justify-between mb-2">
-                    <span>{item.title} (x{item.quantity})</span>
-                    <span>{(item.price * item.quantity).toLocaleString('vi-VN')}₫</span>
-                  </div>
+                  <View key={index} style={styles.summaryItem}>
+                    <Text style={styles.summaryText}>
+                      {item.title} (x{item.quantity})
+                    </Text>
+                    <Text style={styles.summaryText}>
+                      {(item.price * item.quantity).toLocaleString('vi-VN')}₫
+                    </Text>
+                  </View>
                 ))
               ) : (
-                <div className="flex justify-between mb-2">
-                  <span>Không có sản phẩm</span>
-                  <span>0₫</span>
-                </div>
+                <View style={styles.summaryItem}>
+                  <Text style={styles.summaryText}>Không có sản phẩm</Text>
+                  <Text style={styles.summaryText}>0₫</Text>
+                </View>
               )}
-              <div className="flex justify-between mb-2">
-                <span>Phí giao hàng</span>
-                <span>30.000₫</span>
-              </div>
-              <div className="border-t border-gray-300 my-2" />
-              <div className="flex justify-between font-bold">
-                <span>Tổng cộng:</span>
-                <span>{((cartItems?.reduce((total, item) => total + item.price * item.quantity, 0) || 0) + 30000).toLocaleString('vi-VN')}₫</span>
-              </div>
-              <button
-                onClick={handleSubmit}
-                className={`w-full py-3 rounded-lg mt-4 ${isLoading ? 'bg-gray-400' : 'bg-red-500'} text-white font-semibold`}
+              <View style={styles.summaryItem}>
+                <Text style={styles.summaryText}>Phí giao hàng</Text>
+                <Text style={styles.summaryText}>30.000₫</Text>
+              </View>
+              <View style={styles.divider} />
+              <View style={styles.summaryTotal}>
+                <Text style={styles.summaryTotalText}>Tổng cộng:</Text>
+                <Text style={styles.summaryTotalText}>
+                  {(
+                    (cartItems?.reduce((total, item) => total + item.price * item.quantity, 0) || 0) + 30000
+                  ).toLocaleString('vi-VN')}₫
+                </Text>
+              </View>
+              <TouchableOpacity
+                onPress={handleSubmit}
+                style={[styles.submitButton, isLoading && styles.disabledButton]}
+                activeOpacity={0.8}
                 disabled={isLoading}
               >
-                {values.paymentMethod === 'cod' ? 'Xác nhận đơn hàng' : 'Thanh toán'}
-              </button>
-            </div>
-          </div>
+                <Text style={styles.submitButtonText}>
+                  {values.paymentMethod === 'cod' ? 'Xác nhận đơn hàng' : 'Thanh toán'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
         )}
       </Formik>
-    </div>
+    </ScrollView>
   );
 };
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#fff',
+    padding: 16,
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: '700',
+    textAlign: 'center',
+    marginBottom: 16,
+    color: '#333',
+  },
+  formContainer: {
+    flex: 1,
+  },
+  card: {
+    borderRadius: 8,
+    marginBottom: 16,
+    padding: 16,
+    backgroundColor: '#f9f9f9',
+    borderWidth: 1,
+    borderColor: '#ddd',
+  },
+  cardTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 12,
+    color: '#333',
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
+    backgroundColor: '#fff',
+    marginBottom: 12,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  inputText: {
+    fontSize: 16,
+    color: '#333',
+  },
+  placeholderText: {
+    fontSize: 16,
+    color: '#999',
+  },
+  label: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#333',
+    marginBottom: 8,
+  },
+  radioContainer: {
+    marginBottom: 12,
+  },
+  radioButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 8,
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#ddd',
+  },
+  radioButtonSelected: {
+    borderColor: '#E53935',
+    backgroundColor: '#ffebee',
+  },
+  radioLabel: {
+    flex: 1,
+    fontSize: 16,
+    color: '#333',
+  },
+  radioCircle: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: '#E53935',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  radioInnerCircle: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: '#E53935',
+  },
+  errorText: {
+    color: '#E53935',
+    fontSize: 12,
+    marginBottom: 8,
+  },
+  summaryItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: 8,
+  },
+  summaryText: {
+    fontSize: 15,
+    color: '#333',
+  },
+  divider: {
+    height: 1,
+    backgroundColor: '#ddd',
+    marginVertical: 12,
+  },
+  summaryTotal: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingTop: 12,
+  },
+  summaryTotalText: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#333',
+  },
+  submitButton: {
+    backgroundColor: '#E53935',
+    borderRadius: 8,
+    paddingVertical: 14,
+    alignItems: 'center',
+    marginTop: 16,
+  },
+  disabledButton: {
+    backgroundColor: '#ccc',
+  },
+  submitButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  webview: {
+    flex: 1,
+  },
+  modalContainer: {
+    flex: 1,
+    backgroundColor: '#fff',
+    padding: 16,
+  },
+  modalTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    textAlign: 'center',
+    marginBottom: 16,
+    color: '#333',
+  },
+  qrContainer: {
+    alignItems: 'center',
+    marginVertical: 20,
+  },
+  confirmButton: {
+    backgroundColor: '#4CAF50',
+    borderRadius: 8,
+    paddingVertical: 14,
+    alignItems: 'center',
+    marginTop: 16,
+  },
+  confirmButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  closeButton: {
+    backgroundColor: '#E53935',
+    borderRadius: 8,
+    paddingVertical: 14,
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  closeButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  addAddressButton: {
+    backgroundColor: '#E53935',
+    borderRadius: 8,
+    paddingVertical: 14,
+    alignItems: 'center',
+    marginTop: 16,
+  },
+  addAddressButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  addressItem: {
+    padding: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#ddd',
+  },
+  addressText: {
+    fontSize: 15,
+    color: '#333',
+  },
+  defaultText: {
+    fontSize: 14,
+    color: '#E53935',
+    fontWeight: '500',
+  },
+});
 
 export default Payment;
