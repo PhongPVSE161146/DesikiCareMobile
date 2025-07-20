@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { View, ScrollView, Text, TextInput, TouchableOpacity, ActivityIndicator, Alert, Image, Platform } from 'react-native';
+import React, { useEffect, useState, useCallback } from 'react';
+import { View, ScrollView, Text, TextInput, TouchableOpacity, ActivityIndicator, Alert, Image, Platform, SafeAreaView } from 'react-native';
 import { useSelector, useDispatch } from 'react-redux';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -9,6 +9,13 @@ import profileService from '../../config/axios/Home/AccountProfile/profileServic
 import { logout } from '../../redux/authSlice';
 import Notification from '../../components/Notification';
 import styles from './styles';
+
+// In-memory cache for provinces, districts, and wards
+const cache = {
+  provinces: null,
+  districts: {},
+  wards: {},
+};
 
 const formatDateToDDMMYYYY = (isoDate) => {
   if (!isoDate) return '';
@@ -47,7 +54,6 @@ const ProfileScreen = ({ navigation }) => {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [imageError, setImageError] = useState(false);
   const [provinces, setProvinces] = useState([]);
-
   const [formData, setFormData] = useState({
     fullName: '',
     email: '',
@@ -68,8 +74,11 @@ const ProfileScreen = ({ navigation }) => {
 
   const fetchProvinces = async () => {
     try {
-      const response = await axios.get('https://provinces.open-api.vn/api/p/');
-      setProvinces(response.data);
+      if (!cache.provinces) {
+        const response = await axios.get('https://provinces.open-api.vn/api/p/');
+        cache.provinces = response.data || [];
+      }
+      setProvinces(cache.provinces);
     } catch (error) {
       console.error('Fetch provinces error:', error);
       setNotification({ message: 'Không thể tải danh sách tỉnh/thành phố.', type: 'error' });
@@ -78,21 +87,45 @@ const ProfileScreen = ({ navigation }) => {
 
   const mapCodeToName = async (provinceCode, districtCode, wardCode) => {
     try {
-  
-      const province = provinces.find((p) => p.code === Number(provinceCode))?.name || provinceCode;
-      const districtResponse = await axios.get(`https://provinces.open-api.vn/api/p/${provinceCode}?depth=2`);
-      const district = districtResponse.data.districts.find((d) => d.code === Number(districtCode))?.name || districtCode;
-      const wardResponse = await axios.get(`https://provinces.open-api.vn/api/d/${districtCode}?depth=2`);
-      const ward = wardResponse.data.wards.find((w) => w.code === Number(wardCode))?.name || wardCode;
+      const pCode = Number(provinceCode);
+      const dCode = Number(districtCode);
+      const wCode = Number(wardCode);
+
+      if (!cache.provinces) {
+        const response = await axios.get('https://provinces.open-api.vn/api/p/');
+        cache.provinces = response.data || [];
+      }
+      const province = cache.provinces.find((p) => p.code === pCode)?.name || 'Unknown Province';
+
+      if (!cache.districts[pCode]) {
+        const response = await axios.get(`https://provinces.open-api.vn/api/p/${pCode}?depth=2`);
+        cache.districts[pCode] = response.data.districts || [];
+      }
+      const district = cache.districts[pCode].find((d) => d.code === dCode)?.name || 'Unknown District';
+
+      if (!cache.wards[dCode]) {
+        const response = await axios.get(`https://provinces.open-api.vn/api/d/${dCode}?depth=2`);
+        cache.wards[dCode] = response.data.wards || [];
+      }
+      const ward = cache.wards[dCode].find((w) => w.code === wCode)?.name || 'Unknown Ward';
+
       return { province, district, ward };
     } catch (error) {
       console.error('Map code to name error:', error);
-      return { province: provinceCode, district: districtCode, ward: wardCode };
+      return {
+        province: 'Unknown Province',
+        district: 'Unknown District',
+        ward: 'Unknown Ward',
+      };
     }
   };
 
   const fetchAddresses = async () => {
     try {
+      if (!cache.provinces) {
+        const provinceResponse = await axios.get('https://provinces.open-api.vn/api/p/');
+        cache.provinces = provinceResponse.data || [];
+      }
       const response = await profileService.getDeliveryAddresses();
       console.log('Fetched addresses response:', JSON.stringify(response, null, 2));
       if (response.success) {
@@ -137,7 +170,7 @@ const ProfileScreen = ({ navigation }) => {
           password: '',
           roleId: account.roleId || 0,
         });
-        await fetchAddresses(); // Gọi lấy địa chỉ sau khi lấy hồ sơ
+        await fetchAddresses();
       } else {
         if (profileRes.message.includes('hết hạn') || profileRes.message.includes('token')) {
           await handleUnauthorized(profileRes.message);
@@ -148,8 +181,9 @@ const ProfileScreen = ({ navigation }) => {
     } catch (error) {
       console.error('Fetch profile error:', error);
       setNotification({ message: 'Không thể tải thông tin người dùng.', type: 'error' });
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const handleImagePick = async () => {
@@ -213,8 +247,9 @@ const ProfileScreen = ({ navigation }) => {
     } catch (error) {
       console.error('Update profile error:', error);
       setNotification({ message: 'Cập nhật hồ sơ thất bại.', type: 'error' });
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const handleLogout = async () => {
@@ -232,14 +267,15 @@ const ProfileScreen = ({ navigation }) => {
           } catch (error) {
             console.error('Logout error:', error);
             setNotification({ message: 'Đăng xuất thất bại.', type: 'error' });
+          } finally {
+            setLoading(false);
           }
-          setLoading(false);
         },
       },
     ]);
   };
 
-  const handleDateChange = (event, selectedDate) => {
+  const handleDateChange = useCallback((event, selectedDate) => {
     if (Platform.OS === 'android') {
       setShowDatePicker(false);
     }
@@ -248,276 +284,290 @@ const ProfileScreen = ({ navigation }) => {
       const formattedDate = selectedDate.toISOString().split('T')[0];
       setFormData({ ...formData, dob: formattedDate });
     }
-  };
+  }, [formData]);
 
-  const handleImageError = () => {
+  const handleImageError = useCallback(() => {
     setImageError(true);
-  };
+  }, []);
 
   useEffect(() => {
     if (user) {
-      fetchProfile();
-      fetchProvinces();
+      fetchProvinces().then(() => fetchProfile());
     } else {
       handleUnauthorized('Vui lòng đăng nhập để xem thông tin.');
     }
-  }, [user]);
+
+    // Listen for navigation back from DeliveryAddress screen
+    const unsubscribe = navigation.addListener('focus', () => {
+      if (user) {
+        fetchAddresses(); // Refresh addresses when returning to ProfileScreen
+      }
+    });
+
+    return () => unsubscribe;
+  }, [user, navigation]);
 
   if (!user) {
     return (
-      <View style={styles.centered}>
+      <SafeAreaView style={styles.centered}>
         <Text style={styles.loginPrompt}>Vui lòng đăng nhập để xem thông tin.</Text>
         <TouchableOpacity onPress={() => navigation.navigate('Login')} style={styles.loginButton}>
           <Text style={styles.loginText}>Đăng nhập</Text>
         </TouchableOpacity>
-      </View>
+      </SafeAreaView>
     );
   }
 
   if (loading && !profileData) {
     return (
-      <View style={styles.centered}>
+      <SafeAreaView style={styles.centered}>
         <ActivityIndicator size="large" color="#FF69B4" />
         <Text style={styles.loginPrompt}>Đang tải...</Text>
-      </View>
+      </SafeAreaView>
     );
   }
 
   if (!profileData) {
     return (
-      <View style={styles.centered}>
+      <SafeAreaView style={styles.centered}>
         <Text style={styles.loginPrompt}>Không thể tải thông tin. Vui lòng thử lại.</Text>
         <TouchableOpacity onPress={fetchProfile} style={styles.resetButton}>
           <Text style={styles.resetText}>Thử lại</Text>
         </TouchableOpacity>
-      </View>
+      </SafeAreaView>
     );
   }
 
-  return (
-    <ScrollView style={styles.container}>
-      <Notification
-        message={notification?.message}
-        type={notification?.type}
-        onDismiss={() => setNotification(null)}
-      />
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Thông tin tài khoản</Text>
-        <View style={styles.imageContainer}>
-          <Image
-            source={
-              imageError || !formData.imageBase64
-                ? require('../../../assets/DesikiCare.jpg')
-                : { uri: `data:image/jpeg;base64,${formData.imageBase64}` }
-            }
-            style={styles.profileImage}
-            onError={handleImageError}
-          />
+  const defaultAddress = addresses.find((address) => address.isDefault);
 
-          {isEditing && (
-            <TouchableOpacity style={styles.uploadButton} onPress={handleImagePick}>
-              <Text style={styles.uploadButtonText}>Tải ảnh lên</Text>
-            </TouchableOpacity>
-          )}
-          <View style={styles.infoContainer}>
-            <Text style={styles.label}>Địa chỉ giao hàng</Text>
-            {addresses.length === 0 ? (
-              <Text style={styles.infoText}>Yêu cầu nhập địa chỉ.</Text>
-            ) : (
-              addresses.map((address) => (
-                <View key={address._id} style={styles.addressContainer}>
+  return (
+    <SafeAreaView style={styles.container}>
+      <ScrollView>
+        <Notification
+          message={notification?.message}
+          type={notification?.type}
+          onDismiss={() => setNotification(null)}
+        />
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Thông tin tài khoản</Text>
+          <View style={styles.imageContainer}>
+            <Image
+              source={
+                imageError || !formData.imageBase64
+                  ? require('../../../assets/DesikiCare.jpg')
+                  : { uri: `data:image/jpeg;base64,${formData.imageBase64}` }
+              }
+              style={styles.profileImage}
+              onError={handleImageError}
+            />
+            {isEditing && (
+              <TouchableOpacity style={styles.uploadButton} onPress={handleImagePick}>
+                <Text style={styles.uploadButtonText}>Tải ảnh lên</Text>
+              </TouchableOpacity>
+            )}
+            <View style={styles.infoContainer}>
+              <Text style={styles.label}>Địa chỉ giao hàng </Text>
+              {defaultAddress ? (
+                <View style={styles.addressContainer}>
                   <Text style={styles.infoText}>
                     <Text style={styles.infoLabel}>Tên: </Text>
-                    {address.receiverName} - <Text style={styles.infoLabel}>SĐT: </Text>{address.receiverPhone}
+                    {defaultAddress.receiverName} - <Text style={styles.infoLabel}>SĐT: </Text>
+                    {defaultAddress.receiverPhone}
                   </Text>
                   <Text style={styles.infoText}>
                     <Text style={styles.infoLabel}>Địa chỉ: </Text>
-                    {address.addressDetailDescription}, {address.wardName}, {address.districtName}, {address.provinceName}
+                    {defaultAddress.addressDetailDescription}, {defaultAddress.wardName},{' '}
+                    {defaultAddress.districtName}, {defaultAddress.provinceName}
                   </Text>
-               
+                  {/* <Text style={[styles.infoText, styles.defaultText]}>Mặc định</Text> */}
                 </View>
-              ))
-            )}
+              ) : (
+                <Text style={styles.infoText}>Chưa có địa chỉ mặc định. Vui lòng thêm địa chỉ.</Text>
+              )}
+            </View>
           </View>
-        </View>
-        <View style={styles.infoContainer}>
-          <Text style={styles.label}>Họ và tên</Text>
-          {isEditing ? (
-            <TextInput
-              style={styles.input}
-              value={formData.fullName}
-              onChangeText={(text) => setFormData({ ...formData, fullName: text })}
-              placeholder="Nhập họ và tên"
-              placeholderTextColor="#999"
-            />
-          ) : (
-            <Text style={styles.infoText}>{profileData.fullName || 'Chưa cập nhật'}</Text>
-          )}
-          <Text style={styles.label}>Email</Text>
-          {isEditing ? (
-            <TextInput
-              style={styles.input}
-              value={formData.email}
-              onChangeText={(text) => setFormData({ ...formData, email: text })}
-              placeholder="Nhập email"
-              keyboardType="email-address"
-              placeholderTextColor="#999"
-            />
-          ) : (
-            <Text style={styles.infoText}>{profileData.email || 'Chưa cập nhật'}</Text>
-          )}
-          <Text style={styles.label}>Số điện thoại</Text>
-          {isEditing ? (
-            <TextInput
-              style={styles.input}
-              value={formData.phoneNumber}
-              onChangeText={(text) => setFormData({ ...formData, phoneNumber: text })}
-              placeholder="Nhập số điện thoại"
-              keyboardType="phone-pad"
-              placeholderTextColor="#999"
-            />
-          ) : (
-            <Text style={styles.infoText}>{profileData.phoneNumber || 'Chưa cập nhật'}</Text>
-          )}
-          <Text style={styles.label}>Ngày sinh</Text>
-          {isEditing ? (
-            <>
-              <TouchableOpacity
+          <View style={styles.infoContainer}>
+            <Text style={styles.label}>Họ và tên</Text>
+            {isEditing ? (
+              <TextInput
                 style={styles.input}
-                onPress={() => setShowDatePicker(true)}
-              >
-                <Text style={styles.infoText}>
-                  {formData.dob ? formatDateToDDMMYYYY(formData.dob) : 'Chọn ngày sinh'}
-                </Text>
-              </TouchableOpacity>
-              {showDatePicker && (
-                Platform.OS === 'android' ? (
-                  <DateTimePicker
-                    value={formData.dob ? new Date(formData.dob) : new Date()}
-                    mode="date"
-                    display="default"
-                    maximumDate={new Date()}
-                    onChange={handleDateChange}
-                  />
-                ) : (
-                  <View style={styles.datePickerModal}>
+                value={formData.fullName}
+                onChangeText={(text) => setFormData({ ...formData, fullName: text })}
+                placeholder="Nhập họ và tên"
+                placeholderTextColor="#999"
+              />
+            ) : (
+              <Text style={styles.infoText}>{profileData.fullName || 'Chưa cập nhật'}</Text>
+            )}
+            <Text style={styles.label}>Email</Text>
+            {isEditing ? (
+              <TextInput
+                style={styles.input}
+                value={formData.email}
+                onChangeText={(text) => setFormData({ ...formData, email: text })}
+                placeholder="Nhập email"
+                keyboardType="email-address"
+                placeholderTextColor="#999"
+              />
+            ) : (
+              <Text style={styles.infoText}>{profileData.email || 'Chưa cập nhật'}</Text>
+            )}
+            <Text style={styles.label}>Số điện thoại</Text>
+            {isEditing ? (
+              <TextInput
+                style={styles.input}
+                value={formData.phoneNumber}
+                onChangeText={(text) => setFormData({ ...formData, phoneNumber: text })}
+                placeholder="Nhập số điện thoại"
+                keyboardType="phone-pad"
+                placeholderTextColor="#999"
+              />
+            ) : (
+              <Text style={styles.infoText}>{profileData.phoneNumber || 'Chưa cập nhật'}</Text>
+            )}
+            <Text style={styles.label}>Ngày sinh</Text>
+            {isEditing ? (
+              <>
+                <TouchableOpacity style={styles.input} onPress={() => setShowDatePicker(true)}>
+                  <Text style={styles.infoText}>
+                    {formData.dob ? formatDateToDDMMYYYY(formData.dob) : 'Chọn ngày sinh'}
+                  </Text>
+                </TouchableOpacity>
+                {showDatePicker && (
+                  Platform.OS === 'android' ? (
                     <DateTimePicker
                       value={formData.dob ? new Date(formData.dob) : new Date()}
                       mode="date"
-                      display="spinner"
+                      display="default"
                       maximumDate={new Date()}
                       onChange={handleDateChange}
                     />
-                    <TouchableOpacity
-                      style={styles.doneButton}
-                      onPress={() => setShowDatePicker(false)}
-                    >
-                      <Text style={styles.doneButtonText}>Xong</Text>
-                    </TouchableOpacity>
+                  ) : (
+                    <View style={styles.datePickerModal}>
+                      <DateTimePicker
+                        value={formData.dob ? new Date(formData.dob) : new Date()}
+                        mode="date"
+                        display="spinner"
+                        maximumDate={new Date()}
+                        onChange={handleDateChange}
+                      />
+                      <TouchableOpacity
+                        style={styles.doneButton}
+                        onPress={() => setShowDatePicker(false)}
+                      >
+                        <Text style={styles.doneButtonText}>Xong</Text>
+                      </TouchableOpacity>
+                    </View>
+                  )
+                )}
+              </>
+            ) : (
+              <Text style={styles.infoText}>
+                {profileData.dob ? formatDateToDDMMYYYY(profileData.dob) : 'Chưa cập nhật'}
+              </Text>
+            )}
+            <Text style={styles.label}>Giới tính</Text>
+            {isEditing ? (
+              <>
+                <TouchableOpacity
+                  style={styles.input}
+                  onPress={() => setShowGenderOptions(true)}
+                >
+                  <Text style={styles.infoText}>
+                    {formData.gender ? formData.gender : 'Chọn giới tính'}
+                  </Text>
+                </TouchableOpacity>
+                {showGenderOptions && (
+                  <View style={styles.optionBox}>
+                    {['Nam', 'Nữ', 'Khác'].map((option) => (
+                      <TouchableOpacity
+                        key={option}
+                        onPress={() => {
+                          setFormData({ ...formData, gender: option });
+                          setShowGenderOptions(false);
+                        }}
+                        style={styles.optionItem}
+                      >
+                        <Text style={styles.optionText}>{option}</Text>
+                      </TouchableOpacity>
+                    ))}
                   </View>
-                )
-              )}
-            </>
-          ) : (
-            <Text style={styles.infoText}>
-              {profileData.dob ? formatDateToDDMMYYYY(profileData.dob) : 'Chưa cập nhật'}
-            </Text>
-          )}
-          <Text style={styles.label}>Giới tính</Text>
-          {isEditing ? (
-            <>
-              <TouchableOpacity
+                )}
+              </>
+            ) : (
+              <Text style={styles.infoText}>{profileData.gender || 'Chưa cập nhật'}</Text>
+            )}
+            <Text style={styles.label}>Mật khẩu mới</Text>
+            {isEditing ? (
+              <TextInput
                 style={styles.input}
-                onPress={() => setShowGenderOptions(true)}
-              >
-                <Text style={styles.infoText}>
-                  {formData.gender ? formData.gender : 'Chọn giới tính'}
-                </Text>
-              </TouchableOpacity>
-              {showGenderOptions && (
-                <View style={styles.optionBox}>
-                  {['Nam', 'Nữ', 'Khác'].map((option) => (
-                    <TouchableOpacity
-                      key={option}
-                      onPress={() => {
-                        setFormData({ ...formData, gender: option });
-                        setShowGenderOptions(false);
-                      }}
-                      style={styles.optionItem}
-                    >
-                      <Text style={styles.optionText}>{option}</Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              )}
-            </>
-          ) : (
-            <Text style={styles.infoText}>{profileData.gender || 'Chưa cập nhật'}</Text>
-          )}
-          <Text style={styles.label}>Mật khẩu mới</Text>
+                value={formData.password}
+                onChangeText={(text) => setFormData({ ...formData, password: text })}
+                placeholder="Nhập mật khẩu mới (nếu muốn thay đổi)"
+                secureTextEntry
+                placeholderTextColor="#999"
+              />
+            ) : (
+              <Text style={styles.infoText}>********</Text>
+            )}
+            <Text style={styles.label}>Điểm tích lũy</Text>
+            <Text style={styles.infoText}>{profileData.points || 0}</Text>
+            <Text style={styles.label}>Trạng thái tài khoản</Text>
+            <Text style={styles.infoText}>
+              {profileData.isDeactivated ? 'Đã bị vô hiệu hóa' : 'Hoạt động'}
+            </Text>
+          </View>
           {isEditing ? (
-            <TextInput
-              style={styles.input}
-              value={formData.password}
-              onChangeText={(text) => setFormData({ ...formData, password: text })}
-              placeholder="Nhập mật khẩu mới (nếu muốn thay đổi)"
-              secureTextEntry
-              placeholderTextColor="#999"
-            />
+            <View style={styles.buttonContainer}>
+              <TouchableOpacity
+                style={[styles.button, styles.saveButton]}
+                onPress={handleUpdateProfile}
+                disabled={loading}
+              >
+                <Text style={styles.buttonText}>Lưu</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.button, styles.cancelButton]}
+                onPress={() => setIsEditing(false)}
+                disabled={loading}
+              >
+                <Text style={styles.buttonText}>Hủy</Text>
+              </TouchableOpacity>
+            </View>
           ) : (
-            <Text style={styles.infoText}>********</Text>
+            <View style={styles.buttonContainer}>
+              <TouchableOpacity
+                style={styles.button}
+                onPress={() => setIsEditing(true)}
+                disabled={loading}
+              >
+                <Text style={styles.buttonText}>Chỉnh sửa</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.button}
+                onPress={() => navigation.navigate('DeliveryAddress', { accountId: profileData._id })}
+                disabled={loading}
+              >
+                <Text style={styles.buttonText}>Quản lý địa chỉ giao hàng</Text>
+              </TouchableOpacity>
+            </View>
           )}
-          <Text style={styles.label}>Điểm tích lũy</Text>
-          <Text style={styles.infoText}>{profileData.points || 0}</Text>
-          <Text style={styles.label}>Trạng thái tài khoản</Text>
-          <Text style={styles.infoText}>
-            {profileData.isDeactivated ? 'Đã bị vô hiệu hóa' : 'Hoạt động'}
-          </Text>
         </View>
-        {isEditing ? (
-          <View style={styles.buttonContainer}>
-            <TouchableOpacity
-              style={[styles.button, styles.saveButton]}
-              onPress={handleUpdateProfile}
-              disabled={loading}
-            >
-              <Text style={styles.buttonText}>Lưu</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.button, styles.cancelButton]}
-              onPress={() => setIsEditing(false)}
-              disabled={loading}
-            >
-              <Text style={styles.buttonText}>Hủy</Text>
-            </TouchableOpacity>
+        <View >
+          <Text style={styles.sectionTitle1}>Version 2.4.7</Text>
+          <Text style={styles.infoText1}>Ứng dụng DesikiCare</Text>
+          <Text style={styles.infoText1}>© 2024 DesikiCare. All rights reserved.</Text>
+   
           </View>
-        ) : (
-          <View style={styles.buttonContainer}>
-            <TouchableOpacity
-              style={styles.button}
-              onPress={() => setIsEditing(true)}
-              disabled={loading}
-            >
-              <Text style={styles.buttonText}>Chỉnh sửa</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.button}
-              onPress={() => navigation.navigate('DeliveryAddress', { accountId: profileData._id })}
-              disabled={loading}
-            >
-              <Text style={styles.buttonText}>Quản lý địa chỉ giao hàng</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-      </View>
-      <TouchableOpacity
-        style={[styles.button, styles.logoutButton]}
-        onPress={handleLogout}
-        disabled={loading}
-      >
-        <Text style={styles.buttonText}>Đăng xuất</Text>
-      </TouchableOpacity>
-    </ScrollView>
+        <TouchableOpacity
+          style={[styles.button, styles.logoutButton]}
+          onPress={handleLogout}
+          disabled={loading}
+        >
+          <Text style={styles.buttonText}>Đăng xuất</Text>
+        </TouchableOpacity>
+      </ScrollView>
+    </SafeAreaView>
   );
 };
 

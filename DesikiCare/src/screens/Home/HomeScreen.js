@@ -10,10 +10,10 @@ import PromoCarousel from '../../components/PromoCarousel';
 import Canvas from 'react-native-canvas';
 
 const features = [
-  { title: 'Danh Mục', icon: <MaterialIcons name="menu" size={32} color="#555" /> },
-  { title: 'Mini Game', icon: <MaterialIcons name="gamepad" size={32} color="#4CAF50" /> },
-  { title: 'Hỗ Trợ', icon: <MaterialIcons name="support-agent" size={32} color="#9C27B0" /> },
-  { title: 'Chính Sách', icon: <MaterialIcons name="policy" size={32} color="#795548" /> },
+  { title: 'Danh Mục', icon: <MaterialIcons name="menu" size={28} color="#555" /> },
+  { title: 'Mini Game', icon: <MaterialIcons name="gamepad" size={28} color="#4CAF50" /> },
+  { title: 'Hỗ Trợ', icon: <MaterialIcons name="support-agent" size={28} color="#9C27B0" /> },
+  { title: 'Chính Sách', icon: <MaterialIcons name="policy" size={28} color="#795548" /> },
 ];
 
 const HomeScreen = ({ navigation, route }) => {
@@ -24,26 +24,35 @@ const HomeScreen = ({ navigation, route }) => {
     height: Dimensions.get('window').height,
   });
 
+  // Debounced dimension updates
   useEffect(() => {
+    let timeout;
     const updateDimensions = () => {
-      setDimensions({
-        width: Dimensions.get('window').width,
-        height: Dimensions.get('window').height,
-      });
+      clearTimeout(timeout);
+      timeout = setTimeout(() => {
+        setDimensions({
+          width: Dimensions.get('window').width,
+          height: Dimensions.get('window').height,
+        });
+      }, 100); // Debounce by 100ms
     };
 
     const subscription = Dimensions.addEventListener('change', updateDimensions);
-    return () => subscription?.remove();
+    return () => {
+      subscription?.remove();
+      clearTimeout(timeout);
+    };
   }, []);
 
+  // Canvas animation
   useEffect(() => {
     if (canvasRef.current) {
       const ctx = canvasRef.current.getContext('2d');
       canvasRef.current.width = dimensions.width;
       canvasRef.current.height = dimensions.height;
 
-      const scaleFactor = dimensions.width / 414; // Base width (e.g., iPhone 12 Pro)
-      const numPetals = Math.floor(15 * scaleFactor); // Reduced for performance
+      const scaleFactor = Math.min(dimensions.width / 414, 1); // Cap scale for small screens
+      const numPetals = Math.floor(10 * scaleFactor); // Fewer petals for performance
       const petals = [];
 
       // Initialize petals
@@ -51,11 +60,11 @@ const HomeScreen = ({ navigation, route }) => {
         petals.push({
           x: Math.random() * dimensions.width,
           y: Math.random() * dimensions.height,
-          size: (Math.random() * 10 + 8) * scaleFactor,
-          speedY: (Math.random() * 1 + 0.5) * scaleFactor, // Slower falling speed
-          speedX: (Math.random() * 1 - 0.5) * scaleFactor,
+          size: (Math.random() * 8 + 6) * scaleFactor, // Smaller petals
+          speedY: (Math.random() * 0.8 + 0.3) * scaleFactor, // Slower speed
+          speedX: (Math.random() * 0.5 - 0.25) * scaleFactor,
           rotation: Math.random() * 360,
-          rotationSpeed: (Math.random() * 1 - 0.5) * scaleFactor,
+          rotationSpeed: (Math.random() * 0.5 - 0.25) * scaleFactor,
         });
       }
 
@@ -63,7 +72,7 @@ const HomeScreen = ({ navigation, route }) => {
         ctx.save();
         ctx.translate(petal.x, petal.y);
         ctx.rotate((petal.rotation * Math.PI) / 180);
-        ctx.fillStyle = 'rgba(255, 182, 193, 0.8)';
+        ctx.fillStyle = 'rgba(255, 182, 193, 0.7)'; // Slightly more transparent
         ctx.beginPath();
         ctx.ellipse(0, 0, petal.size / 2, petal.size / 4, 0, 0, 2 * Math.PI);
         ctx.fill();
@@ -100,6 +109,7 @@ const HomeScreen = ({ navigation, route }) => {
     }
   }, [dimensions]);
 
+  // Notification handling
   useEffect(() => {
     if (route.params?.notification) {
       setNotification(route.params.notification);
@@ -129,9 +139,9 @@ const HomeScreen = ({ navigation, route }) => {
         message={notification?.message}
         type={notification?.type}
         onDismiss={() => setNotification(null)}
+        style={styles.notification}
       />
-      <PromoCarousel />
-     
+      <PromoCarousel style={styles.promoCarousel} />
       <View style={styles.featureContainer}>
         {features.map((feature, index) => (
           <FeatureButton
@@ -139,6 +149,7 @@ const HomeScreen = ({ navigation, route }) => {
             title={feature.title}
             icon={feature.icon}
             onPress={() => handlePress(feature.title)}
+            style={styles.featureButton}
           />
         ))}
       </View>
@@ -146,13 +157,10 @@ const HomeScreen = ({ navigation, route }) => {
     </View>
   );
 
-
   return (
     <View style={styles.container}>
-   
       <CustomHeader />
       <Canvas ref={canvasRef} style={styles.canvas} />
-      
       <FlatList
         ListHeaderComponent={renderHeader}
         data={[]}
@@ -160,6 +168,8 @@ const HomeScreen = ({ navigation, route }) => {
         keyExtractor={() => 'dummy'}
         contentContainerStyle={styles.scrollContainer}
         ListFooterComponent={<ProductList navigation={navigation} />}
+        initialNumToRender={10} // Optimize for initial render
+        maxToRenderPerBatch={10} // Batch rendering for performance
       />
     </View>
   );
@@ -168,25 +178,41 @@ const HomeScreen = ({ navigation, route }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#fff', // Ensure consistent background
   },
   scrollContainer: {
-    paddingBottom: 20,
+    paddingBottom: 16, // Reduced padding for smaller screens
+    paddingHorizontal: 8, // Add horizontal padding
   },
   headerContainer: {
     position: 'relative',
-    zIndex: 5, // Ensure header components are above FlatList but below canvas
+    zIndex: 5,
+  },
+  notification: {
+    marginHorizontal: 8,
+    marginTop: 8,
+  },
+  promoCarousel: {
+    marginHorizontal: 8,
+    marginVertical: 8,
   },
   featureContainer: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-around',
-    paddingVertical: 16,
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    paddingHorizontal: 12,
     backgroundColor: '#fa7ca6',
-    zIndex: 5, // Ensure buttons are clickable
+    zIndex: 5,
+  },
+  featureButton: {
+    width: '23%', // Ensure buttons fit on small screens
+    minHeight: 60, // Minimum touch target size
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   featuredBrands: {
-    zIndex: 5, // Ensure FeaturedBrandsCarousel is above FlatList content
-    backgroundColor: '#fff', // Temporary background to confirm visibility
+    marginVertical: 8,
+    zIndex: 5,
   },
   canvas: {
     position: 'absolute',
@@ -195,7 +221,7 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
     zIndex: 10,
-    pointerEvents: 'none', // Allow touch events to pass through
+    pointerEvents: 'none',
   },
 });
 

@@ -117,46 +117,56 @@ const ProductDetailScreen = ({ route, navigation }) => {
     });
   };
 
-  const handleAddToCart = async () => {
-    if (isDeactivated) {
-      setNotificationMessage('');
-      Alert.alert('', 'Sản phẩm hiện không có sẵn.');
-      return;
-    }
-    try {
-      const result = await orderService.addCartItem(product._id, 1); // Fixed quantity to 1
-      if (result && (result.success || result.message === 'Cart items added successfully')) {
-        const productWithId = {
-          id: product._id,
-          title: name,
-          price: salePrice,
-          quantity: 1,
-          image: imageUrl,
-        };
-        if (typeof addToCart === 'function') {
-          dispatch(addToCart(productWithId));
-          setNotificationMessage('Đã thêm vào giỏ hàng!');
-          setNotificationType('success');
-        } else {
-          console.error('addToCart is not a function:', addToCart);
-          Alert.alert('Lỗi', 'Hành động thêm vào giỏ hàng không khả dụng. Vui lòng kiểm tra cấu hình Redux.');
-        }
+const handleAddToCart = async () => {
+  if (isDeactivated) {
+    setNotificationMessage('');
+    Alert.alert('', 'Sản phẩm hiện không có sẵn.');
+    return;
+  }
+  try {
+    const result = await orderService.addCartItem(product._id, 1); // Fixed quantity to 1
+    if (result && (result.success || result.message === 'Cart items added successfully')) {
+      const productWithId = {
+        id: product._id,
+        title: name,
+        price: salePrice,
+        quantity: 1,
+        image: imageUrl,
+      };
+      if (typeof addToCart === 'function') {
+        dispatch(addToCart(productWithId));
+        setNotificationMessage(''); // Clear notification in ProductDetailScreen
+        // Navigate to Cart screen with notification params
+        navigation.navigate('Main', {
+          screen: 'Cart',
+          params: {
+            screen: 'CartMain',
+            params: {
+              notificationMessage: 'Đã thêm vào giỏ hàng!',
+              notificationType: 'success',
+            },
+          },
+        });
       } else {
-        setNotificationMessage('');
-        if (result?.message === 'No token found. Please log in.') {
-          Alert.alert('Lỗi', 'Vui lòng đăng nhập để thêm sản phẩm.', [
-            { text: 'OK', onPress: () => navigation.navigate('Login') },
-          ]);
-        } else {
-          Alert.alert('Lỗi', result?.message || 'Không thể thêm sản phẩm vào giỏ hàng.');
-        }
+        console.error('addToCart is not a function:', addToCart);
+        Alert.alert('Lỗi', 'Hành động thêm vào giỏ hàng không khả dụng. Vui lòng kiểm tra cấu hình Redux.');
       }
-    } catch (error) {
-      console.error('Error adding to cart:', error);
+    } else {
       setNotificationMessage('');
-      Alert.alert('Lỗi', 'Có lỗi xảy ra khi thêm sản phẩm vào giỏ hàng: ' + error.message);
+      if (result?.message === 'No token found. Please log in.') {
+        Alert.alert('Lỗi', 'Vui lòng đăng nhập để thêm sản phẩm.', [
+          { text: 'OK', onPress: () => navigation.navigate('Login') },
+        ]);
+      } else {
+        Alert.alert('Lỗi', result?.message || 'Không thể thêm sản phẩm vào giỏ hàng.');
+      }
     }
-  };
+  } catch (error) {
+    console.error('Error adding to cart:', error);
+    setNotificationMessage('');
+    Alert.alert('Lỗi', 'Có lỗi xảy ra khi thêm sản phẩm vào giỏ hàng: ' + error.message);
+  }
+};
 
   const handleBuyNow = async () => {
     if (isDeactivated) {

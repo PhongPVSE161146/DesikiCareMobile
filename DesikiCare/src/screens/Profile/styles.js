@@ -1,5 +1,15 @@
 import { StyleSheet } from 'react-native';
 
+
+const COLORS = {
+  primary: '#FF69B4', // Matches DeliveryAddressScreen's ActivityIndicator and Switch colors
+  white: '#fff',
+  gray: '#666',
+  lightGray: '#ccc',
+  darkGray: '#333',
+  borderGray: '#eee',
+  red: 'red',
+};
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -73,6 +83,19 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#FFB6C1', // Light pink border
   },
+  sectionTitle1: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: COLORS.primary, // Use primary pink for emphasis
+    textAlign: 'center',
+    marginVertical: 8,
+  },
+infoText1: {
+  fontSize: 16,
+  color: COLORS.gray,
+  textAlign: 'center',
+  marginVertical: 4,
+},
   input: {
     fontSize: 16,
     color: '#4B0082', // Dark purple text

@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -14,6 +14,10 @@ import { useSelector, useDispatch } from 'react-redux';
 import { removeFromCart, updateCartItemQuantity, applyPoints, setCartItems } from '../../redux/cartSlice';
 import orderService from '../../config/axios/Order/orderService';
 import { useFocusEffect } from '@react-navigation/native';
+import Notification from '../../components/Notification';
+
+// Replace with your actual API base URL for images
+const API_BASE_URL = 'https://your-api-base-url.com';
 
 // Danh sách danh mục cố định
 const predefinedCategories = [
@@ -27,20 +31,33 @@ const predefinedCategories = [
   { _id: 7, name: 'Mặt nạ' },
 ];
 
-const CartScreen = ({ navigation }) => {
+const CartScreen = ({ route, navigation }) => {
   const cartItems = useSelector(state => state.cart.items) || [];
   const pointsApplied = useSelector(state => state.cart.points) || 0;
   const dispatch = useDispatch();
   const [pointsInput, setPointsInput] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [notificationMessage, setNotificationMessage] = useState(route.params?.notificationMessage || '');
+  const [notificationType, setNotificationType] = useState(route.params?.notificationType || 'success');
+
+  // Handle notification auto-dismiss
+  useEffect(() => {
+    if (notificationMessage) {
+      const timer = setTimeout(() => {
+        setNotificationMessage('');
+        setNotificationType('success');
+      }, 3000); // Dismiss after 3 seconds
+      return () => clearTimeout(timer);
+    }
+  }, [notificationMessage]);
 
   const fetchCart = useCallback(async () => {
     setLoading(true);
     setError('');
     try {
       const result = await orderService.getCart();
-      console.log('Fetched cart result:', JSON.stringify(result, null, 2)); // Debugging full response
+      console.log('Raw API response:', JSON.stringify(result, null, 2));
       let cartItems = [];
       if (result.success) {
         if (Array.isArray(result.data?.cartItems)) {
@@ -60,22 +77,25 @@ const CartScreen = ({ navigation }) => {
           cartItems = result.data.cart.items;
         } else {
           setError('Dữ liệu giỏ hàng không đúng định dạng.');
+          console.log('Invalid cart data structure:', result.data);
           return;
         }
+        console.log('Processed cartItems:', JSON.stringify(cartItems, null, 2));
         const mappedItems = cartItems.map(item => ({
           id: item._id && typeof item._id === 'string' ? item._id : `temp-${Math.random().toString(36).substr(2, 9)}`,
           title: item.product?.name && typeof item.product.name === 'string' ? item.product.name : 'Sản phẩm không tên',
           price: typeof item.product?.salePrice === 'number' ? item.product.salePrice : 0,
           quantity: typeof item.quantity === 'number' && item.quantity > 0 ? item.quantity : 1,
-          image: item.product?.imageUrl && typeof item.product.imageUrl === 'string' && item.product.imageUrl.startsWith('http') 
-            ? item.product.imageUrl 
+          image: item.product?.imageUrl && typeof item.product.imageUrl === 'string'
+            ? (item.product.imageUrl.startsWith('http') ? item.product.imageUrl : `${API_BASE_URL}/${item.product.imageUrl}`)
             : 'https://placehold.co/100x100?text=No+Image',
           categoryId: typeof item.product?.categoryId === 'number' ? item.product.categoryId.toString() : '0',
         }));
-        console.log('Mapped cart items:', JSON.stringify(mappedItems, null, 2)); // Debugging mapped items
+        console.log('Mapped cart items:', JSON.stringify(mappedItems, null, 2));
         dispatch(setCartItems(mappedItems));
       } else {
         setError(result.message || 'Không thể tải giỏ hàng.');
+        console.log('API error:', result.message);
       }
     } catch (e) {
       console.error('Fetch cart error:', e.message, e.response?.data);
@@ -278,6 +298,15 @@ const CartScreen = ({ navigation }) => {
 
   return (
     <View style={styles.container}>
+      <Notification
+        message={notificationMessage}
+        type={notificationType}
+        autoDismiss={3000}
+        onDismiss={() => {
+          setNotificationMessage('');
+          setNotificationType('success');
+        }}
+      />
       <FlatList
         data={cartItems}
         renderItem={renderCartItem}
