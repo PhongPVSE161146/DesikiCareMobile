@@ -10,13 +10,13 @@ import {
   ActivityIndicator,
   Modal,
   FlatList,
-  Alert,
 } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { Formik } from 'formik';
 import * as Yup from 'yup';
 import QRCode from 'react-native-qrcode-svg';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import axios from 'axios';
 import orderService from '../../config/axios/Order/orderService';
 import paymentService from '../../config/axios/Payments/paymentService';
 import profileService from '../../config/axios/Home/AccountProfile/profileService';
@@ -39,6 +39,13 @@ const initialRadioButtons = [
   { id: 'momo', label: 'Thanh toán qua MoMo', value: 'momo', selected: false },
 ];
 
+// Cache for provinces, districts, and wards
+const cache = {
+  provinces: null,
+  districts: {},
+  wards: {},
+};
+
 const Payment = ({ route, navigation }) => {
   const { cartItems: passedCartItems } = route.params || {};
   const [isLoading, setIsLoading] = useState(false);
@@ -46,24 +53,90 @@ const Payment = ({ route, navigation }) => {
   const [showQRModal, setShowQRModal] = useState(false);
   const [paymentLink, setPaymentLink] = useState(null);
   const [radioButtons, setRadioButtons] = useState(initialRadioButtons);
-  const [qrImageUrl, setQrImageUrl] = useState(null);
+  const [qrString, setQrString] = useState(null);
   const [addresses, setAddresses] = useState([]);
   const [orderId, setOrderId] = useState(`ORDER${Date.now()}`);
   const [showAddressModal, setShowAddressModal] = useState(false);
+  const [notification, setNotification] = useState({ message: '', type: '' });
   const formikRef = useRef(null);
 
   const cartItems = passedCartItems?.length > 0 ? passedCartItems : [];
 
+  // Map province, district, ward codes to names
+  const mapCodeToName = async (provinceCode, districtCode, wardCode) => {
+    try {
+      const pCode = Number(provinceCode);
+      const dCode = Number(districtCode);
+      const wCode = Number(wardCode);
+
+      if (!cache.provinces) {
+        const response = await axios.get('https://provinces.open-api.vn/api/p/');
+        cache.provinces = response.data || [];
+      }
+      const province = cache.provinces.find((p) => p.code === pCode)?.name || 'Tỉnh không xác định';
+
+      if (!cache.districts[pCode]) {
+        const response = await axios.get(`https://provinces.open-api.vn/api/p/${pCode}?depth=2`);
+        cache.districts[pCode] = response.data.districts || [];
+      }
+      const district = cache.districts[pCode].find((d) => d.code === dCode)?.name || 'Quận/Huyện không xác định';
+
+      if (!cache.wards[dCode]) {
+        const response = await axios.get(`https://provinces.open-api.vn/api/d/${dCode}?depth=2`);
+        cache.wards[dCode] = response.data.wards || [];
+      }
+      const ward = cache.wards[dCode].find((w) => w.code === wCode)?.name || 'Phường/Xã không xác định';
+
+      return { province, district, ward };
+    } catch (error) {
+      console.error('Lỗi ánh xạ mã địa chỉ:', error);
+      return {
+        province: 'Tỉnh không xác định',
+        district: 'Quận/Huyện không xác định',
+        ward: 'Phường/Xã không xác định',
+      };
+    }
+  };
+
+  // Fetch provinces
+  const fetchProvinces = async () => {
+    try {
+      if (!cache.provinces) {
+        const response = await axios.get('https://provinces.open-api.vn/api/p/');
+        cache.provinces = response.data || [];
+      }
+    } catch (error) {
+      console.error('Lỗi tải danh sách tỉnh/thành phố:', error);
+      setNotification({ message: 'Không thể tải danh sách tỉnh/thành phố.', type: 'error' });
+    }
+  };
+
   // Fetch delivery addresses
   useEffect(() => {
     const fetchAddresses = async () => {
+      setIsLoading(true);
       try {
-        setIsLoading(true);
+        await fetchProvinces();
         const response = await profileService.getDeliveryAddresses();
         if (response.success) {
-          setAddresses(response.data);
+          const mappedAddresses = await Promise.all(
+            response.data.map(async (address) => {
+              const { province, district, ward } = await mapCodeToName(
+                address.provinceCode,
+                address.districtCode,
+                address.wardCode
+              );
+              return {
+                ...address,
+                provinceName: province,
+                districtName: district,
+                wardName: ward,
+              };
+            })
+          );
+          setAddresses(mappedAddresses);
           // Set default address if available
-          const defaultAddress = response.data.find(addr => addr.isDefault);
+          const defaultAddress = mappedAddresses.find((addr) => addr.isDefault);
           if (defaultAddress && formikRef.current) {
             formikRef.current.setValues({
               ...formikRef.current.values,
@@ -73,10 +146,11 @@ const Payment = ({ route, navigation }) => {
             });
           }
         } else {
-          Alert.alert('Lỗi', response.message || 'Không thể tải địa chỉ giao hàng.');
+          setNotification({ message: response.message || 'Không thể tải danh sách địa chỉ.', type: 'error' });
         }
       } catch (error) {
-        Alert.alert('Lỗi', 'Có lỗi khi tải địa chỉ: ' + error.message);
+        console.error('Lỗi tải địa chỉ:', error);
+        setNotification({ message: 'Không thể tải danh sách địa chỉ.', type: 'error' });
       } finally {
         setIsLoading(false);
       }
@@ -100,6 +174,7 @@ const Payment = ({ route, navigation }) => {
         setRadioButtons(initialRadioButtons);
       } catch (error) {
         console.error('Error fetching user info:', error.message);
+        setNotification({ message: 'Không thể tải thông tin người dùng.', type: 'error' });
       }
     };
     loadUserInfo();
@@ -136,7 +211,7 @@ const Payment = ({ route, navigation }) => {
   // Handle form submission
   const handleSubmit = async (values, { setSubmitting }) => {
     if (!cartItems || cartItems.length === 0) {
-      Alert.alert('Lỗi', 'Giỏ hàng trống. Vui lòng thêm sản phẩm trước khi thanh toán.');
+      setNotification({ message: 'Giỏ hàng trống. Vui lòng thêm sản phẩm trước khi thanh toán.', type: 'error' });
       return;
     }
 
@@ -147,7 +222,7 @@ const Payment = ({ route, navigation }) => {
 
     try {
       setIsLoading(true);
-      const formattedCartItems = cartItems.map(item => ({
+      const formattedCartItems = cartItems.map((item) => ({
         id: item.id,
         quantity: item.quantity,
       }));
@@ -167,7 +242,7 @@ const Payment = ({ route, navigation }) => {
         if (orderResponse.success) {
           navigation.navigate('ConfirmPaymentScreen', { paymentData: orderResponse });
         } else {
-          Alert.alert('Lỗi', orderResponse.message || 'Không thể tạo đơn hàng.');
+          setNotification({ message: orderResponse.message || 'Không thể tạo đơn hàng.', type: 'error' });
         }
       } else if (values.paymentMethod === 'qr') {
         const qrUrl = await generateQR(totalAmount);
@@ -175,7 +250,7 @@ const Payment = ({ route, navigation }) => {
           setQrImageUrl(qrUrl);
           setShowQRModal(true);
         } else {
-          Alert.alert('Lỗi', 'Không thể tạo mã QR.');
+          setNotification({ message: 'Không thể tạo mã QR.', type: 'error' });
         }
       } else if (values.paymentMethod === 'momo') {
         const paymentResult = await paymentService.getCartPaymentLink(orderPayload, metaData);
@@ -183,12 +258,12 @@ const Payment = ({ route, navigation }) => {
           setPaymentLink(paymentResult.data.paymentLink);
           setShowWebView(true);
         } else {
-          Alert.alert('Lỗi', paymentResult.message || 'Không thể tạo link thanh toán.');
+          setNotification({ message: paymentResult.message || 'Không thể tạo link thanh toán.', type: 'error' });
         }
       }
     } catch (error) {
       console.error('Payment error:', error.message);
-      Alert.alert('Lỗi', 'Có lỗi xảy ra: ' + error.message);
+      setNotification({ message: 'Có lỗi xảy ra: ' + error.message, type: 'error' });
     } finally {
       setIsLoading(false);
       setSubmitting(false);
@@ -226,11 +301,11 @@ const Payment = ({ route, navigation }) => {
         setShowQRModal(false);
         navigation.navigate('ConfirmPaymentScreen', { paymentData: response });
       } else {
-        Alert.alert('Lỗi', response.message || 'Không thể xác nhận thanh toán.');
+        setNotification({ message: response.message || 'Không thể xác nhận thanh toán.', type: 'error' });
       }
     } catch (error) {
       console.error('Confirm QR payment error:', error);
-      Alert.alert('Lỗi', 'Có lỗi xảy ra khi xác nhận thanh toán: ' + error.message);
+      setNotification({ message: 'Có lỗi xảy ra khi xác nhận thanh toán: ' + error.message, type: 'error' });
     } finally {
       setIsLoading(false);
     }
@@ -268,7 +343,7 @@ const Payment = ({ route, navigation }) => {
         setShowWebView(false);
         navigation.navigate('ConfirmPaymentScreen', { paymentData: response });
       } else {
-        Alert.alert('Lỗi', response.message || 'Không thể xác nhận thanh toán.');
+        setNotification({ message: response.message || 'Không thể xác nhận thanh toán.', type: 'error' });
       }
     } else if (navState.url.includes('myapp://payment/cancel')) {
       setShowWebView(false);
@@ -317,7 +392,7 @@ const Payment = ({ route, navigation }) => {
         onError={(syntheticEvent) => {
           const { nativeEvent } = syntheticEvent;
           console.error('WebView error:', nativeEvent);
-          Alert.alert('Lỗi', 'Lỗi khi tải trang thanh toán.');
+          setNotification({ message: 'Lỗi khi tải trang thanh toán.', type: 'error' });
           setShowWebView(false);
         }}
         onNavigationStateChange={handleWebViewNavigation}
@@ -327,6 +402,11 @@ const Payment = ({ route, navigation }) => {
 
   return (
     <ScrollView style={styles.container}>
+      {notification.message ? (
+        <View style={[styles.notification, notification.type === 'error' ? styles.errorNotification : styles.successNotification]}>
+          <Text style={styles.notificationText}>{notification.message}</Text>
+        </View>
+      ) : null}
       <Text style={styles.title}>Thanh toán đơn hàng</Text>
 
       <Modal
@@ -356,15 +436,13 @@ const Payment = ({ route, navigation }) => {
             <View style={styles.summaryTotal}>
               <Text style={styles.summaryTotalText}>Tổng cộng:</Text>
               <Text style={styles.summaryTotalText}>
-                {(
-                  cartItems.reduce((total, item) => total + item.price * item.quantity39, 0) + 30000
-                ).toLocaleString('vi-VN')}₫
+                {(cartItems.reduce((total, item) => total + item.price * item.quantity, 0) + 30000).toLocaleString('vi-VN')}₫
               </Text>
             </View>
           </View>
-          {qrImageUrl ? (
+          {qrString ? (
             <View style={styles.qrContainer}>
-              <QRCode value={qrImageUrl} size={200} />
+              <QRCode value={qrString} size={200} />
             </View>
           ) : (
             <Text style={styles.summaryText}>Đang tạo mã QR...</Text>
@@ -428,6 +506,7 @@ const Payment = ({ route, navigation }) => {
           phone: '',
           addressId: '',
           note: '',
+          paymentMethod: 'cod',
         }}
         validationSchema={validationSchema}
         onSubmit={handleSubmit}
@@ -449,8 +528,12 @@ const Payment = ({ route, navigation }) => {
                 onPress={() => setShowAddressModal(true)}
               >
                 <Text style={values.addressId ? styles.inputText : styles.placeholderText}>
-                  {addresses.find(addr => addr._id === values.addressId)
-                    ? `${addresses.find(addr => addr._id === values.addressId).receiverName} - ${addresses.find(addr => addr._id === values.addressId).addressDetailDescription}, ${addresses.find(addr => addr._id === values.addressId).wardName}, ${addresses.find(addr => addr._id === values.addressId).districtName}, ${addresses.find(addr => addr._id === values.addressId).provinceName}`
+                  {addresses.find((addr) => addr._id === values.addressId)
+                    ? `${addresses.find((addr) => addr._id === values.addressId).receiverName} - ${
+                        addresses.find((addr) => addr._id === values.addressId).addressDetailDescription
+                      }, ${addresses.find((addr) => addr._id === values.addressId).wardName}, ${
+                        addresses.find((addr) => addr._id === values.addressId).districtName
+                      }, ${addresses.find((addr) => addr._id === values.addressId).provinceName}`
                     : 'Chọn địa chỉ giao hàng'}
                 </Text>
                 <Icon name="arrow-drop-down" size={24} color="#E53935" />
@@ -483,6 +566,7 @@ const Payment = ({ route, navigation }) => {
               {touched.phone && errors.phone && (
                 <Text style={styles.errorText}>{errors.phone}</Text>
               )}
+              <Text style={styles.label}>Ghi chú</Text>
               <TextInput
                 style={[styles.input, { height: 80, textAlignVertical: 'top' }]}
                 value={values.note}
@@ -498,10 +582,7 @@ const Payment = ({ route, navigation }) => {
                 {radioButtons.map((button) => (
                   <TouchableOpacity
                     key={button.id}
-                    style={[
-                      styles.radioButton,
-                      button.selected && styles.radioButtonSelected,
-                    ]}
+                    style={[styles.radioButton, button.selected && styles.radioButtonSelected]}
                     onPress={() => {
                       const updatedButtons = radioButtons.map((b) => ({
                         ...b,
@@ -549,9 +630,7 @@ const Payment = ({ route, navigation }) => {
               <View style={styles.summaryTotal}>
                 <Text style={styles.summaryTotalText}>Tổng cộng:</Text>
                 <Text style={styles.summaryTotalText}>
-                  {(
-                    (cartItems?.reduce((total, item) => total + item.price * item.quantity, 0) || 0) + 30000
-                  ).toLocaleString('vi-VN')}₫
+                  {(cartItems.reduce((total, item) => total + item.price * item.quantity, 0) + 30000).toLocaleString('vi-VN')}₫
                 </Text>
               </View>
               <TouchableOpacity
@@ -589,18 +668,24 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   card: {
-    borderRadius: 8,
-    marginBottom: 16,
+    borderRadius: 12,
+    marginBottom: 20,
     padding: 16,
-    backgroundColor: '#f9f9f9',
+    backgroundColor: '#ffffff',
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: '#e0e0e0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
   },
   cardTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    marginBottom: 12,
-    color: '#333',
+    fontSize: 20,
+    fontWeight: '700',
+    marginBottom: 16,
+    color: '#212121',
+    textAlign: 'center',
   },
   input: {
     borderWidth: 1,
@@ -673,26 +758,44 @@ const styles = StyleSheet.create({
   summaryItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingVertical: 8,
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
   },
   summaryText: {
-    fontSize: 15,
-    color: '#333',
+    fontSize: 16,
+    color: '#424242',
+    flex: 1,
+    flexWrap: 'wrap',
+    marginRight: 8,
+  },
+  summaryPrice: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#d32f2f',
+    textAlign: 'right',
   },
   divider: {
     height: 1,
-    backgroundColor: '#ddd',
-    marginVertical: 12,
+    backgroundColor: '#e0e0e0',
+    marginVertical: 16,
   },
   summaryTotal: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingTop: 12,
+    alignItems: 'center',
+    paddingVertical: 12,
   },
   summaryTotalText: {
-    fontSize: 17,
+    fontSize: 18,
     fontWeight: '700',
-    color: '#333',
+    color: '#212121',
+  },
+  summaryTotalPrice: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#d32f2f',
   },
   submitButton: {
     backgroundColor: '#E53935',
@@ -777,6 +880,25 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#E53935',
     fontWeight: '500',
+  },
+  notification: {
+    padding: 10,
+    borderRadius: 8,
+    marginBottom: 16,
+  },
+  errorNotification: {
+    backgroundColor: '#ffebee',
+    borderColor: '#E53935',
+    borderWidth: 1,
+  },
+  successNotification: {
+    backgroundColor: '#e8f5e9',
+    borderColor: '#4CAF50',
+    borderWidth: 1,
+  },
+  notificationText: {
+    fontSize: 14,
+    color: '#333',
   },
 });
 

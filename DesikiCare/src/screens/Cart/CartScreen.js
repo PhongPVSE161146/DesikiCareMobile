@@ -47,7 +47,7 @@ const CartScreen = ({ route, navigation }) => {
       const timer = setTimeout(() => {
         setNotificationMessage('');
         setNotificationType('success');
-      }, 3000); // Dismiss after 3 seconds
+      }, 3000);
       return () => clearTimeout(timer);
     }
   }, [notificationMessage]);
@@ -179,7 +179,7 @@ const CartScreen = ({ route, navigation }) => {
       return;
     }
     const subtotal = cartItems.reduce((sum, item) => sum + (item.price || 0) * (item.quantity || 1), 0);
-    const maxPoints = Math.floor(subtotal / 1000); // 1 point = 1000 VND
+    const maxPoints = Math.floor(subtotal / 1000);
     if (points > maxPoints) {
       Alert.alert('Lỗi', `Bạn chỉ có thể sử dụng tối đa ${maxPoints} điểm cho đơn hàng này.`);
       return;
@@ -201,8 +201,8 @@ const CartScreen = ({ route, navigation }) => {
 
   const calculateTotal = () => {
     const subtotal = cartItems.reduce((sum, item) => sum + (item.price || 0) * (item.quantity || 1), 0);
-    const discount = pointsApplied * 1000; // 1 point = 1000 VND
-    const shippingFee = subtotal > 500000 ? 0 : 30000; // Free shipping if subtotal > 500,000 VND
+    const discount = pointsApplied * 1000;
+    const shippingFee = subtotal > 500000 ? 0 : 30000;
     return {
       subtotal,
       discount,
@@ -267,7 +267,7 @@ const CartScreen = ({ route, navigation }) => {
         source={{ uri: item.image || 'https://placehold.co/100x100?text=No+Image' }}
         style={styles.cartItemImage}
         resizeMode="contain"
-        onError={(e) => console.log(`Failed to load image for ${item.title}: ${item.image}, error: ${e.nativeEvent.error}, using fallback: https://placehold.co/100x100?text=No+Image`)}
+        onError={(e) => console.log(`Failed to load image for ${item.title}: ${item.image}, error: ${e.nativeEvent.error}`)}
       />
       <View style={styles.cartItemDetails}>
         <Text style={styles.cartItemName} numberOfLines={2}>{item.title}</Text>
@@ -348,7 +348,13 @@ const CartScreen = ({ route, navigation }) => {
           <Text style={styles.totalFinalValue}>{total.toLocaleString('vi-VN')} đ</Text>
         </View>
       </View>
-      <TouchableOpacity style={styles.checkoutButton} onPress={() => navigation.navigate('Payment')}>
+      <TouchableOpacity
+        style={styles.checkoutButton}
+        onPress={() => {
+          console.log('Navigating to Payment with cartItems:', JSON.stringify(cartItems, null, 2));
+          navigation.navigate('Payment', { cartItems, pointsApplied });
+        }}
+      >
         <Text style={styles.checkoutButtonText}>Tiến hành đặt hàng</Text>
       </TouchableOpacity>
     </View>
@@ -379,55 +385,55 @@ const styles = StyleSheet.create({
   pointsInput: { flex: 1, borderWidth: 1, borderColor: '#ddd', borderRadius: 5, padding: 10, marginRight: 10, fontSize: 16 },
   applyPointsButton: { backgroundColor: '#E53935', paddingVertical: 10, paddingHorizontal: 20, borderRadius: 5, justifyContent: 'center' },
   applyPointsButtonText: { color: '#fff', fontWeight: 'bold', fontSize: 14 },
-  totalContainer: { 
-    marginVertical: 15, 
-    padding: 15, 
-    backgroundColor: '#f9f9f9', 
-    borderRadius: 8, 
-    borderWidth: 1, 
+  totalContainer: {
+    marginVertical: 15,
+    padding: 15,
+    backgroundColor: '#f9f9f9',
+    borderRadius: 8,
+    borderWidth: 1,
     borderColor: '#ddd',
   },
-  totalRow: { 
-    flexDirection: 'row', 
-    justifyContent: 'space-between', 
-    alignItems: 'center', 
-    marginBottom: 8 
+  totalRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
   },
-  totalFinalRow: { 
-    marginTop: 10, 
-    paddingTop: 10, 
-    borderTopWidth: 1, 
-    borderTopColor: '#ddd' 
+  totalFinalRow: {
+    marginTop: 10,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#ddd',
   },
-  totalLabel: { 
-    fontSize: 16, 
-    color: '#333', 
-    fontWeight: '500' 
+  totalLabel: {
+    fontSize: 16,
+    color: '#333',
+    fontWeight: '500',
   },
-  totalValue: { 
-    fontSize: 16, 
-    color: '#333', 
-    fontWeight: '600' 
+  totalValue: {
+    fontSize: 16,
+    color: '#333',
+    fontWeight: '600',
   },
-  discountLabel: { 
-    fontSize: 14, 
-    color: '#E53935', 
-    fontWeight: '500' 
+  discountLabel: {
+    fontSize: 14,
+    color: '#E53935',
+    fontWeight: '500',
   },
-  discountValue: { 
-    fontSize: 14, 
-    color: '#E53935', 
-    fontWeight: '600' 
+  discountValue: {
+    fontSize: 14,
+    color: '#E53935',
+    fontWeight: '600',
   },
-  totalFinalLabel: { 
-    fontSize: 18, 
-    color: '#333', 
-    fontWeight: '700' 
+  totalFinalLabel: {
+    fontSize: 18,
+    color: '#333',
+    fontWeight: '700',
   },
-  totalFinalValue: { 
-    fontSize: 18, 
-    color: '#E53935', 
-    fontWeight: '700' 
+  totalFinalValue: {
+    fontSize: 18,
+    color: '#E53935',
+    fontWeight: '700',
   },
   checkoutButton: { backgroundColor: '#E53935', paddingVertical: 15, borderRadius: 5, alignItems: 'center', marginVertical: 10 },
   checkoutButtonText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },

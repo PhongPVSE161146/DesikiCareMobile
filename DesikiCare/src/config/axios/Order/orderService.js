@@ -22,12 +22,11 @@ const orderService = {
   getCart: async () => {
     try {
       const userToken = await getUserToken();
-
       const response = await axiosInstance.get('/carts/me', {
         headers: { Authorization: `Bearer ${userToken}` },
       });
 
-      console.log('getCart Raw Response:', response.data);
+      console.log('getCart Raw Response:', JSON.stringify(response.data, null, 2));
       return response.status === 200
         ? { success: true, data: response.data }
         : { success: false, message: response.data.message || 'Failed to fetch cart' };
@@ -74,14 +73,11 @@ const orderService = {
       const userToken = await getUserToken();
       console.log('Adding to cart with payload:', { productId, quantity });
 
-      const response = await axiosInstance.post('/cartItems', {
-        productId,
-       
-      }, {
+      const response = await axiosInstance.post('/cartItems', { productId, quantity }, {
         headers: { Authorization: `Bearer ${userToken}` },
       });
 
-      console.log('AddCartItem API response:', response.data);
+      console.log('AddCartItem API response:', JSON.stringify(response.data, null, 2));
       return response.status === 200
         ? { success: true, data: response.data, cartItemId: response.data.cartItem?._id }
         : { success: false, message: response.data.message || 'Failed to add item to cart' };
@@ -91,41 +87,110 @@ const orderService = {
     }
   },
 
-  getPaymentLink: async (orderData, urls) => {
+  createOrder: async (orderPayload) => {
     try {
       const userToken = await getUserToken();
-      const response = await axiosInstance.post('/payment', { ...orderData, ...urls }, {
+      const response = await axiosInstance.post('/orders', {
+        ...orderPayload,
+        cartItems: orderPayload.cartItems.map((item) => ({
+          productId: item.id, // Map `id` to `productId` for backend
+          quantity: item.quantity,
+        })),
+      }, {
         headers: { Authorization: `Bearer ${userToken}` },
       });
 
+      console.log('createOrder Response:', JSON.stringify(response.data, null, 2));
+      return response.status === 201
+        ? { success: true, data: response.data }
+        : { success: false, message: response.data.message || 'Failed to create order' };
+    } catch (error) {
+      console.error('Create order error:', error.message);
+      return { success: false, message: error.message || 'Network error. Please try again.' };
+    }
+  },
+
+  getCartPaymentLink: async (orderData, urls) => {
+    try {
+      const userToken = await getUserToken();
+      const response = await axiosInstance.post('/carts/getPaymentLink', {
+        ...orderData,
+        cartItems: orderData.cartItems.map((item) => ({
+          productId: item.id, // Map `id` to `productId` for backend
+          quantity: item.quantity,
+        })),
+        ...urls,
+      }, {
+        headers: { Authorization: `Bearer ${userToken}` },
+      });
+
+      console.log('getCartPaymentLink Response:', JSON.stringify(response.data, null, 2));
       return response.status === 200
         ? { success: true, data: response.data }
         : { success: false, message: response.data.message || 'Failed to get payment link' };
     } catch (error) {
-      console.error('Get payment link error:', error.message);
+      console.error('Get cart payment link error:', error.message);
       return { success: false, message: error.message || 'Network error. Please try again.' };
     }
   },
-    // Hàm để tạo đơn hàng
+
+  getOrderPaymentLink: async (orderId, orderData, urls) => {
+    try {
+      const userToken = await getUserToken();
+      const response = await axiosInstance.post(`/orders/${orderId}/getPaymentLink`, {
+        ...orderData,
+        cartItems: orderData.cartItems.map((item) => ({
+          productId: item.id, // Map `id` to `productId` for backend
+          quantity: item.quantity,
+        })),
+        ...urls,
+      }, {
+        headers: { Authorization: `Bearer ${userToken}` },
+      });
+
+      console.log('getOrderPaymentLink Response:', JSON.stringify(response.data, null, 2));
+      return response.status === 200
+        ? { success: true, data: response.data }
+        : { success: false, message: response.data.message || 'Failed to get payment link' };
+    } catch (error) {
+      console.error('Get order payment link error:', error.message);
+      return { success: false, message: error.message || 'Network error. Please try again.' };
+    }
+  },
+
+  confirmPayment: async (paymentData) => {
+    try {
+      const userToken = await getUserToken();
+      const response = await axiosInstance.post('/confirmPayment', paymentData, {
+        headers: { Authorization: `Bearer ${userToken}` },
+      });
+
+      console.log('confirmPayment Response:', JSON.stringify(response.data, null, 2));
+      return response.status === 200
+        ? { success: true, data: response.data }
+        : { success: false, message: response.data.message || 'Failed to confirm payment' };
+    } catch (error) {
+      console.error('Confirm payment error:', error.message);
+      return { success: false, message: error.message || 'Network error. Please try again.' };
+    }
+  },
+
   getOrders: async () => {
-  try {
-    const userToken = await getUserToken();
+    try {
+      const userToken = await getUserToken();
+      const response = await axiosInstance.get('/orders', {
+        headers: { Authorization: `Bearer ${userToken}` },
+      });
 
-    const response = await axiosInstance.get('/orders', {
-      headers: { Authorization: `Bearer ${userToken}` },
-    });
-
-    console.log('getOrders Response:', response.data);
-
-    return response.status === 200
-      ? { success: true, data: response.data.orders } // Dữ liệu nằm trong `orders`
-      : { success: false, message: response.data.message || 'Failed to fetch orders' };
-  } catch (error) {
-    console.error('Get orders error:', error.message);
-    return { success: false, message: error.message || 'Network error. Please try again.' };
-  }
-},
-
+      console.log('getOrders Response:', JSON.stringify(response.data, null, 2));
+      return response.status === 200
+        ? { success: true, data: response.data.orders }
+        : { success: false, message: response.data.message || 'Failed to fetch orders' };
+    } catch (error) {
+      console.error('Get orders error:', error.message);
+      return { success: false, message: error.message || 'Network error. Please try again.' };
+    }
+  },
 };
 
 export default orderService;
