@@ -7,9 +7,12 @@ const ConfirmPaymentScreen = ({ route, navigation }) => {
   const [error, setError] = useState(null);
 
   useEffect(() => {
+    console.log('Received paymentData:', JSON.stringify(paymentData, null, 2));
     if (!paymentData) {
       setError('Không có dữ liệu thanh toán.');
       setIsLoading(false);
+    } else if (!paymentData.orderData || !paymentData.data) {
+      setError('Dữ liệu thanh toán hoặc đơn hàng không đầy đủ.');
     }
   }, [paymentData]);
 
@@ -52,7 +55,7 @@ const ConfirmPaymentScreen = ({ route, navigation }) => {
   }
 
   const { data, code, desc, success, signature, orderData } = paymentData || {};
-  const { subtotal, discount, shippingFee, total } = orderData || {};
+  const { subtotal = 0, discount = 0, shippingFee = 0, total = 0, cartItems = [], pointUsed = 0 } = orderData || {};
 
   return (
     <ScrollView style={styles.container}>
@@ -61,14 +64,14 @@ const ConfirmPaymentScreen = ({ route, navigation }) => {
       </Text>
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Chi tiết đơn hàng</Text>
-        {orderData?.cartItems?.length > 0 ? (
-          orderData.cartItems.map((item, index) => (
+        {cartItems.length > 0 ? (
+          cartItems.map((item, index) => (
             <View key={index} style={styles.summaryItem}>
               <Text style={styles.summaryText} numberOfLines={1}>
-                {item.title} (x{item.quantity})
+                {item.title || 'Sản phẩm không xác định'} (x{item.quantity || 0})
               </Text>
               <Text style={styles.summaryPrice}>
-                {(item.price * item.quantity).toLocaleString('vi-VN')}₫
+                {((item.price || 0) * (item.quantity || 0)).toLocaleString('vi-VN')}₫
               </Text>
             </View>
           ))
@@ -78,12 +81,12 @@ const ConfirmPaymentScreen = ({ route, navigation }) => {
         <View style={styles.summaryItem}>
           <Text style={styles.summaryText}>Tạm tính</Text>
           <Text style={styles.summaryPrice}>
-            {subtotal?.toLocaleString('vi-VN') || '0'}₫
+            {subtotal.toLocaleString('vi-VN')}₫
           </Text>
         </View>
         {discount > 0 && (
           <View style={styles.summaryItem}>
-            <Text style={styles.summaryDiscountText}>Giảm giá ({orderData?.pointUsed} điểm)</Text>
+            <Text style={styles.summaryDiscountText}>Giảm giá ({pointUsed} điểm)</Text>
             <Text style={styles.summaryDiscountPrice}>
               -{discount.toLocaleString('vi-VN')}₫
             </Text>
@@ -92,7 +95,7 @@ const ConfirmPaymentScreen = ({ route, navigation }) => {
         <View style={styles.summaryItem}>
           <Text style={styles.summaryText}>Phí giao hàng</Text>
           <Text style={styles.summaryPrice}>
-            {shippingFee?.toLocaleString('vi-VN') || '0'}₫
+            {shippingFee.toLocaleString('vi-VN')}₫
             {shippingFee === 0 && (
               <Text style={styles.summaryDiscountText}> (Miễn phí cho đơn hàng trên 500,000₫)</Text>
             )}
@@ -102,7 +105,7 @@ const ConfirmPaymentScreen = ({ route, navigation }) => {
         <View style={styles.summaryTotal}>
           <Text style={styles.summaryTotalText}>Tổng cộng</Text>
           <Text style={styles.summaryTotalPrice}>
-            {total?.toLocaleString('vi-VN') || '0'}₫
+            {total.toLocaleString('vi-VN')}₫
           </Text>
         </View>
       </View>

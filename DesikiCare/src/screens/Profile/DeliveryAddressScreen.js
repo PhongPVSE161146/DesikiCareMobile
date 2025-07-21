@@ -15,7 +15,7 @@ import RNModal from 'react-native-modal';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import axios from 'axios';
 import profileService from '../../config/axios/Home/AccountProfile/profileService';
-import Notification from '../../components/Notification';
+import Notification from '../../components/NotiComponnets/Notification';
 import styles from './styles';
 
 // In-memory cache for provinces, districts, and wards

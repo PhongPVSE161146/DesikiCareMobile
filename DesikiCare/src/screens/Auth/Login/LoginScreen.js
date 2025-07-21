@@ -4,7 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useDispatch } from 'react-redux';
 import { login as reduxLogin } from '../../../redux/authSlice';
 import authService from '../../../config/axios/Auth/authService';
-import Notification from '../../../components/Notification';
+import Notification from '../../../components/NotiComponnets/Notification';
 import { Alert } from 'react-native';
 
 // Try core Switch first; if error persists, use the alternative import below

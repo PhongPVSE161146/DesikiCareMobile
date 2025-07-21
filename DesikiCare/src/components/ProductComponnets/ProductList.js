@@ -11,7 +11,7 @@ import {
   Alert,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import ProductService from '../config/axios/Product/productService';
+import ProductService from '../../config/axios/Product/productService';
 
 const screenWidth = Dimensions.get('window').width;
 

@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import orderService from '../../config/axios/Order/orderService';
-import OrderCard from '../../components/OrderCard';
+import OrderCard from '../../components/OrderComponents/OrderCard';
 
 const STATUS_CATEGORIES = ['Chờ xử lý', 'Đang giao', 'Đã giao', 'Đã huỷ'];
 

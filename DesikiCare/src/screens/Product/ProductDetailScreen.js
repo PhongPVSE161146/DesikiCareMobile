@@ -14,7 +14,7 @@ import { useDispatch } from 'react-redux';
 import { addToCart } from '../../redux/cartSlice'; // Verify this path
 import ProductService from '../../config/axios/Product/productService';
 import orderService from '../../config/axios/Order/orderService';
-import Notification from '../../components/Notification';
+import Notification from '../../components/NotiComponnets/Notification';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { CANCEL_URL, RETURN_URL } from '@env';
 

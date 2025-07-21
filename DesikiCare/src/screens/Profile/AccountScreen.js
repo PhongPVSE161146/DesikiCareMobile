@@ -7,7 +7,7 @@ import * as ImagePicker from 'expo-image-picker';
 import axios from 'axios';
 import profileService from '../../config/axios/Home/AccountProfile/profileService';
 import { logout } from '../../redux/authSlice';
-import Notification from '../../components/Notification';
+import Notification from '../../components/NotiComponnets/Notification';
 import styles from './styles';
 
 // In-memory cache for provinces, districts, and wards

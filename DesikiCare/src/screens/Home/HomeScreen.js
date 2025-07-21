@@ -1,12 +1,12 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { View, FlatList, StyleSheet, Dimensions } from 'react-native';
-import ProductList from '../../components/ProductList';
-import FeatureButton from '../../components/FeatureButton';
-import FeaturedBrandsCarousel from '../../components/FeaturedBrandsCarousel';
+import ProductList from '../../components/ProductComponnets/ProductList';
+import FeatureButton from '../../components/HomeComponents/FeatureButton';
+import FeaturedBrandsCarousel from '../../components/HomeComponents/FeaturedBrandsCarousel';
 import { MaterialIcons } from '@expo/vector-icons';
 import CustomHeader from '../../components/Header/CustomHeader';
-import Notification from '../../components/Notification';
-import PromoCarousel from '../../components/PromoCarousel';
+import Notification from '../../components/NotiComponnets/Notification';
+import PromoCarousel from '../../components/HomeComponents/PromoCarousel';
 import Canvas from 'react-native-canvas';
 
 const features = [
@@ -17,12 +17,25 @@ const features = [
 ];
 
 const HomeScreen = ({ navigation, route }) => {
-  const [notification, setNotification] = useState(null);
+  const [notificationMessage, setNotificationMessage] = useState(route.params?.notification?.message || '');
+  const [notificationType, setNotificationType] = useState(route.params?.notification?.type || 'success');
   const canvasRef = useRef(null);
   const [dimensions, setDimensions] = useState({
     width: Dimensions.get('window').width,
     height: Dimensions.get('window').height,
   });
+
+  // Auto-dismiss notification after 3 seconds
+  useEffect(() => {
+    console.log('HomeScreen route.params:', JSON.stringify(route.params, null, 2)); // Debug log
+    if (notificationMessage) {
+      const timer = setTimeout(() => {
+        setNotificationMessage('');
+        setNotificationType('success');
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [notificationMessage]);
 
   // Debounced dimension updates
   useEffect(() => {
@@ -34,7 +47,7 @@ const HomeScreen = ({ navigation, route }) => {
           width: Dimensions.get('window').width,
           height: Dimensions.get('window').height,
         });
-      }, 100); // Debounce by 100ms
+      }, 100);
     };
 
     const subscription = Dimensions.addEventListener('change', updateDimensions);
@@ -51,17 +64,16 @@ const HomeScreen = ({ navigation, route }) => {
       canvasRef.current.width = dimensions.width;
       canvasRef.current.height = dimensions.height;
 
-      const scaleFactor = Math.min(dimensions.width / 414, 1); // Cap scale for small screens
-      const numPetals = Math.floor(10 * scaleFactor); // Fewer petals for performance
+      const scaleFactor = Math.min(dimensions.width / 414, 1);
+      const numPetals = Math.floor(10 * scaleFactor);
       const petals = [];
 
-      // Initialize petals
       for (let i = 0; i < numPetals; i++) {
         petals.push({
           x: Math.random() * dimensions.width,
           y: Math.random() * dimensions.height,
-          size: (Math.random() * 8 + 6) * scaleFactor, // Smaller petals
-          speedY: (Math.random() * 0.8 + 0.3) * scaleFactor, // Slower speed
+          size: (Math.random() * 8 + 6) * scaleFactor,
+          speedY: (Math.random() * 0.8 + 0.3) * scaleFactor,
           speedX: (Math.random() * 0.5 - 0.25) * scaleFactor,
           rotation: Math.random() * 360,
           rotationSpeed: (Math.random() * 0.5 - 0.25) * scaleFactor,
@@ -72,7 +84,7 @@ const HomeScreen = ({ navigation, route }) => {
         ctx.save();
         ctx.translate(petal.x, petal.y);
         ctx.rotate((petal.rotation * Math.PI) / 180);
-        ctx.fillStyle = 'rgba(255, 182, 193, 0.7)'; // Slightly more transparent
+        ctx.fillStyle = 'rgba(255, 182, 193, 0.7)';
         ctx.beginPath();
         ctx.ellipse(0, 0, petal.size / 2, petal.size / 4, 0, 0, 2 * Math.PI);
         ctx.fill();
@@ -109,13 +121,6 @@ const HomeScreen = ({ navigation, route }) => {
     }
   }, [dimensions]);
 
-  // Notification handling
-  useEffect(() => {
-    if (route.params?.notification) {
-      setNotification(route.params.notification);
-    }
-  }, [route.params]);
-
   const handlePress = (title) => {
     switch (title) {
       case 'Danh Mục':
@@ -136,9 +141,13 @@ const HomeScreen = ({ navigation, route }) => {
   const renderHeader = () => (
     <View style={styles.headerContainer}>
       <Notification
-        message={notification?.message}
-        type={notification?.type}
-        onDismiss={() => setNotification(null)}
+        message={notificationMessage}
+        type={notificationType}
+        autoDismiss={3000}
+        onDismiss={() => {
+          setNotificationMessage('');
+          setNotificationType('success');
+        }}
         style={styles.notification}
       />
       <PromoCarousel style={styles.promoCarousel} />
@@ -168,8 +177,8 @@ const HomeScreen = ({ navigation, route }) => {
         keyExtractor={() => 'dummy'}
         contentContainerStyle={styles.scrollContainer}
         ListFooterComponent={<ProductList navigation={navigation} />}
-        initialNumToRender={10} // Optimize for initial render
-        maxToRenderPerBatch={10} // Batch rendering for performance
+        initialNumToRender={10}
+        maxToRenderPerBatch={10}
       />
     </View>
   );
@@ -178,11 +187,11 @@ const HomeScreen = ({ navigation, route }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff', // Ensure consistent background
+    backgroundColor: '#fff',
   },
   scrollContainer: {
-    paddingBottom: 16, // Reduced padding for smaller screens
-    paddingHorizontal: 8, // Add horizontal padding
+    paddingBottom: 16,
+    paddingHorizontal: 8,
   },
   headerContainer: {
     position: 'relative',
@@ -191,6 +200,7 @@ const styles = StyleSheet.create({
   notification: {
     marginHorizontal: 8,
     marginTop: 8,
+    zIndex: 20, // Ensure notification is above other components
   },
   promoCarousel: {
     marginHorizontal: 8,
@@ -205,8 +215,8 @@ const styles = StyleSheet.create({
     zIndex: 5,
   },
   featureButton: {
-    width: '23%', // Ensure buttons fit on small screens
-    minHeight: 60, // Minimum touch target size
+    width: '23%',
+    minHeight: 60,
     justifyContent: 'center',
     alignItems: 'center',
   },

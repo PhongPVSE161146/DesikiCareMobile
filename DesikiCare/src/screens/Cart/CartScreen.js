@@ -14,7 +14,7 @@ import { useSelector, useDispatch } from 'react-redux';
 import { removeFromCart, updateCartItemQuantity, applyPoints, setCartItems } from '../../redux/cartSlice';
 import orderService from '../../config/axios/Order/orderService';
 import { useFocusEffect } from '@react-navigation/native';
-import Notification from '../../components/Notification';
+import Notification from '../../components/NotiComponnets/Notification';
 
 // Replace with your actual API base URL for images
 const API_BASE_URL = 'https://your-api-base-url.com';

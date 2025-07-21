@@ -5,7 +5,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { useDispatch } from 'react-redux';
 import { login as reduxLogin } from '../../../redux/authSlice';
 import authService from '../../../config/axios/Auth/authService'; // Adjust the import path
-import Notification from '../../../components/Notification'; // Adjust the import path
+import Notification from '../../../components/NotiComponnets/Notification'; // Adjust the import path
 
 // Logo image (same as LoginScreen)
 const logoImage = require('../../../../assets/DesikiCare.jpg');
