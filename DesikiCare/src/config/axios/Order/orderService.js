@@ -23,6 +23,100 @@ const axiosInstance = axios.create({
 })
 
 const orderService = {
+  // API lấy payment link cho cart đang active
+  getPaymentLink: async (orderData, metaData) => {
+    try {
+      const userToken = await getAuthToken()
+
+      const payload = {
+        order: {
+          pointUsed: orderData.pointUsed || 0,
+          deliveryAddressId: orderData.deliveryAddressId,
+        },
+        metaData: {
+          cancelUrl: metaData.cancelUrl,
+          returnUrl: metaData.returnUrl,
+        },
+      }
+
+      console.log("🔄 Getting payment link with payload:", JSON.stringify(payload, null, 2))
+      console.log("Request URL:", `${API_URL_LOGIN}/api/Order/carts/getPaymentLink`)
+
+      const response = await axiosInstance.post("/carts/getPaymentLink", payload, {
+        headers: { Authorization: `Bearer ${userToken}`, "Content-Type": "application/json" },
+      })
+
+      console.log("✅ Get Payment Link Success:", JSON.stringify(response.data, null, 2))
+
+      if (response.status === 200 || response.status === 201) {
+        return {
+          success: true,
+          data: {
+            paymentUrl: response.data.paymentUrl || response.data.data?.paymentUrl,
+            orderCode: response.data.orderCode || response.data.data?.orderCode,
+            amount: response.data.amount || response.data.data?.amount,
+            qrCode: response.data.qrCode || response.data.data?.qrCode,
+            ...response.data,
+          },
+        }
+      }
+
+      return { success: false, message: response.data?.message || "Failed to get payment link" }
+    } catch (error) {
+      console.error("❌ Get payment link error:", error.message, error.response?.data)
+      console.error("❌ Error response:", JSON.stringify(error.response?.data, null, 2))
+      return {
+        success: false,
+        message: error.response?.data?.message || error.message || "Failed to get payment link due to server error.",
+      }
+    }
+  },
+
+  // THÊM API lấy payment link cho order có sẵn
+  getPaymentLinkForOrder: async (orderId, metaData) => {
+    try {
+      const userToken = await getAuthToken()
+
+      const payload = {
+        cancelUrl: metaData.cancelUrl,
+        returnUrl: metaData.returnUrl,
+      }
+
+      console.log("🔄 Getting payment link for order with payload:", JSON.stringify(payload, null, 2))
+      console.log("Request URL:", `${API_URL_LOGIN}/api/Order/orders/${orderId}/getPaymentLink`)
+
+      const response = await axiosInstance.post(`/orders/${orderId}/getPaymentLink`, payload, {
+        headers: { Authorization: `Bearer ${userToken}`, "Content-Type": "application/json" },
+      })
+
+      console.log("✅ Get Payment Link For Order Success:", JSON.stringify(response.data, null, 2))
+
+      if (response.status === 200 || response.status === 201) {
+        return {
+          success: true,
+          data: {
+            paymentUrl: response.data.paymentUrl || response.data.data?.paymentUrl,
+            orderCode: response.data.orderCode || response.data.data?.orderCode || orderId,
+            amount: response.data.amount || response.data.data?.amount,
+            qrCode: response.data.qrCode || response.data.data?.qrCode,
+            orderId: orderId,
+            ...response.data,
+          },
+        }
+      }
+
+      return { success: false, message: response.data?.message || "Failed to get payment link for order" }
+    } catch (error) {
+      console.error("❌ Get payment link for order error:", error.message, error.response?.data)
+      console.error("❌ Error response:", JSON.stringify(error.response?.data, null, 2))
+      return {
+        success: false,
+        message:
+          error.response?.data?.message || error.message || "Failed to get payment link for order due to server error.",
+      }
+    }
+  },
+
   createOrder: async (orderPayload) => {
     try {
       const userToken = await getAuthToken()
