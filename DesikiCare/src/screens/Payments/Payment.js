@@ -1,4 +1,4 @@
-
+"use client"
 
 import "react-native-get-random-values"
 import { useState, useEffect, useRef } from "react"
@@ -51,7 +51,6 @@ const Payment = ({ route, navigation }) => {
   // THÊM FUNCTION VALIDATE TẤT CẢ IDs TRONG PAYLOAD
   const validateOrderPayload = (payload) => {
     console.log("=== VALIDATING ORDER PAYLOAD ===")
-
     const errors = []
 
     // Validate userId
@@ -117,7 +116,6 @@ const Payment = ({ route, navigation }) => {
     })
 
     console.log("=== END VALIDATION ===")
-
     if (errors.length > 0) {
       console.error("❌ VALIDATION ERRORS:", errors)
       return { valid: false, errors }
@@ -238,6 +236,7 @@ const Payment = ({ route, navigation }) => {
           })
           return
         }
+
         if (!productPrice || typeof productPrice !== "number") {
           setNotification({
             message: `Giá sản phẩm không hợp lệ: ${itemName} (Giá: ${productPrice})`,
@@ -253,7 +252,6 @@ const Payment = ({ route, navigation }) => {
         const quantity = item.quantity || 1
         return total + price * quantity
       }, 0)
-
       const shippingFee = subtotal >= 500000 ? 0 : 30000
       const totalAmount = subtotal + shippingFee
 
@@ -267,7 +265,6 @@ const Payment = ({ route, navigation }) => {
             const productId = item._id || item.id
             const price = item.salePrice || item.price
             const quantity = item.quantity || 1
-
             return {
               productId: String(productId), // Ensure string
               quantity: Number(quantity), // Ensure number
@@ -320,6 +317,28 @@ const Payment = ({ route, navigation }) => {
         note: values.note || "",
       }
 
+      // XỬ LÝ THEO PHƯƠNG THỨC THANH TOÁN
+      if (values.paymentMethod === "bank") {
+        // THANH TOÁN NGÂN HÀNG - Navigate đến QR Payment Screen
+        const paymentData = {
+          orderCode: orderResponse.data.orderId || orderId,
+          amount: totalAmount,
+          currency: "VND",
+          paymentMethod: values.paymentMethod,
+          description: "Chuyển khoản ngân hàng",
+          transactionDateTime: new Date().toISOString(),
+        }
+
+        console.log("Navigating to QRPaymentScreen with data:", JSON.stringify({ paymentData, orderData }, null, 2))
+
+        navigation.navigate("QRPaymentScreen", {
+          paymentData,
+          orderData,
+        })
+        return
+      }
+
+      // COD PAYMENT - Xử lý như cũ
       const paymentPayload = {
         orderId: orderResponse.data.orderId || orderId,
         amount: totalAmount,
@@ -330,6 +349,7 @@ const Payment = ({ route, navigation }) => {
       }
 
       console.log("Confirm Payment Payload:", JSON.stringify(paymentPayload, null, 2))
+
       const confirmResponse = await orderService.confirmPayment(paymentPayload)
       console.log("Confirm Payment Response:", JSON.stringify(confirmResponse, null, 2))
 

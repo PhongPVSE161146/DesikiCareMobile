@@ -23,7 +23,7 @@ import SupportScreen from '../screens/Home/FeatureButton/SupportScreen';
 import PolicyScreen from '../screens/Home/FeatureButton/PolicyScreen';
 import Payment from '../screens/Payments/Payment';
 import ConfirmPaymentScreen from '../screens/Payments/ConfirmPaymentScreen';
-
+import QRPaymentScreen from '../screens/Payments/QRPaymentScreen';
 import GameEventsScreen from '../screens/Game/GameEventsScreen';
 import RewardsScreen from '../screens/Game/RewardsScreen';
 enableScreens(true); // Enable native screens for better performance
@@ -294,6 +294,17 @@ const AppNavigator = () => {
             }}
           />
           <Stack.Screen name="ConfirmPaymentScreen" component={ConfirmPaymentScreen} />
+          <Stack.Screen
+            name="QRPaymentScreen"
+            component={QRPaymentScreen}
+            options={{
+              headerShown: true,
+              title: 'Thanh toán QR',
+              headerStyle: { backgroundColor: '#fa7ca6' },
+              headerTintColor: '#fff',
+              headerTitleStyle: { fontWeight: 'bold' },
+            }}
+          />
      <Stack.Screen
   name="DeliveryAddress"
   component={DeliveryAddressScreen}
