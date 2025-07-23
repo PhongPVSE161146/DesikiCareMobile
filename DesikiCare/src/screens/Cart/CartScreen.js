@@ -17,7 +17,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import Notification from '../../components/NotiComponnets/Notification';
 
 // Replace with your actual API base URL for images
-const API_BASE_URL = 'https://your-api-base-url.com';
+const API_BASE_URL = 'https://wdp301-desikicare.onrender.com';
 
 // Danh sách danh mục cố định
 const predefinedCategories = [
@@ -156,7 +156,7 @@ const CartScreen = ({ route, navigation }) => {
       const result = await orderService.updateCartItemQuantity(id, quantity);
       if (result.success) {
         dispatch(updateCartItemQuantity({ id, quantity }));
-        Alert.alert('Thành công', 'Số lượng đã được cập nhật.');
+     
       } else {
         if (result.message === 'No token found. Please log in.') {
           Alert.alert('Lỗi', 'Vui lòng đăng nhập.', [

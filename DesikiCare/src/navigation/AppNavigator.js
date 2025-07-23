@@ -293,7 +293,7 @@ const AppNavigator = () => {
               headerTitleStyle: { fontWeight: 'bold' },
             }}
           />
-          <Stack.Screen name="ConfirmPayment" component={ConfirmPaymentScreen} />
+          <Stack.Screen name="ConfirmPaymentScreen" component={ConfirmPaymentScreen} />
      <Stack.Screen
   name="DeliveryAddress"
   component={DeliveryAddressScreen}

@@ -1,307 +1,279 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from "react-native"
+import Ionicons from "react-native-vector-icons/Ionicons"
 
 const ConfirmPaymentScreen = ({ route, navigation }) => {
-  const { paymentData } = route.params || {};
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState(null);
+  const { paymentData } = route.params || {}
 
-  useEffect(() => {
-    console.log('Received paymentData:', JSON.stringify(paymentData, null, 2));
-    if (!paymentData) {
-      setError('Không có dữ liệu thanh toán.');
-      setIsLoading(false);
-    } else if (!paymentData.orderData || !paymentData.data) {
-      setError('Dữ liệu thanh toán hoặc đơn hàng không đầy đủ.');
+  const formatCurrency = (amount) => {
+    return amount?.toLocaleString("vi-VN") + "đ" || "0đ"
+  }
+
+  const formatDateTime = (dateTime) => {
+    if (!dateTime) return "N/A"
+    try {
+      return new Date(dateTime).toLocaleString("vi-VN")
+    } catch (e) {
+      return dateTime
     }
-  }, [paymentData]);
-
-  const formatDateTime = (dateTimeString) => {
-    if (!dateTimeString) return 'N/A';
-    const date = new Date(dateTimeString);
-    return date.toLocaleString('vi-VN', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  };
-
-  if (isLoading) {
-    return (
-      <View style={styles.container}>
-        <ActivityIndicator size="large" color="#E53935" />
-      </View>
-    );
   }
 
-  if (error) {
-    return (
-      <ScrollView style={styles.container}>
-        <Text style={styles.title}>Xác nhận thanh toán thất bại</Text>
-        <View style={styles.card}>
-          <Text style={styles.errorText}>{error}</Text>
-          <TouchableOpacity
-            onPress={() => navigation.navigate('Home')}
-            style={styles.submitButton}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.submitButtonText}>Quay về trang chủ</Text>
-          </TouchableOpacity>
-        </View>
-      </ScrollView>
-    );
+  const handleNavigateToOrders = () => {
+    try {
+      // SỬA: Navigate đến Main tab navigator và chọn PaidOrderHistory tab
+      navigation.navigate("Main", {
+        screen: "PaidOrderHistory",
+      })
+    } catch (error) {
+      console.log("Navigation error:", error)
+      // Fallback: Navigate về Main và user tự chọn tab
+      navigation.navigate("Main")
+    }
   }
 
-  const { data, code, desc, success, signature, orderData } = paymentData || {};
-  const { subtotal = 0, discount = 0, shippingFee = 0, total = 0, cartItems = [], pointUsed = 0 } = orderData || {};
+  const handleNavigateToHome = () => {
+    try {
+      // Navigate đến Main tab navigator và chọn Home tab
+      navigation.navigate("Main", {
+        screen: "Home",
+      })
+    } catch (error) {
+      console.log("Navigation error:", error)
+      // Fallback: Navigate về Main
+      navigation.navigate("Main")
+    }
+  }
 
   return (
     <ScrollView style={styles.container}>
-      <Text style={styles.title}>
-        {success ? 'Xác nhận thanh toán thành công' : 'Xác nhận thanh toán thất bại'}
-      </Text>
+      <View style={styles.header}>
+        <Ionicons name="checkmark-circle" size={80} color="#4CAF50" />
+        <Text style={styles.title}>Đặt hàng thành công!</Text>
+        <Text style={styles.subtitle}>Cảm ơn bạn đã đặt hàng</Text>
+      </View>
+
       <View style={styles.card}>
-        <Text style={styles.cardTitle}>Chi tiết đơn hàng</Text>
-        {cartItems.length > 0 ? (
-          cartItems.map((item, index) => (
-            <View key={index} style={styles.summaryItem}>
-              <Text style={styles.summaryText} numberOfLines={1}>
-                {item.title || 'Sản phẩm không xác định'} (x{item.quantity || 0})
-              </Text>
-              <Text style={styles.summaryPrice}>
-                {((item.price || 0) * (item.quantity || 0)).toLocaleString('vi-VN')}₫
-              </Text>
-            </View>
-          ))
-        ) : (
-          <Text style={styles.summaryText}>Không có sản phẩm</Text>
-        )}
-        <View style={styles.summaryItem}>
-          <Text style={styles.summaryText}>Tạm tính</Text>
-          <Text style={styles.summaryPrice}>
-            {subtotal.toLocaleString('vi-VN')}₫
+        <Text style={styles.cardTitle}>Thông tin đơn hàng</Text>
+
+        <View style={styles.infoRow}>
+          <Text style={styles.label}>Mã đơn hàng:</Text>
+          <Text style={styles.value}>{paymentData?.orderCode || "N/A"}</Text>
+        </View>
+
+        <View style={styles.infoRow}>
+          <Text style={styles.label}>Tổng tiền:</Text>
+          <Text style={[styles.value, styles.amount]}>{formatCurrency(paymentData?.amount)}</Text>
+        </View>
+
+        <View style={styles.infoRow}>
+          <Text style={styles.label}>Phương thức thanh toán:</Text>
+          <Text style={styles.value}>
+            {paymentData?.paymentMethod === "cod" ? "Thanh toán khi nhận hàng" : "Chuyển khoản ngân hàng"}
           </Text>
         </View>
-        {discount > 0 && (
-          <View style={styles.summaryItem}>
-            <Text style={styles.summaryDiscountText}>Giảm giá ({pointUsed} điểm)</Text>
-            <Text style={styles.summaryDiscountPrice}>
-              -{discount.toLocaleString('vi-VN')}₫
-            </Text>
-          </View>
-        )}
-        <View style={styles.summaryItem}>
-          <Text style={styles.summaryText}>Phí giao hàng</Text>
-          <Text style={styles.summaryPrice}>
-            {shippingFee.toLocaleString('vi-VN')}₫
-            {shippingFee === 0 && (
-              <Text style={styles.summaryDiscountText}> (Miễn phí cho đơn hàng trên 500,000₫)</Text>
-            )}
-          </Text>
+
+        <View style={styles.infoRow}>
+          <Text style={styles.label}>Thời gian:</Text>
+          <Text style={styles.value}>{formatDateTime(paymentData?.transactionDateTime)}</Text>
         </View>
-        <View style={styles.divider} />
-        <View style={styles.summaryTotal}>
-          <Text style={styles.summaryTotalText}>Tổng cộng</Text>
-          <Text style={styles.summaryTotalPrice}>
-            {total.toLocaleString('vi-VN')}₫
-          </Text>
+
+        <View style={styles.infoRow}>
+          <Text style={styles.label}>Trạng thái:</Text>
+          <Text style={[styles.value, styles.status]}>{paymentData?.desc || "Đã xác nhận"}</Text>
         </View>
       </View>
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Chi tiết thanh toán</Text>
-        <View style={styles.detailItem}>
-          <Text style={styles.detailLabel}>Mã trạng thái:</Text>
-          <Text style={styles.detailValue}>{code || 'N/A'}</Text>
+
+      {paymentData?.orderData?.cartItems && (
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Sản phẩm đã đặt</Text>
+          {paymentData.orderData.cartItems.map((item, index) => (
+            <View key={index} style={styles.productItem}>
+              <Text style={styles.productName} numberOfLines={2}>
+                {item.title}
+              </Text>
+              <View style={styles.productDetails}>
+                <Text style={styles.productQuantity}>SL: {item.quantity}</Text>
+                <Text style={styles.productPrice}>{formatCurrency(item.price)}</Text>
+              </View>
+            </View>
+          ))}
+
+          <View style={styles.divider} />
+
+          <View style={styles.summaryRow}>
+            <Text style={styles.summaryLabel}>Tạm tính:</Text>
+            <Text style={styles.summaryValue}>{formatCurrency(paymentData.orderData.subtotal)}</Text>
+          </View>
+
+          <View style={styles.summaryRow}>
+            <Text style={styles.summaryLabel}>Phí vận chuyển:</Text>
+            <Text style={styles.summaryValue}>{formatCurrency(paymentData.orderData.shippingFee)}</Text>
+          </View>
+
+          <View style={styles.summaryRow}>
+            <Text style={styles.totalLabel}>Tổng cộng:</Text>
+            <Text style={styles.totalValue}>{formatCurrency(paymentData.orderData.total)}</Text>
+          </View>
         </View>
-        <View style={styles.detailItem}>
-          <Text style={styles.detailLabel}>Mô tả:</Text>
-          <Text style={styles.detailValue}>{desc || 'N/A'}</Text>
-        </View>
-        <View style={styles.detailItem}>
-          <Text style={styles.detailLabel}>Mã đơn hàng:</Text>
-          <Text style={styles.detailValue}>{data?.orderCode || 'N/A'}</Text>
-        </View>
-        <View style={styles.detailItem}>
-          <Text style={styles.detailLabel}>Số tiền:</Text>
-          <Text style={styles.detailValue}>
-            {data?.amount ? data.amount.toLocaleString('vi-VN') + ' ' + (data.currency || 'VND') : 'N/A'}
-          </Text>
-        </View>
-        <View style={styles.detailItem}>
-          <Text style={styles.detailLabel}>Thời gian giao dịch:</Text>
-          <Text style={styles.detailValue}>{formatDateTime(data?.transactionDateTime)}</Text>
-        </View>
-        <View style={styles.detailItem}>
-          <Text style={styles.detailLabel}>Số tài khoản:</Text>
-          <Text style={styles.detailValue}>{data?.accountNumber || 'N/A'}</Text>
-        </View>
-        <View style={styles.detailItem}>
-          <Text style={styles.detailLabel}>Mã tham chiếu:</Text>
-          <Text style={styles.detailValue}>{data?.reference || 'N/A'}</Text>
-        </View>
-        <View style={styles.detailItem}>
-          <Text style={styles.detailLabel}>Mã liên kết thanh toán:</Text>
-          <Text style={styles.detailValue}>{data?.paymentLinkId || 'N/A'}</Text>
-        </View>
-        <View style={styles.detailItem}>
-          <Text style={styles.detailLabel}>Mã ngân hàng đối tác:</Text>
-          <Text style={styles.detailValue}>{data?.counterAccountBankId || 'N/A'}</Text>
-        </View>
-        <View style={styles.detailItem}>
-          <Text style={styles.detailLabel}>Tên ngân hàng đối tác:</Text>
-          <Text style={styles.detailValue}>{data?.counterAccountBankName || 'N/A'}</Text>
-        </View>
-        <View style={styles.detailItem}>
-          <Text style={styles.detailLabel}>Tên tài khoản đối tác:</Text>
-          <Text style={styles.detailValue}>{data?.counterAccountName || 'N/A'}</Text>
-        </View>
-        <View style={styles.detailItem}>
-          <Text style={styles.detailLabel}>Số tài khoản đối tác:</Text>
-          <Text style={styles.detailValue}>{data?.counterAccountNumber || 'N/A'}</Text>
-        </View>
-        <View style={styles.detailItem}>
-          <Text style={styles.detailLabel}>Tên tài khoản ảo:</Text>
-          <Text style={styles.detailValue}>{data?.virtualAccountName || 'N/A'}</Text>
-        </View>
-        <View style={styles.detailItem}>
-          <Text style={styles.detailLabel}>Số tài khoản ảo:</Text>
-          <Text style={styles.detailValue}>{data?.virtualAccountNumber || 'N/A'}</Text>
-        </View>
-        <View style={styles.detailItem}>
-          <Text style={styles.detailLabel}>Chữ ký:</Text>
-          <Text style={styles.detailValue}>{signature || 'N/A'}</Text>
-        </View>
-        <TouchableOpacity
-          onPress={() => navigation.navigate('Home')}
-          style={styles.submitButton}
-          activeOpacity={0.8}
-        >
-          <Text style={styles.submitButtonText}>Quay về trang chủ</Text>
+      )}
+
+      <View style={styles.buttonContainer}>
+        <TouchableOpacity style={styles.primaryButton} onPress={handleNavigateToOrders}>
+          <Text style={styles.primaryButtonText}>Xem đơn hàng</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.secondaryButton} onPress={handleNavigateToHome}>
+          <Text style={styles.secondaryButtonText}>Về trang chủ</Text>
         </TouchableOpacity>
       </View>
     </ScrollView>
-  );
-};
+  )
+}
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
-    padding: 16,
+    backgroundColor: "#f5f5f5",
+  },
+  header: {
+    alignItems: "center",
+    padding: 32,
+    backgroundColor: "#fff",
   },
   title: {
     fontSize: 24,
-    fontWeight: '700',
-    textAlign: 'center',
-    marginVertical: 16,
-    color: '#333',
+    fontWeight: "bold",
+    color: "#333",
+    marginTop: 16,
+  },
+  subtitle: {
+    fontSize: 16,
+    color: "#666",
+    marginTop: 8,
   },
   card: {
-    borderRadius: 8,
-    marginBottom: 16,
+    backgroundColor: "#fff",
+    margin: 16,
     padding: 16,
-    backgroundColor: '#f9f9f9',
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
-    shadowColor: '#000',
+    borderRadius: 12,
+    elevation: 2,
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
-    elevation: 2,
   },
   cardTitle: {
     fontSize: 18,
-    fontWeight: '600',
-    marginBottom: 12,
-    color: '#333',
+    fontWeight: "bold",
+    color: "#333",
+    marginBottom: 16,
   },
-  detailItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: 8,
-    marginBottom: 8,
-  },
-  detailLabel: {
-    fontSize: 15,
-    fontWeight: '500',
-    color: '#333',
-    flex: 1,
-  },
-  detailValue: {
-    fontSize: 15,
-    color: '#333',
-    flex: 1,
-    textAlign: 'right',
-  },
-  summaryItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+  infoRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     paddingVertical: 8,
   },
-  summaryText: {
-    fontSize: 15,
-    color: '#333',
+  label: {
+    fontSize: 14,
+    color: "#666",
     flex: 1,
-    marginRight: 8,
   },
-  summaryPrice: {
-    fontSize: 15,
-    color: '#333',
-    fontWeight: '500',
-  },
-  summaryDiscountText: {
+  value: {
     fontSize: 14,
-    color: '#E53935',
+    color: "#333",
+    fontWeight: "500",
+    flex: 1,
+    textAlign: "right",
   },
-  summaryDiscountPrice: {
+  amount: {
+    color: "#E91E63",
+    fontWeight: "bold",
+  },
+  status: {
+    color: "#4CAF50",
+  },
+  productItem: {
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "#f0f0f0",
+  },
+  productName: {
     fontSize: 14,
-    color: '#E53935',
-    fontWeight: '500',
+    color: "#333",
+    marginBottom: 4,
+  },
+  productDetails: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  productQuantity: {
+    fontSize: 12,
+    color: "#666",
+  },
+  productPrice: {
+    fontSize: 14,
+    color: "#E91E63",
+    fontWeight: "500",
   },
   divider: {
     height: 1,
-    backgroundColor: '#e0e0e0',
+    backgroundColor: "#e0e0e0",
     marginVertical: 12,
   },
-  summaryTotal: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#e0e0e0',
+  summaryRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 4,
   },
-  summaryTotalText: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: '#333',
+  summaryLabel: {
+    fontSize: 14,
+    color: "#666",
   },
-  summaryTotalPrice: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: '#E53935',
+  summaryValue: {
+    fontSize: 14,
+    color: "#333",
   },
-  submitButton: {
-    backgroundColor: '#E53935',
-    borderRadius: 8,
-    paddingVertical: 14,
-    alignItems: 'center',
-    marginTop: 16,
-  },
-  submitButtonText: {
-    color: '#fff',
+  totalLabel: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "bold",
+    color: "#333",
   },
-  errorText: {
+  totalValue: {
     fontSize: 16,
-    color: '#E53935',
-    textAlign: 'center',
-    marginBottom: 16,
+    fontWeight: "bold",
+    color: "#E91E63",
   },
-});
+  buttonContainer: {
+    padding: 16,
+    marginBottom: 20,
+  },
+  primaryButton: {
+    backgroundColor: "#E91E63",
+    borderRadius: 12,
+    padding: 16,
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  primaryButtonText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "bold",
+  },
+  secondaryButton: {
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    padding: 16,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#E91E63",
+  },
+  secondaryButtonText: {
+    color: "#E91E63",
+    fontSize: 16,
+    fontWeight: "500",
+  },
+})
 
-export default ConfirmPaymentScreen;
+export default ConfirmPaymentScreen
