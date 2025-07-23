@@ -8,10 +8,10 @@ const getAuthToken = async () => {
     if (!token) {
       throw new Error("No authentication token found.")
     }
-    console.log("Retrieved userToken:", token)
+    console.log("🔑 Retrieved userToken:", token ? `${token.substring(0, 20)}...` : "null")
     return token
   } catch (error) {
-    console.error("Error retrieving token:", error)
+    console.error("❌ Error retrieving token:", error)
     throw error
   }
 }
@@ -25,8 +25,14 @@ const axiosInstance = axios.create({
 const orderService = {
   // API lấy payment link cho cart đang active
   getPaymentLink: async (orderData, metaData) => {
+    console.log("🚀 === STARTING getPaymentLink API CALL ===")
+    console.log("📥 Input orderData:", JSON.stringify(orderData, null, 2))
+    console.log("📥 Input metaData:", JSON.stringify(metaData, null, 2))
+
     try {
+      console.log("🔑 Getting auth token...")
       const userToken = await getAuthToken()
+      console.log("✅ Auth token retrieved successfully")
 
       const payload = {
         order: {
@@ -39,35 +45,91 @@ const orderService = {
         },
       }
 
-      console.log("🔄 Getting payment link with payload:", JSON.stringify(payload, null, 2))
-      console.log("Request URL:", `${API_URL_LOGIN}/api/Order/carts/getPaymentLink`)
+      const requestUrl = `${API_URL_LOGIN}/api/Order/carts/getPaymentLink`
 
+      console.log("📤 API Request Details:")
+      console.log("  - URL:", requestUrl)
+      console.log("  - Method: POST")
+      console.log("  - Headers:", {
+        Authorization: `Bearer ${userToken ? userToken.substring(0, 20) + "..." : "null"}`,
+        "Content-Type": "application/json",
+      })
+      console.log("  - Payload:", JSON.stringify(payload, null, 2))
+
+      console.log("🔄 Making API call...")
       const response = await axiosInstance.post("/carts/getPaymentLink", payload, {
         headers: { Authorization: `Bearer ${userToken}`, "Content-Type": "application/json" },
       })
 
-      console.log("✅ Get Payment Link Success:", JSON.stringify(response.data, null, 2))
+      console.log("📥 API Response Details:")
+      console.log("  - Status:", response.status)
+      console.log("  - Status Text:", response.statusText)
+      console.log("  - Headers:", JSON.stringify(response.headers, null, 2))
+      console.log("  - Data:", JSON.stringify(response.data, null, 2))
 
       if (response.status === 200 || response.status === 201) {
+        console.log("✅ API call successful!")
+
+        // XỬ LÝ RESPONSE STRUCTURE THỰC TẾ TỪ API
+        const responseData = response.data
+
+        const processedData = {
+          // Map paymentLink thành paymentUrl
+          paymentUrl: responseData.paymentLink || responseData.paymentUrl || responseData.data?.paymentUrl,
+          paymentLink: responseData.paymentLink, // Giữ nguyên field gốc
+
+          // Các field khác từ response (nếu có)
+          orderCode: responseData.orderCode || responseData.data?.orderCode,
+          amount: responseData.amount || responseData.data?.amount,
+          qrCode: responseData.qrCode || responseData.data?.qrCode,
+
+          // Spread toàn bộ response để không miss field nào
+          ...responseData,
+          ...(responseData.data || {}), // Nếu có nested data object
+        }
+
+        console.log("🔄 Processed response data:")
+        console.log(JSON.stringify(processedData, null, 2))
+
         return {
           success: true,
-          data: {
-            paymentUrl: response.data.paymentUrl || response.data.data?.paymentUrl,
-            orderCode: response.data.orderCode || response.data.data?.orderCode,
-            amount: response.data.amount || response.data.data?.amount,
-            qrCode: response.data.qrCode || response.data.data?.qrCode,
-            ...response.data,
-          },
+          data: processedData,
         }
       }
 
+      console.log("❌ API call failed with status:", response.status)
       return { success: false, message: response.data?.message || "Failed to get payment link" }
     } catch (error) {
-      console.error("❌ Get payment link error:", error.message, error.response?.data)
-      console.error("❌ Error response:", JSON.stringify(error.response?.data, null, 2))
+      console.error("💥 === getPaymentLink API ERROR ===")
+      console.error("❌ Error type:", error.name)
+      console.error("❌ Error message:", error.message)
+
+      if (error.response) {
+        console.error("❌ Response error details:")
+        console.error("  - Status:", error.response.status)
+        console.error("  - Status Text:", error.response.statusText)
+        console.error("  - Headers:", JSON.stringify(error.response.headers, null, 2))
+        console.error("  - Data:", JSON.stringify(error.response.data, null, 2))
+      } else if (error.request) {
+        console.error("❌ Request error details:")
+        console.error("  - Request:", error.request)
+        console.error("  - No response received from server")
+      } else {
+        console.error("❌ Setup error:", error.message)
+      }
+
+      console.error("❌ Full error stack:", error.stack)
+
       return {
         success: false,
         message: error.response?.data?.message || error.message || "Failed to get payment link due to server error.",
+        errorDetails: {
+          type: error.name,
+          message: error.message,
+          status: error.response?.status,
+          statusText: error.response?.statusText,
+          responseData: error.response?.data,
+        },
       }
     }
   },
@@ -92,15 +154,25 @@ const orderService = {
       console.log("✅ Get Payment Link For Order Success:", JSON.stringify(response.data, null, 2))
 
       if (response.status === 200 || response.status === 201) {
+        // XỬ LÝ RESPONSE STRUCTURE THỰC TẾ TỪ API
+        const responseData = response.data
+
         return {
           success: true,
           data: {
-            paymentUrl: response.data.paymentUrl || response.data.data?.paymentUrl,
-            orderCode: response.data.orderCode || response.data.data?.orderCode || orderId,
-            amount: response.data.amount || response.data.data?.amount,
-            qrCode: response.data.qrCode || response.data.data?.qrCode,
+            // Map paymentLink thành paymentUrl
+            paymentUrl: responseData.paymentLink || responseData.paymentUrl || responseData.data?.paymentUrl,
+            paymentLink: responseData.paymentLink, // Giữ nguyên field gốc
+
+            // Các field khác từ response (nếu có)
+            orderCode: responseData.orderCode || responseData.data?.orderCode || orderId,
+            amount: responseData.amount || responseData.data?.amount,
+            qrCode: responseData.qrCode || responseData.data?.qrCode,
             orderId: orderId,
-            ...response.data,
+
+            // Spread toàn bộ response để không miss field nào
+            ...responseData,
+            ...(responseData.data || {}), // Nếu có nested data object
           },
         }
       }
