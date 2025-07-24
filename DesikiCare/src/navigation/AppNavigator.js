@@ -29,10 +29,10 @@ import RewardsScreen from '../screens/Game/RewardsScreen';
 enableScreens(true); // Enable native screens for better performance
 //Game import
 // import GameEventDetailScreen from '../screens/Game/GameEventDetailScreen';
-import FillBlankGame from '../screens/Game/FillBlankGame';
+// import FillBlankGame from '../screens/Game/FillBlankGame';
 import SpinWheelGame from '../screens/Game/SpinWheelGame';
-import ScratchCardGame from '../screens/Game/ScratchCardGame';
-import MatchPairGame from '../screens/Game/MatchPairGame';
+// import ScratchCardGame from '../screens/Game/ScratchCardGame';
+// import MatchPairGame from '../screens/Game/MatchPairGame';
 
 
 const Stack = createStackNavigator();
@@ -246,7 +246,7 @@ const AppNavigator = () => {
               headerTitleStyle: { fontWeight: 'bold' },
             }}
             />
-          <Stack.Screen name="ScratchCardGame" component={ScratchCardGame}
+          {/* <Stack.Screen name="ScratchCardGame" component={ScratchCardGame}
            options={{
               headerShown: true,
               title: 'Cào thẻ',
@@ -272,7 +272,7 @@ const AppNavigator = () => {
               headerTintColor: '#fff',
               headerTitleStyle: { fontWeight: 'bold' },
             }}
-            />
+            /> */}
           <Stack.Screen name="GameEventDetail" component={GameEventDetailScreen}
             options={{
               headerShown: true,

@@ -16,7 +16,7 @@ const SupportScreen = () => {
   };
 
   const handleWebsite = () => {
-    Linking.openURL('https://www.desikicare.vn');
+    Linking.openURL('https://desiki-care.vercel.app');
   };
 
   return (
@@ -53,7 +53,7 @@ const SupportScreen = () => {
 
           <Text style={styles.sectionTitle}>🌐 Website</Text>
           <TouchableOpacity onPress={handleWebsite}>
-            <Text style={styles.link}>www.desikicare.vn</Text>
+            <Text style={styles.link}>https://desiki-care.vercel.app/</Text>
             <Text style={styles.bullet}>
               • Truy cập để xem thông tin sản phẩm, chính sách và hướng dẫn sử dụng.
             </Text>
