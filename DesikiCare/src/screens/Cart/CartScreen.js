@@ -577,7 +577,7 @@ const CartScreen = ({ route, navigation }) => {
           <Text style={styles.totalLabel}>Phí vận chuyển:</Text>
           <Text style={styles.totalValue}>
             {shippingFee.toLocaleString("vi-VN")} đ
-            {shippingFee === 0 && <Text style={styles.discountLabel}> (Miễn phí cho đơn hàng trên 500,000 đ)</Text>}
+            {shippingFee === 0 && <Text style={styles.discountLabel}> (Miễn phí đơn 500,000 đ)</Text>}
           </Text>
         </View>
 

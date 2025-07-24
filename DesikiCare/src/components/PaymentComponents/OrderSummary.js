@@ -31,7 +31,7 @@ const OrderSummary = ({ cartItems, handleSubmit, isLoading, addressId, paymentMe
         <Text style={styles.summaryPrice}>
           {shippingFee.toLocaleString('vi-VN')}₫
           {shippingFee === 0 && (
-            <Text style={styles.freeShippingText}> (Miễn phí đơn 500k)</Text>
+            <Text style={styles.freeShippingText}> (Miễn phí đơn 500,000 đ)</Text>
           )}
         </Text>
       </View>
