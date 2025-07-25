@@ -193,7 +193,7 @@ const AddressHandler = ({ navigation, formikRef, setNotification, setAddresses }
                 setNotification({ message: 'Không tìm thấy thông tin tài khoản. Vui lòng đăng nhập lại.', type: 'error' });
                 return;
               }
-              navigation.navigate('DeliveryAddressScreen', {
+              navigation.navigate('DeliveryAddress', {
                 accountId,
                 onGoBack: async () => {
                   setIsLoading(true);
