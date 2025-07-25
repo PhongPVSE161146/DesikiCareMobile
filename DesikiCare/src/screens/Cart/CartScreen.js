@@ -118,7 +118,7 @@ const ProductImage = ({ imageUrl, title, style, productId }) => {
       if (urlsToTry.length > 0) {
         setCurrentImageUrl(urlsToTry[0])
       } else {
-        console.log(`❌ No URLs to try for ${title}, showing placeholder`)
+
         setShowPlaceholder(true)
         setLoading(false)
       }
@@ -188,7 +188,7 @@ const ProductImage = ({ imageUrl, title, style, productId }) => {
           resizeMode="cover"
           onLoadStart={handleLoadStart}
           onLoadEnd={handleLoadEnd}
-          onError={handleError}
+          // onError={handleError}
         />
       ) : (
         renderCustomPlaceholder()
