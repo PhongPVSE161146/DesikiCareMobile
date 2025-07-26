@@ -8,10 +8,8 @@ const getAuthToken = async () => {
     if (!token) {
       throw new Error("No authentication token found.")
     }
-    console.log("🔑 Retrieved userToken:", token ? `${token.substring(0, 20)}...` : "null")
     return token
   } catch (error) {
-    console.error("❌ Error retrieving token:", error)
     throw error
   }
 }
@@ -23,17 +21,9 @@ const axiosInstance = axios.create({
 })
 
 const orderService = {
-  // API lấy payment link cho cart đang active
   getPaymentLink: async (orderData, metaData) => {
-    console.log("🚀 === STARTING getPaymentLink API CALL ===")
-    console.log("📥 Input orderData:", JSON.stringify(orderData, null, 2))
-    console.log("📥 Input metaData:", JSON.stringify(metaData, null, 2))
-
     try {
-      console.log("🔑 Getting auth token...")
       const userToken = await getAuthToken()
-      console.log("✅ Auth token retrieved successfully")
-
       const payload = {
         order: {
           pointUsed: orderData.pointUsed || 0,
@@ -45,51 +35,21 @@ const orderService = {
         },
       }
 
-      const requestUrl = `${API_URL_LOGIN}/api/Order/carts/getPaymentLink`
-
-      console.log("📤 API Request Details:")
-      console.log("  - URL:", requestUrl)
-      console.log("  - Method: POST")
-      console.log("  - Headers:", {
-        Authorization: `Bearer ${userToken ? userToken.substring(0, 20) + "..." : "null"}`,
-        "Content-Type": "application/json",
-      })
-      console.log("  - Payload:", JSON.stringify(payload, null, 2))
-
-      console.log("🔄 Making API call...")
       const response = await axiosInstance.post("/carts/getPaymentLink", payload, {
         headers: { Authorization: `Bearer ${userToken}`, "Content-Type": "application/json" },
       })
 
-      console.log("📥 API Response Details:")
-      console.log("  - Status:", response.status)
-      console.log("  - Status Text:", response.statusText)
-      console.log("  - Headers:", JSON.stringify(response.headers, null, 2))
-      console.log("  - Data:", JSON.stringify(response.data, null, 2))
-
       if (response.status === 200 || response.status === 201) {
-        console.log("✅ API call successful!")
-
-        // XỬ LÝ RESPONSE STRUCTURE THỰC TẾ TỪ API
         const responseData = response.data
-
         const processedData = {
-          // Map paymentLink thành paymentUrl
           paymentUrl: responseData.paymentLink || responseData.paymentUrl || responseData.data?.paymentUrl,
-          paymentLink: responseData.paymentLink, // Giữ nguyên field gốc
-
-          // Các field khác từ response (nếu có)
+          paymentLink: responseData.paymentLink,
           orderCode: responseData.orderCode || responseData.data?.orderCode,
           amount: responseData.amount || responseData.data?.amount,
           qrCode: responseData.qrCode || responseData.data?.qrCode,
-
-          // Spread toàn bộ response để không miss field nào
           ...responseData,
-          ...(responseData.data || {}), // Nếu có nested data object
+          ...(responseData.data || {}),
         }
-
-        console.log("🔄 Processed response data:")
-        console.log(JSON.stringify(processedData, null, 2))
 
         return {
           success: true,
@@ -97,29 +57,8 @@ const orderService = {
         }
       }
 
-      console.log("❌ API call failed with status:", response.status)
       return { success: false, message: response.data?.message || "Failed to get payment link" }
     } catch (error) {
-      console.error("💥 === getPaymentLink API ERROR ===")
-      console.error("❌ Error type:", error.name)
-      console.error("❌ Error message:", error.message)
-
-      if (error.response) {
-        console.error("❌ Response error details:")
-        console.error("  - Status:", error.response.status)
-        console.error("  - Status Text:", error.response.statusText)
-        console.error("  - Headers:", JSON.stringify(error.response.headers, null, 2))
-        console.error("  - Data:", JSON.stringify(error.response.data, null, 2))
-      } else if (error.request) {
-        console.error("❌ Request error details:")
-        console.error("  - Request:", error.request)
-        console.error("  - No response received from server")
-      } else {
-        console.error("❌ Setup error:", error.message)
-      }
-
-      console.error("❌ Full error stack:", error.stack)
-
       return {
         success: false,
         message: error.response?.data?.message || error.message || "Failed to get payment link due to server error.",
@@ -134,53 +73,37 @@ const orderService = {
     }
   },
 
-  // THÊM API lấy payment link cho order có sẵn
   getPaymentLinkForOrder: async (orderId, metaData) => {
     try {
       const userToken = await getAuthToken()
-
       const payload = {
         cancelUrl: metaData.cancelUrl,
         returnUrl: metaData.returnUrl,
       }
 
-      console.log("🔄 Getting payment link for order with payload:", JSON.stringify(payload, null, 2))
-      console.log("Request URL:", `${API_URL_LOGIN}/api/Order/orders/${orderId}/getPaymentLink`)
-
       const response = await axiosInstance.post(`/orders/${orderId}/getPaymentLink`, payload, {
         headers: { Authorization: `Bearer ${userToken}`, "Content-Type": "application/json" },
       })
 
-      console.log("✅ Get Payment Link For Order Success:", JSON.stringify(response.data, null, 2))
-
       if (response.status === 200 || response.status === 201) {
-        // XỬ LÝ RESPONSE STRUCTURE THỰC TẾ TỪ API
         const responseData = response.data
-
         return {
           success: true,
           data: {
-            // Map paymentLink thành paymentUrl
             paymentUrl: responseData.paymentLink || responseData.paymentUrl || responseData.data?.paymentUrl,
-            paymentLink: responseData.paymentLink, // Giữ nguyên field gốc
-
-            // Các field khác từ response (nếu có)
+            paymentLink: responseData.paymentLink,
             orderCode: responseData.orderCode || responseData.data?.orderCode || orderId,
             amount: responseData.amount || responseData.data?.amount,
             qrCode: responseData.qrCode || responseData.data?.qrCode,
             orderId: orderId,
-
-            // Spread toàn bộ response để không miss field nào
             ...responseData,
-            ...(responseData.data || {}), // Nếu có nested data object
+            ...(responseData.data || {}),
           },
         }
       }
 
       return { success: false, message: response.data?.message || "Failed to get payment link for order" }
     } catch (error) {
-      console.error("❌ Get payment link for order error:", error.message, error.response?.data)
-      console.error("❌ Error response:", JSON.stringify(error.response?.data, null, 2))
       return {
         success: false,
         message:
@@ -192,7 +115,6 @@ const orderService = {
   createOrder: async (orderPayload) => {
     try {
       const userToken = await getAuthToken()
-
       let payload
       if (orderPayload.order) {
         payload = orderPayload.order
@@ -209,7 +131,6 @@ const orderService = {
         throw new Error("Delivery address ID must be a 24 character hex string")
       }
 
-      // SỬ DỤNG CẤU TRÚC ĐÃ BIẾT LÀ WORK: WRAPPER "order"
       const wrappedPayload = {
         order: {
           userId: payload.userId,
@@ -226,20 +147,14 @@ const orderService = {
         },
       }
 
-      console.log("✅ Using known working structure (wrapped):", JSON.stringify(wrappedPayload, null, 2))
-      console.log("Request URL:", `${API_URL_LOGIN}/api/Order/orders`)
-
       const response = await axiosInstance.post("/orders", wrappedPayload, {
         headers: { Authorization: `Bearer ${userToken}`, "Content-Type": "application/json" },
       })
 
-      console.log("✅ Create Order Success:", JSON.stringify(response.data, null, 2))
       return response.status === 201 || response.status === 200
         ? { success: true, data: response.data }
         : { success: false, message: response.data?.message || "Failed to create order" }
     } catch (error) {
-      console.error("❌ Create order error:", error.message, error.response?.data)
-      console.error("❌ Error response:", JSON.stringify(error.response?.data, null, 2))
       return {
         success: false,
         message: error.response?.data?.message || error.message || "Failed to create order due to server error.",
@@ -251,9 +166,7 @@ const orderService = {
     try {
       const userToken = await getAuthToken()
 
-      // KIỂM TRA NẾU LÀ COD THÌ KHÔNG CẦN CONFIRM PAYMENT
       if (paymentPayload.paymentMethod === "cod") {
-        console.log("🔄 COD payment detected - skipping confirmPayment, returning success")
         return {
           success: true,
           data: {
@@ -274,16 +187,10 @@ const orderService = {
         throw new Error("Missing required payment fields")
       }
 
-      console.log("🔄 Trying confirmPayment with original payload:", JSON.stringify(paymentPayload, null, 2))
-      console.log("Request URL:", `${API_URL_LOGIN}/api/Order/confirmPayment`)
-
-      // THỬ CẤU TRÚC 1: PAYLOAD GỐC
       try {
         const response = await axiosInstance.post("/confirmPayment", paymentPayload, {
           headers: { Authorization: `Bearer ${userToken}`, "Content-Type": "application/json" },
         })
-
-        console.log("✅ Original confirmPayment success:", JSON.stringify(response.data, null, 2))
 
         if (response.data && typeof response.data.success !== "undefined") {
           return {
@@ -297,9 +204,6 @@ const orderService = {
           ? { success: true, data: response.data }
           : { success: false, message: response.data?.message || "Failed to confirm payment" }
       } catch (error1) {
-        console.log("❌ Original failed, trying with orderCode...")
-
-        // THỬ CẤU TRÚC 2: VỚI orderCode THAY VÌ orderId
         const orderCodePayload = {
           orderCode: paymentPayload.orderId,
           amount: paymentPayload.amount,
@@ -309,14 +213,10 @@ const orderService = {
           transactionDateTime: paymentPayload.transactionDateTime,
         }
 
-        console.log("🔄 Trying with orderCode:", JSON.stringify(orderCodePayload, null, 2))
-
         try {
           const response = await axiosInstance.post("/confirmPayment", orderCodePayload, {
             headers: { Authorization: `Bearer ${userToken}`, "Content-Type": "application/json" },
           })
-
-          console.log("✅ OrderCode structure success:", JSON.stringify(response.data, null, 2))
 
           if (response.data && typeof response.data.success !== "undefined") {
             return {
@@ -330,9 +230,6 @@ const orderService = {
             ? { success: true, data: response.data }
             : { success: false, message: response.data?.message || "Failed to confirm payment" }
         } catch (error2) {
-          console.log("❌ OrderCode failed, trying with numeric orderCode...")
-
-          // THỬ CẤU TRÚC 3: VỚI orderCode NUMERIC
           const numericOrderCode = Number.parseInt(paymentPayload.orderId.replace(/\D/g, "")) || Date.now()
           const numericPayload = {
             orderCode: numericOrderCode,
@@ -343,14 +240,10 @@ const orderService = {
             transactionDateTime: paymentPayload.transactionDateTime,
           }
 
-          console.log("🔄 Trying with numeric orderCode:", JSON.stringify(numericPayload, null, 2))
-
           try {
             const response = await axiosInstance.post("/confirmPayment", numericPayload, {
               headers: { Authorization: `Bearer ${userToken}`, "Content-Type": "application/json" },
             })
-
-            console.log("✅ Numeric orderCode success:", JSON.stringify(response.data, null, 2))
 
             if (response.data && typeof response.data.success !== "undefined") {
               return {
@@ -364,15 +257,10 @@ const orderService = {
               ? { success: true, data: response.data }
               : { success: false, message: response.data?.message || "Failed to confirm payment" }
           } catch (error3) {
-            console.log("❌ Numeric failed, trying different endpoint structure...")
-
-            // THỬ CẤU TRÚC 4: ENDPOINT /payment (không có s)
             try {
               const response = await axiosInstance.post("/payment", paymentPayload, {
                 headers: { Authorization: `Bearer ${userToken}`, "Content-Type": "application/json" },
               })
-
-              console.log("✅ /payment endpoint success:", JSON.stringify(response.data, null, 2))
 
               if (response.data && typeof response.data.success !== "undefined") {
                 return {
@@ -386,9 +274,6 @@ const orderService = {
                 ? { success: true, data: response.data }
                 : { success: false, message: response.data?.message || "Failed to confirm payment" }
             } catch (error4) {
-              console.log("❌ /payment failed, trying POST to /orders/{orderId}/confirm...")
-
-              // THỬ CẤU TRÚC 5: CONFIRM SPECIFIC ORDER
               try {
                 const confirmOrderPayload = {
                   amount: paymentPayload.amount,
@@ -406,8 +291,6 @@ const orderService = {
                   },
                 )
 
-                console.log("✅ Order-specific confirm success:", JSON.stringify(response.data, null, 2))
-
                 if (response.data && typeof response.data.success !== "undefined") {
                   return {
                     success: response.data.success,
@@ -420,9 +303,6 @@ const orderService = {
                   ? { success: true, data: response.data }
                   : { success: false, message: response.data?.message || "Failed to confirm payment" }
               } catch (error5) {
-                console.log("❌ All attempts failed, trying PATCH to update order status...")
-
-                // THỬ CẤU TRÚC 6: UPDATE ORDER STATUS
                 try {
                   const updatePayload = {
                     paymentStatus: "Paid",
@@ -433,8 +313,6 @@ const orderService = {
                   const response = await axiosInstance.patch(`/orders/${paymentPayload.orderId}`, updatePayload, {
                     headers: { Authorization: `Bearer ${userToken}`, "Content-Type": "application/json" },
                   })
-
-                  console.log("✅ Order update success:", JSON.stringify(response.data, null, 2))
 
                   return {
                     success: true,
@@ -451,9 +329,6 @@ const orderService = {
                     message: "Payment status updated successfully",
                   }
                 } catch (error6) {
-                  console.log("❌ All methods failed, returning mock success for development...")
-
-                  // FALLBACK: RETURN MOCK SUCCESS FOR DEVELOPMENT
                   return {
                     success: true,
                     data: {
@@ -475,11 +350,6 @@ const orderService = {
         }
       }
     } catch (error) {
-      console.error("❌ Final confirm payment error:", error.message, error.response?.data)
-      console.error("❌ Error response:", JSON.stringify(error.response?.data, null, 2))
-
-      // FALLBACK: RETURN SUCCESS FOR DEVELOPMENT
-      console.log("🔄 Returning fallback success for development...")
       return {
         success: true,
         data: {
@@ -500,8 +370,6 @@ const orderService = {
   post: async (url, data, config = {}) => {
     try {
       const userToken = await getAuthToken()
-      console.log(`Posting to ${url} with payload:`, JSON.stringify(data, null, 2))
-
       const response = await axiosInstance.post(url, data, {
         ...config,
         headers: {
@@ -511,13 +379,10 @@ const orderService = {
         },
       })
 
-      console.log(`Response from ${url}:`, JSON.stringify(response.data, null, 2))
-
       return response.status === 200 || response.status === 201
         ? { success: true, data: response.data }
         : { success: false, message: response.data?.message || `Failed to post to ${url}` }
     } catch (error) {
-      console.error(`POST ${url} error:`, error.message, error.response?.data)
       return {
         success: false,
         message: error.response?.data?.message || error.message || `Failed to post to ${url}`,
@@ -532,13 +397,10 @@ const orderService = {
         headers: { Authorization: `Bearer ${userToken}`, "Content-Type": "application/json" },
       })
 
-      console.log("getCart Raw Response:", JSON.stringify(response.data, null, 2))
-
       return response.status === 200
         ? { success: true, data: response.data }
         : { success: false, message: response.data?.message || "Failed to fetch cart" }
     } catch (error) {
-      console.error("Get cart error:", error.message, error.response?.data)
       return { success: false, message: error.message || "Network error. Please try again." }
     }
   },
@@ -554,7 +416,6 @@ const orderService = {
         ? { success: true }
         : { success: false, message: response.data?.message || "Failed to delete cart item" }
     } catch (error) {
-      console.error("Delete cart item error:", error.message, error.response?.data)
       return { success: false, message: error.message || "Network error. Please try again." }
     }
   },
@@ -574,7 +435,6 @@ const orderService = {
         ? { success: true }
         : { success: false, message: response.data?.message || "Failed to update quantity" }
     } catch (error) {
-      console.error("Update cart item quantity error:", error.message, error.response?.data)
       return { success: false, message: error.message || "Network error. Please try again." }
     }
   },
@@ -582,8 +442,6 @@ const orderService = {
   addCartItem: async (productId, quantity = 1) => {
     try {
       const userToken = await getAuthToken()
-      console.log("Adding to cart with payload:", { productId, quantity })
-
       const response = await axiosInstance.post(
         "/cartItems",
         { productId, quantity },
@@ -592,13 +450,10 @@ const orderService = {
         },
       )
 
-      console.log("AddCartItem API response:", JSON.stringify(response.data, null, 2))
-
       return response.status === 200 || response.status === 201
         ? { success: true, data: response.data, cartItemId: response.data.cartItem?._id }
         : { success: false, message: response.data?.message || "Failed to add item to cart" }
     } catch (error) {
-      console.error("Add cart item error:", error.message, error.response?.data)
       return { success: false, message: error.message || "Network error. Please try again." }
     }
   },
@@ -610,13 +465,10 @@ const orderService = {
         headers: { Authorization: `Bearer ${userToken}`, "Content-Type": "application/json" },
       })
 
-      console.log("getOrders Response:", JSON.stringify(response.data, null, 2))
-
       return response.status === 200
         ? { success: true, data: response.data.orders || response.data }
         : { success: false, message: response.data?.message || "Failed to fetch orders" }
     } catch (error) {
-      console.error("Get orders error:", error.message, error.response?.data)
       return { success: false, message: error.message || "Network error. Please try again." }
     }
   },

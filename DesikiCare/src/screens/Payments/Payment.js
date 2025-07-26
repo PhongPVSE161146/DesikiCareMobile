@@ -13,7 +13,6 @@ import OrderSummary from "../../components/PaymentComponents/OrderSummary"
 import orderService from "../../config/axios/Order/orderService"
 import profileService from "../../config/axios/Home/AccountProfile/profileService"
 
-// Validation schema
 const validationSchema = Yup.object().shape({
   fullName: Yup.string().required("Vui lòng nhập họ và tên"),
   phone: Yup.string()
@@ -29,7 +28,6 @@ const Payment = ({ route, navigation }) => {
   const [notification, setNotification] = useState({ message: "", type: "" })
   const [addresses, setAddresses] = useState([])
 
-  
   const generateOrderId = () => {
     try {
       return `ORDER${uuidv4().replace(/-/g, "").slice(0, 12)}`
@@ -42,29 +40,23 @@ const Payment = ({ route, navigation }) => {
   const formikRef = useRef(null)
   const cartItems = passedCartItems?.length > 0 ? passedCartItems : []
 
-  // Validate 24-character hex string
   const isValidObjectId = (id) => /^[0-9a-fA-F]{24}$/.test(id)
 
-  // THÊM FUNCTION VALIDATE TẤT CẢ IDs TRONG PAYLOAD
   const validateOrderPayload = (payload) => {
     const errors = []
 
-    // Validate userId
     if (!payload.order.userId || !isValidObjectId(payload.order.userId)) {
       errors.push(`Invalid userId: ${payload.order.userId}`)
     }
 
-    // Validate deliveryAddressId
     if (!payload.order.deliveryAddressId || !isValidObjectId(payload.order.deliveryAddressId)) {
       errors.push(`Invalid deliveryAddressId: ${payload.order.deliveryAddressId}`)
     }
 
-    // Validate newOrderId (should be string, not ObjectId)
     if (!payload.order.newOrderId || typeof payload.order.newOrderId !== "string") {
       errors.push(`Invalid newOrderId: ${payload.order.newOrderId}`)
     }
 
-    // Validate cartItems
     payload.order.cartItems.forEach((item, index) => {
       if (!item.productId || !isValidObjectId(item.productId)) {
         errors.push(`Invalid productId at index ${index}: ${item.productId}`)
@@ -79,7 +71,6 @@ const Payment = ({ route, navigation }) => {
       }
     })
 
-    // Validate numeric fields
     const numericFields = ["subtotal", "discount", "total", "pointUsed"]
     numericFields.forEach((field) => {
       if (typeof payload.order[field] !== "number") {
@@ -87,7 +78,6 @@ const Payment = ({ route, navigation }) => {
       }
     })
 
-    // Validate string fields
     const stringFields = ["paymentMethod", "paymentStatus", "note"]
     stringFields.forEach((field) => {
       if (typeof payload.order[field] !== "string") {
@@ -102,7 +92,6 @@ const Payment = ({ route, navigation }) => {
     return { valid: true, errors: [] }
   }
 
-  // Load user info and addresses
   useEffect(() => {
     const loadUserInfo = async () => {
       try {
@@ -110,7 +99,6 @@ const Payment = ({ route, navigation }) => {
         const userInfo = await AsyncStorage.getItem("userInfo")
         let parsedUserInfo = userInfo ? JSON.parse(userInfo) : null
 
-        // Fetch user profile if userInfo is missing or invalid
         if (!parsedUserInfo || !parsedUserInfo.accountId || !isValidObjectId(parsedUserInfo.accountId)) {
           const profileResponse = await profileService.getProfile()
           if (profileResponse.success && profileResponse.data.account) {
@@ -129,13 +117,11 @@ const Payment = ({ route, navigation }) => {
           }
         }
 
-        // Validate userId
         if (!isValidObjectId(parsedUserInfo.accountId)) {
           setNotification({ message: "ID tài khoản không hợp lệ.", type: "error" })
           return
         }
 
-        // Set form values
         if (formikRef.current) {
           formikRef.current.setValues({
             ...formikRef.current.values,
@@ -144,7 +130,6 @@ const Payment = ({ route, navigation }) => {
           })
         }
 
-        // Load addresses
         const addressResponse = await profileService.getDeliveryAddresses()
         if (addressResponse.success) {
           const validAddresses = addressResponse.data.filter((addr) => isValidObjectId(addr._id))
@@ -168,7 +153,6 @@ const Payment = ({ route, navigation }) => {
 
   const processPayment = async (values) => {
     try {
-      // Validate addressId
       if (!values.addressId || !isValidObjectId(values.addressId)) {
         setNotification({ message: "Vui lòng chọn một địa chỉ giao hàng hợp lệ.", type: "error" })
         return
@@ -180,7 +164,6 @@ const Payment = ({ route, navigation }) => {
         return
       }
 
-      // Validate userId
       const userInfo = await AsyncStorage.getItem("userInfo")
       const parsedUserInfo = userInfo ? JSON.parse(userInfo) : null
       if (!parsedUserInfo?.accountId || !isValidObjectId(parsedUserInfo.accountId)) {
@@ -188,13 +171,11 @@ const Payment = ({ route, navigation }) => {
         return
       }
 
-      // Validate cartItems
       if (!cartItems || cartItems.length === 0) {
         setNotification({ message: "Giỏ hàng trống. Vui lòng thêm sản phẩm.", type: "error" })
         return
       }
 
-      // Validate product IDs in cartItems
       for (let i = 0; i < cartItems.length; i++) {
         const item = cartItems[i]
         const itemName = item.name || item.title || item.productName || `Sản phẩm #${i + 1}`
@@ -218,7 +199,6 @@ const Payment = ({ route, navigation }) => {
         }
       }
 
-      // Calculate totals
       const subtotal = cartItems.reduce((total, item) => {
         const price = item.salePrice || item.price || 0
         const quantity = item.quantity || 1
@@ -226,34 +206,32 @@ const Payment = ({ route, navigation }) => {
       }, 0)
       const totalAmount = subtotal
 
-      // CREATE ORDER PAYLOAD WITH PROPER TYPES
       const orderPayload = {
         order: {
-          newOrderId: String(orderId), // Ensure string
-          userId: String(parsedUserInfo.accountId), // Ensure string
-          deliveryAddressId: String(values.addressId), // Ensure string
+          newOrderId: String(orderId),
+          userId: String(parsedUserInfo.accountId),
+          deliveryAddressId: String(values.addressId),
           cartItems: cartItems.map((item) => {
             const productId = item._id || item.id
             const price = item.salePrice || item.price
             const quantity = item.quantity || 1
             return {
-              productId: String(productId), // Ensure string
-              quantity: Number(quantity), // Ensure number
-              price: Number(price), // Ensure number
+              productId: String(productId),
+              quantity: Number(quantity),
+              price: Number(price),
             }
           }),
-          subtotal: Number(subtotal), // Ensure number
-          discount: Number(0), // Ensure number
-          shippingFee: Number(0), // Ensure number
-          total: Number(totalAmount), // Ensure number
-          paymentMethod: String(values.paymentMethod), // Ensure string
-          paymentStatus: String(values.paymentMethod === "cod" ? "Pending" : "Paid"), // Ensure string
-          note: String(values.note || ""), // Ensure string
-          pointUsed: Number(0), // Ensure number
+          subtotal: Number(subtotal),
+          discount: Number(0),
+          shippingFee: Number(0),
+          total: Number(totalAmount),
+          paymentMethod: String(values.paymentMethod),
+          paymentStatus: String(values.paymentMethod === "cod" ? "Pending" : "Paid"),
+          note: String(values.note || ""),
+          pointUsed: Number(0),
         },
       }
 
-      // VALIDATE PAYLOAD BEFORE SENDING
       const validation = validateOrderPayload(orderPayload)
       if (!validation.valid) {
         setNotification({
@@ -285,9 +263,7 @@ const Payment = ({ route, navigation }) => {
         note: values.note || "",
       }
 
-      // XỬ LÝ THEO PHƯƠNG THỨC THANH TOÁN
       if (values.paymentMethod === "bank") {
-        // THANH TOÁN NGÂN HÀNG - Navigate đến QR Payment Screen
         const paymentData = {
           orderCode: orderResponse.data.orderId || orderId,
           amount: totalAmount,
@@ -304,7 +280,6 @@ const Payment = ({ route, navigation }) => {
         return
       }
 
-      // COD PAYMENT - Xử lý như cũ
       const paymentPayload = {
         orderId: orderResponse.data.orderId || orderId,
         amount: totalAmount,

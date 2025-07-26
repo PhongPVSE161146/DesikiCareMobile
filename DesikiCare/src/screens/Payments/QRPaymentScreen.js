@@ -22,44 +22,27 @@ const QRPaymentScreen = ({ route, navigation }) => {
   const [isCancelling, setIsCancelling] = useState(false)
   const [paymentCompleted, setPaymentCompleted] = useState(false)
 
-  // Bank information for manual transfer
   const BANK_INFO = {
-    bankId: "STB", // Sacombank
+    bankId: "STB",
     accountNumber: "070113484770",
     accountName: "PHAM VAN PHONG",
   }
 
-  // Track current order ID
   const currentOrderIdRef = useRef(null)
 
-  // Enhanced order ID detection
   const getOrderIdentifier = () => {
     const orderId = paymentData?.orderId || paymentData?.orderCode || paymentData?.id
-    console.log("🔍 Detecting order identifier:", {
-      orderId: paymentData?.orderId,
-      orderCode: paymentData?.orderCode,
-      id: paymentData?.id,
-      finalId: orderId,
-      isObjectId: paymentData?.orderId && paymentData.orderId.length === 24,
-    })
     return orderId
   }
 
-  // Reset for new order
   useEffect(() => {
     const newOrderId = getOrderIdentifier()
     if (newOrderId && newOrderId !== currentOrderIdRef.current) {
-      console.log("🔄 New order detected, resetting state...")
-      console.log("Previous order:", currentOrderIdRef.current)
-      console.log("New order:", newOrderId)
-      console.log("New order amount (no shipping):", paymentData?.amount)
       currentOrderIdRef.current = newOrderId
       setPaymentCompleted(false)
-      console.log("✅ Reset for new order")
     }
   }, [paymentData?.orderCode, paymentData?.orderId])
 
-  // Disable back button/gesture
   useEffect(() => {
     const backAction = () => {
       if (paymentCompleted) {
@@ -87,38 +70,20 @@ const QRPaymentScreen = ({ route, navigation }) => {
     return () => backHandler.remove()
   }, [navigation, paymentCompleted])
 
-  // Cancel payment link API call
   const cancelPaymentLink = async (orderId, orderCode) => {
     try {
-      console.log("🚫 Attempting to cancel payment link for:", { orderId, orderCode })
       const cancelResult = await orderService.cancelPaymentLink?.(orderId || orderCode)
-      if (cancelResult?.success) {
-        console.log("✅ Payment link cancelled successfully")
-        return true
-      } else {
-        console.log("⚠️ Payment link cancellation failed:", cancelResult?.message)
-        return false
-      }
+      return cancelResult?.success || false
     } catch (error) {
-      console.error("❌ Error cancelling payment link:", error.message)
       return false
     }
   }
 
-  // Cancel order API call
   const cancelOrder = async (orderId) => {
     try {
-      console.log("🚫 Attempting to cancel order:", orderId)
       const cancelResult = await orderService.cancelOrder?.(orderId)
-      if (cancelResult?.success) {
-        console.log("✅ Order cancelled successfully")
-        return true
-      } else {
-        console.log("⚠️ Order cancellation failed:", cancelResult?.message)
-        return false
-      }
+      return cancelResult?.success || false
     } catch (error) {
-      console.error("❌ Error cancelling order:", error.message)
       return false
     }
   }
@@ -132,7 +97,6 @@ const QRPaymentScreen = ({ route, navigation }) => {
       await Clipboard.setString(text)
       Alert.alert("Đã sao chép", `${label} đã được sao chép vào clipboard`)
     } catch (error) {
-      console.error("Failed to copy to clipboard:", error)
       Alert.alert("Lỗi", "Không thể sao chép. Vui lòng thử lại.")
     }
   }
@@ -140,9 +104,7 @@ const QRPaymentScreen = ({ route, navigation }) => {
   const handleOpenPaymentLink = () => {
     const paymentUrl = paymentData?.paymentUrl || paymentData?.paymentLink
     if (paymentUrl) {
-      console.log("Opening payment URL:", paymentUrl)
-      Linking.openURL(paymentUrl).catch((err) => {
-        console.error("Failed to open payment URL:", err)
+      Linking.openURL(paymentUrl).catch(() => {
         Alert.alert("Lỗi", "Không thể mở link thanh toán. Vui lòng thử lại.")
       })
     } else {
@@ -152,14 +114,11 @@ const QRPaymentScreen = ({ route, navigation }) => {
 
   const handlePaymentSuccess = async (autoDetected = false) => {
     if (paymentCompleted) {
-      console.log("⚠️ Payment already completed, ignoring duplicate success call")
       return
     }
 
-    console.log("✅ Payment success detected, auto:", autoDetected)
     setIsProcessing(true)
 
-    // Confirm payment with server
     const paymentPayload = {
       orderId: getOrderIdentifier(),
       amount: paymentData.amount,
@@ -170,12 +129,9 @@ const QRPaymentScreen = ({ route, navigation }) => {
     }
 
     try {
-      console.log("📤 Sending confirmPayment with payload:", JSON.stringify(paymentPayload, null, 2))
       const confirmResult = await orderService.confirmPayment(paymentPayload)
-      console.log("✅ Confirm Payment Result:", JSON.stringify(confirmResult, null, 2))
 
       if (!confirmResult.success) {
-        console.error("❌ Payment confirmation failed:", confirmResult.message)
         Alert.alert("Lỗi", "Không thể xác nhận thanh toán. Vui lòng liên hệ hỗ trợ.")
         setIsProcessing(false)
         return
@@ -219,7 +175,6 @@ const QRPaymentScreen = ({ route, navigation }) => {
         ])
       }
     } catch (error) {
-      console.error("❌ Error confirming payment:", error.message, error.response?.data)
       Alert.alert("Lỗi", "Không thể xác nhận thanh toán. Vui lòng liên hệ hỗ trợ.")
     } finally {
       setIsProcessing(false)
@@ -263,33 +218,17 @@ const QRPaymentScreen = ({ route, navigation }) => {
           style: "destructive",
           onPress: async () => {
             setIsCancelling(true)
-            console.log("🚫 Starting cancellation process...")
 
             try {
               const orderIdentifier = getOrderIdentifier()
 
               if (orderIdentifier) {
-                console.log("🚫 Cancelling payment link...")
-                const paymentCancelled = await cancelPaymentLink(orderIdentifier, orderIdentifier)
-                if (paymentCancelled) {
-                  console.log("✅ Payment link cancelled successfully")
-                } else {
-                  console.log("⚠️ Payment link cancellation failed, but continuing...")
-                }
-
-                console.log("🚫 Cancelling order...")
-                const orderCancelled = await cancelOrder(orderIdentifier)
-                if (orderCancelled) {
-                  console.log("✅ Order cancelled successfully")
-                } else {
-                  console.log("⚠️ Order cancellation failed, but continuing...")
-                }
+                await cancelPaymentLink(orderIdentifier, orderIdentifier)
+                await cancelOrder(orderIdentifier)
               }
 
               currentOrderIdRef.current = null
-              console.log("🔄 Order reference reset")
             } catch (error) {
-              console.error("❌ Error during cancellation:", error.message)
             } finally {
               setIsCancelling(false)
               navigation.navigate("Main")
@@ -304,15 +243,6 @@ const QRPaymentScreen = ({ route, navigation }) => {
 
   const orderIdentifier = getOrderIdentifier()
   const isObjectId = orderIdentifier && orderIdentifier.length === 24 && /^[0-9a-fA-F]{24}$/.test(orderIdentifier)
-  console.log("🔍 QRPaymentScreen Debug Info:")
-  console.log("  - Current Order ID:", currentOrderIdRef.current)
-  console.log("  - Payment Data Order ID:", paymentData?.orderId)
-  console.log("  - Payment Data Order Code:", paymentData?.orderCode)
-  console.log("  - Detected Order Identifier:", orderIdentifier)
-  console.log("  - Is Valid ObjectId:", isObjectId)
-  console.log("  - Payment Amount (no shipping):", paymentData?.amount)
-  console.log("  - Is Cancelling:", isCancelling)
-  console.log("  - Payment Completed:", paymentCompleted)
 
   return (
     <View style={styles.container}>
@@ -322,7 +252,6 @@ const QRPaymentScreen = ({ route, navigation }) => {
         showsVerticalScrollIndicator={false}
         bounces={false}
       >
-        {/* Security Notice */}
         <View style={styles.securityNotice}>
           <Ionicons name="shield-checkmark-outline" size={20} color="#4CAF50" />
           <Text style={styles.securityText}>
@@ -330,7 +259,6 @@ const QRPaymentScreen = ({ route, navigation }) => {
           </Text>
         </View>
 
-        {/* Order Info */}
         <View style={styles.orderInfo}>
           <Text style={styles.orderInfoTitle}>Thông tin đơn hàng</Text>
           <Text style={styles.orderInfoText}>Mã đơn: {paymentData?.orderCode}</Text>
@@ -338,7 +266,6 @@ const QRPaymentScreen = ({ route, navigation }) => {
           <Text style={styles.orderInfoText}>Loại: Đơn hàng (xác minh thủ công)</Text>
         </View>
 
-        {/* Payment Info */}
         <View style={styles.paymentInfo}>
           <Text style={styles.amountLabel}>Tổng thanh toán</Text>
           <Text style={styles.amount}>{formatCurrency(paymentData?.amount)}</Text>
@@ -346,7 +273,6 @@ const QRPaymentScreen = ({ route, navigation }) => {
           <Text style={styles.paymentNote}>Miễn phí giao hàng</Text>
         </View>
 
-        {/* Payment Link Section */}
         {(paymentData?.paymentUrl || paymentData?.paymentLink) && (
           <View style={styles.paymentLinkContainer}>
             <Text style={styles.paymentLinkTitle}>Link thanh toán</Text>
@@ -360,12 +286,9 @@ const QRPaymentScreen = ({ route, navigation }) => {
           </View>
         )}
 
-   
-
         <View style={styles.spacer} />
       </ScrollView>
 
-      {/* Action Buttons */}
       {!paymentCompleted && (
         <View style={styles.buttonContainer}>
           <TouchableOpacity
