@@ -10,7 +10,6 @@ const Fireworks = ({ show, onComplete }) => {
   const animatedValues = useRef([])
   const particles = useRef([])
 
-  // Tạo particles cho pháo hoa
   const createParticles = () => {
     const particleCount = 50
     const newParticles = []
@@ -23,7 +22,6 @@ const Fireworks = ({ show, onComplete }) => {
 
       newAnimatedValues.push({ position: animatedValue, opacity, scale })
 
-      // Random properties cho mỗi particle
       const angle = (Math.PI * 2 * i) / particleCount
       const velocity = 100 + Math.random() * 100
       const color = ["#FF6B6B", "#4ECDC4", "#45B7D1", "#96CEB4", "#FFEAA7", "#DDA0DD", "#98D8C8"][
@@ -46,33 +44,28 @@ const Fireworks = ({ show, onComplete }) => {
     animatedValues.current = newAnimatedValues
   }
 
-  // Animation pháo hoa
   const startFireworks = () => {
     createParticles()
 
-    const animations = particles.current.map((particle, index) => {
+    const animations = particles.current.map((particle) => {
       const { angle, velocity, animatedValue, opacity, scale } = particle
 
-      // Tính toán vị trí cuối
       const endX = Math.cos(angle) * velocity
       const endY = Math.sin(angle) * velocity
 
       return Animated.parallel([
-        // Animation di chuyển
         Animated.timing(animatedValue, {
           toValue: { x: endX, y: endY },
           duration: 1500,
           easing: Easing.out(Easing.quad),
           useNativeDriver: false,
         }),
-        // Animation opacity (fade out)
         Animated.timing(opacity, {
           toValue: 0,
           duration: 1500,
           easing: Easing.out(Easing.quad),
           useNativeDriver: false,
         }),
-        // Animation scale (grow then shrink)
         Animated.sequence([
           Animated.timing(scale, {
             toValue: 1,
@@ -109,7 +102,7 @@ const Fireworks = ({ show, onComplete }) => {
 
   return (
     <View style={styles.fireworksContainer} pointerEvents="none">
-      {particles.current.map((particle, index) => (
+      {particles.current.map((particle) => (
         <Animated.View
           key={particle.id}
           style={[
@@ -133,7 +126,7 @@ const Fireworks = ({ show, onComplete }) => {
   )
 }
 
-// CONFETTI COMPONENT (rơi từ trên xuống)
+// CONFETTI COMPONENT
 const Confetti = ({ show }) => {
   const confettiPieces = useRef([])
   const animatedValues = useRef([])
@@ -178,7 +171,6 @@ const Confetti = ({ show }) => {
       const { animatedValue, rotation, fallSpeed, swayAmount } = piece
 
       return Animated.parallel([
-        // Rơi xuống với chuyển động lắc lư
         Animated.timing(animatedValue, {
           toValue: {
             x: animatedValue.x._value + (Math.random() - 0.5) * swayAmount,
@@ -188,7 +180,6 @@ const Confetti = ({ show }) => {
           easing: Easing.out(Easing.quad),
           useNativeDriver: false,
         }),
-        // Xoay
         Animated.loop(
           Animated.timing(rotation, {
             toValue: 1,
@@ -215,7 +206,7 @@ const Confetti = ({ show }) => {
 
   return (
     <View style={styles.confettiContainer} pointerEvents="none">
-      {confettiPieces.current.map((piece, index) => {
+      {confettiPieces.current.map((piece) => {
         const rotationInterpolate = piece.rotation.interpolate({
           inputRange: [0, 1],
           outputRange: ["0deg", "360deg"],
@@ -254,9 +245,7 @@ const ConfirmPaymentScreen = ({ route, navigation }) => {
 
   // Animation khi component mount
   useEffect(() => {
-    // Delay một chút rồi bắt đầu animation
     const timer = setTimeout(() => {
-      // Animation checkmark
       Animated.sequence([
         Animated.spring(checkmarkScale, {
           toValue: 1.2,
@@ -272,7 +261,6 @@ const ConfirmPaymentScreen = ({ route, navigation }) => {
         }),
       ]).start()
 
-      // Animation title
       Animated.timing(titleOpacity, {
         toValue: 1,
         duration: 800,
@@ -280,7 +268,6 @@ const ConfirmPaymentScreen = ({ route, navigation }) => {
         useNativeDriver: true,
       }).start()
 
-      // Bắt đầu pháo hoa sau khi checkmark animation xong
       setTimeout(() => {
         setShowFireworks(true)
         setShowConfetti(true)
@@ -291,43 +278,49 @@ const ConfirmPaymentScreen = ({ route, navigation }) => {
   }, [])
 
   const formatCurrency = (amount) => {
-    return amount?.toLocaleString("vi-VN") + "đ" || "0đ"
+    return amount && typeof amount === "number" ? amount.toLocaleString("vi-VN") + "đ" : "0đ"
   }
 
   const formatDateTime = (dateTime) => {
     if (!dateTime) return "N/A"
     try {
       return new Date(dateTime).toLocaleString("vi-VN")
-    } catch (e) {
+    } catch {
       return dateTime
     }
   }
 
+  const getPaymentStatus = () => {
+    if (!paymentData?.paymentMethod) return "Đã xác nhận"
+    return paymentData.paymentMethod === "bank" || "cod" ? "Đơn Hàng Đang Xử Lý" : (paymentData.desc || "Đã xác nhận")
+  }
+
   const handleNavigateToOrders = () => {
-    try {
-      navigation.navigate("Main", {
-        screen: "PaidOrderHistory",
-      })
-    } catch (error) {
-      console.log("Navigation error:", error)
-      navigation.navigate("Main")
-    }
+    navigation.navigate("Main", { screen: "PaidOrderHistory" })
   }
 
   const handleNavigateToHome = () => {
-    try {
-      navigation.navigate("Main", {
-        screen: "Home",
-      })
-    } catch (error) {
-      console.log("Navigation error:", error)
-      navigation.navigate("Main")
-    }
+    navigation.navigate("Main", { screen: "Home" })
+  }
+
+  // Validate paymentData
+  if (!paymentData) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <Text style={styles.title}>Lỗi</Text>
+          <Text style={styles.subtitle}>Không tìm thấy thông tin thanh toán.</Text>
+          <TouchableOpacity style={styles.secondaryButton} onPress={handleNavigateToHome}>
+            <Ionicons name="home-outline" size={20} color="#E91E63" style={{ marginRight: 8 }} />
+            <Text style={styles.secondaryButtonText}>Về trang chủ</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    )
   }
 
   return (
     <View style={styles.container}>
-      {/* Fireworks và Confetti Overlay */}
       <Fireworks show={showFireworks} onComplete={() => setShowFireworks(false)} />
       <Confetti show={showConfetti} />
 
@@ -341,64 +334,53 @@ const ConfirmPaymentScreen = ({ route, navigation }) => {
             <Text style={styles.title}>Đặt hàng thành công!</Text>
             <Text style={styles.subtitle}>Cảm ơn bạn đã đặt hàng</Text>
           </Animated.View>
-
-          {/* Celebration Text */}
-       
         </View>
 
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Thông tin đơn hàng</Text>
           <View style={styles.infoRow}>
             <Text style={styles.label}>Mã đơn hàng:</Text>
-            <Text style={styles.value}>{paymentData?.orderCode || "N/A"}</Text>
+            <Text style={styles.value}>{paymentData.orderCode || "N/A"}</Text>
           </View>
           <View style={styles.infoRow}>
             <Text style={styles.label}>Tổng tiền:</Text>
-            <Text style={[styles.value, styles.amount]}>{formatCurrency(paymentData?.amount)}</Text>
+            <Text style={[styles.value, styles.amount]}>{formatCurrency(paymentData.amount)}</Text>
           </View>
           <View style={styles.infoRow}>
             <Text style={styles.label}>Phương thức thanh toán:</Text>
             <Text style={styles.value}>
-              {paymentData?.paymentMethod === "cod" ? "Thanh toán khi nhận hàng" : "Chuyển khoản ngân hàng"}
+              {paymentData.paymentMethod === "cod" ? "Thanh toán khi nhận hàng" : "Chuyển khoản ngân hàng"}
             </Text>
           </View>
           <View style={styles.infoRow}>
             <Text style={styles.label}>Thời gian:</Text>
-            <Text style={styles.value}>{formatDateTime(paymentData?.transactionDateTime)}</Text>
+            <Text style={styles.value}>{formatDateTime(paymentData.transactionDateTime)}</Text>
           </View>
           <View style={styles.infoRow}>
             <Text style={styles.label}>Trạng thái:</Text>
-            <Text style={[styles.value, styles.status]}>{paymentData?.desc || "Đã xác nhận"}</Text>
+            <Text style={[styles.value, styles.status]}>{getPaymentStatus()}</Text>
           </View>
         </View>
 
-        {paymentData?.orderData?.cartItems && (
+        {paymentData.orderData?.cartItems?.length > 0 && (
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Sản phẩm đã đặt</Text>
             {paymentData.orderData.cartItems.map((item, index) => (
               <View key={index} style={styles.productItem}>
                 <Text style={styles.productName} numberOfLines={2}>
-                  {item.title}
+                  {item.title || "Sản phẩm không xác định"}
                 </Text>
                 <View style={styles.productDetails}>
-                  <Text style={styles.productQuantity}>SL: {item.quantity}</Text>
+                  <Text style={styles.productQuantity}>SL: {item.quantity || 1}</Text>
                   <Text style={styles.productPrice}>{formatCurrency(item.price)}</Text>
                 </View>
               </View>
             ))}
-            <View style={styles.divider} />
-            <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>Tạm tính:</Text>
+            {/* <View style={styles.divider} /> */}
+            {/* <View style={styles.summaryRow}>
+              <Text style={styles.summaryLabel}>Tổng tiền:</Text>
               <Text style={styles.summaryValue}>{formatCurrency(paymentData.orderData.subtotal)}</Text>
-            </View>
-            <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>Phí vận chuyển:</Text>
-              <Text style={styles.summaryValue}>{formatCurrency(paymentData.orderData.shippingFee)}</Text>
-            </View>
-            <View style={styles.summaryRow}>
-              <Text style={styles.totalLabel}>Tổng cộng:</Text>
-              <Text style={styles.totalValue}>{formatCurrency(paymentData.orderData.total)}</Text>
-            </View>
+            </View> */}
           </View>
         )}
 
@@ -425,7 +407,6 @@ const styles = StyleSheet.create({
   scrollContainer: {
     flex: 1,
   },
-  // Fireworks Styles
   fireworksContainer: {
     position: "absolute",
     top: 0,
@@ -439,7 +420,6 @@ const styles = StyleSheet.create({
   particle: {
     position: "absolute",
   },
-  // Confetti Styles
   confettiContainer: {
     position: "absolute",
     top: 0,
@@ -474,27 +454,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: "#666",
     marginTop: 8,
-    textAlign: "center",
-  },
-  celebrationContainer: {
-    marginTop: 20,
-    alignItems: "center",
-    backgroundColor: "#FFF3E0",
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: "#FFB74D",
-  },
-  celebrationText: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: "#F57C00",
-    marginBottom: 4,
-  },
-  celebrationSubtext: {
-    fontSize: 14,
-    color: "#FF8F00",
     textAlign: "center",
   },
   card: {
@@ -584,16 +543,6 @@ const styles = StyleSheet.create({
   summaryValue: {
     fontSize: 14,
     color: "#333",
-  },
-  totalLabel: {
-    fontSize: 16,
-    fontWeight: "bold",
-    color: "#333",
-  },
-  totalValue: {
-    fontSize: 16,
-    fontWeight: "bold",
-    color: "#E91E63",
   },
   buttonContainer: {
     padding: 16,

@@ -100,23 +100,23 @@ const AddressHandler = ({ navigation, formikRef, setNotification, setAddresses }
               phone: defaultAddress.receiverPhone,
             });
           } else {
-            setNotification({
-              message: 'Không có địa chỉ mặc định. Vui lòng chọn hoặc thêm địa chỉ.',
-              type: 'error',
-            });
+            // setNotification({
+            //   message: 'Không có địa chỉ mặc định. Vui lòng chọn hoặc thêm địa chỉ.',
+            //   type: 'error',
+            // });
             setShowAddressModal(true);
           }
         } else {
-          setNotification({
-            message: 'Không có địa chỉ giao hàng. Vui lòng thêm địa chỉ mới.',
-            type: 'error',
-          });
+          // setNotification({
+          //   message: 'Không có địa chỉ giao hàng. Vui lòng thêm địa chỉ mới.',
+          //   type: 'error',
+          // });
           setShowAddressModal(true);
         }
       } catch (error) {
-        console.error('Lỗi tải địa chỉ:', error);
-        setNotification({ message: 'Không thể tải danh sách địa chỉ: ' + error.message, type: 'error' });
-        setShowAddressModal(true);
+        // console.error('Lỗi tải địa chỉ:', error);
+        // setNotification({ message: 'Không thể tải danh sách địa chỉ: ' + error.message, type: 'error' });
+        // setShowAddressModal(true);
       } finally {
         setIsLoading(false);
       }
@@ -222,12 +222,12 @@ const AddressHandler = ({ navigation, formikRef, setNotification, setAddresses }
                         });
                       }
                     } else {
-                      setNotification({ message: 'Không có địa chỉ giao hàng. Vui lòng thử lại.', type: 'error' });
+                      // setNotification({ message: 'Không có địa chỉ giao hàng. Vui lòng thử lại.', type: 'error' });
                       setShowAddressModal(true);
                     }
                   } catch (error) {
                     console.error('Lỗi tải địa chỉ:', error);
-                    setNotification({ message: 'Không thể tải danh sách địa chỉ: ' + error.message, type: 'error' });
+                    // setNotification({ message: 'Không thể tải danh sách địa chỉ: ' + error.message, type: 'error' });
                     setShowAddressModal(true);
                   } finally {
                     setIsLoading(false);

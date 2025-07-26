@@ -11,7 +11,6 @@ const GAME_TYPES = {
 const parseSpinWheelConfig = (configJson) => {
   try {
     if (!configJson) {
-      console.warn("No configJson provided for spin wheel game")
       return getDefaultSpinConfig()
     }
 
@@ -23,14 +22,12 @@ const parseSpinWheelConfig = (configJson) => {
 
     for (const field of requiredFields) {
       if (!config[field]) {
-        console.warn(`Missing required field: ${field}, using default config`)
         return getDefaultSpinConfig()
       }
     }
 
     // Validate sectors array
     if (!Array.isArray(config.sectors) || config.sectors.length !== config.numOfSectors) {
-      console.warn("Sectors array length must match numOfSectors, using default config")
       return getDefaultSpinConfig()
     }
 
@@ -40,7 +37,6 @@ const parseSpinWheelConfig = (configJson) => {
 
       for (const field of requiredSectorFields) {
         if (sector[field] === undefined || sector[field] === null) {
-          console.warn(`Sector ${index} missing required field: ${field}`)
           return {
             value: 10,
             label: "10 points",
@@ -71,7 +67,6 @@ const parseSpinWheelConfig = (configJson) => {
       showConfetti: config.showConfetti !== undefined ? Boolean(config.showConfetti) : true,
     }
   } catch (error) {
-    console.error("Error parsing spin wheel configJson:", error.message)
     return getDefaultSpinConfig()
   }
 }
@@ -107,16 +102,11 @@ export const fetchGameEvents = async () => {
       Authorization: `Bearer ${token}`,
     }
 
-    console.log("🎮 Fetching game events from:", `${API_URL_LOGIN}/api/Game/gameEvents`)
-
     const response = await axios.get(`${API_URL_LOGIN}/api/Game/gameEvents`, { headers })
-
-    console.log("🎮 fetchGameEvents raw response:", JSON.stringify(response.data, null, 2))
 
     const gameEvents = response.data.gameEvents || []
 
     if (!Array.isArray(gameEvents) || !gameEvents.length) {
-      console.warn("⚠️ No game events found in response")
       return { gameEvents: [] }
     }
 
@@ -124,7 +114,6 @@ export const fetchGameEvents = async () => {
       .map((eventWrapper, index) => {
         try {
           if (!eventWrapper.gameEvent) {
-            console.warn(`⚠️ Invalid game event structure at index ${index}:`, JSON.stringify(eventWrapper, null, 2))
             return null
           }
 
@@ -133,7 +122,6 @@ export const fetchGameEvents = async () => {
 
           // Only process spin wheel games (gameTypeId = 1)
           if (Number(gameTypeId) !== 1) {
-            console.log(`⏭️ Skipping non-spin game with typeId: ${gameTypeId}`)
             return null
           }
 
@@ -205,7 +193,6 @@ export const fetchGameEvents = async () => {
             })),
           }
         } catch (error) {
-          console.error(`❌ Error processing game event at index ${index}:`, error.message)
           return null
         }
       })
@@ -221,11 +208,8 @@ export const fetchGameEvents = async () => {
       return new Date(b.gameEvent.startDate) - new Date(a.gameEvent.startDate)
     })
 
-    console.log(`✅ Successfully processed ${sortedEvents.length} spin wheel game events`)
-
     return { gameEvents: sortedEvents }
   } catch (error) {
-    console.error("❌ Error fetching game events:", error.response?.data || error.message)
     throw new Error(error.response?.data?.message || "Lỗi kết nối. Vui lòng thử lại.")
   }
 }
@@ -244,11 +228,7 @@ export const fetchGameEventById = async (gameEventId) => {
       Authorization: `Bearer ${token}`,
     }
 
-    console.log("🎮 Fetching game event by ID:", gameEventId)
-
     const response = await axios.get(`${API_URL_LOGIN}/api/Game/gameEvents/${gameEventId}`, { headers })
-
-    console.log("🎮 fetchGameEventById response:", JSON.stringify(response.data, null, 2))
 
     const eventData = response.data
     const gameEvent = eventData.gameEvent
@@ -333,7 +313,6 @@ export const fetchGameEventById = async (gameEventId) => {
       })),
     }
   } catch (error) {
-    // console.error("❌ Error fetching game event:", error.response?.data || error.message)
     throw new Error(error.response?.data?.message || "Lỗi kết nối. Vui lòng thử lại.")
   }
 }
@@ -351,11 +330,7 @@ export const fetchGameTypes = async () => {
       headers["Authorization"] = `Bearer ${token}`
     }
 
-    console.log("🎮 Fetching game types...")
-
     const response = await axios.get(`${API_URL_LOGIN}/api/Game/gameTypes`, { headers })
-
-    console.log("🎮 fetchGameTypes response:", JSON.stringify(response.data, null, 2))
 
     const gameTypes = response.data.gameTypes || []
 
@@ -371,11 +346,8 @@ export const fetchGameTypes = async () => {
         isSupported: true,
       }))
 
-    console.log(`✅ Found ${spinWheelGameTypes.length} supported game types`)
-
     return { gameTypes: spinWheelGameTypes }
   } catch (error) {
-    console.error("❌ Error fetching game types:", error.response?.data || error.message)
     throw new Error(error.response?.data?.message || "Lỗi kết nối. Vui lòng thử lại.")
   }
 }
@@ -394,11 +366,7 @@ export const fetchUserGameRewards = async () => {
       Authorization: `Bearer ${token}`,
     }
 
-    console.log("🎮 Fetching user game rewards...")
-
     const response = await axios.get(`${API_URL_LOGIN}/api/Game/gameEventsRewards/me`, { headers })
-
-    console.log("🎮 fetchUserGameRewards response:", JSON.stringify(response.data, null, 2))
 
     const rewards = response.data.gameEventRewardResults || []
 
@@ -443,8 +411,6 @@ export const fetchUserGameRewards = async () => {
       return sum + (rewardWrapper.gameEventRewardResult?.points || 0)
     }, 0)
 
-    console.log(`✅ Found ${totalRewards} spin wheel rewards, total ${totalPoints} points`)
-
     return {
       gameEventRewardResults: enhancedRewards,
       statistics: {
@@ -454,7 +420,6 @@ export const fetchUserGameRewards = async () => {
       },
     }
   } catch (error) {
-    console.error("❌ Error fetching user rewards:", error.response?.data || error.message)
     throw new Error(error.response?.data?.message || "Lỗi kết nối. Vui lòng thử lại.")
   }
 }
@@ -480,11 +445,7 @@ export const addGameEventReward = async (gameEventId, points) => {
       },
     }
 
-    console.log("🎮 Adding spin wheel reward:", JSON.stringify(data, null, 2))
-
     const response = await axios.post(`${API_URL_LOGIN}/api/Game/gameEventsRewards`, data, { headers })
-
-    console.log("🎮 addGameEventReward response:", JSON.stringify(response.data, null, 2))
 
     return {
       ...response.data,
@@ -494,8 +455,6 @@ export const addGameEventReward = async (gameEventId, points) => {
       timestamp: new Date().toISOString(),
     }
   } catch (error) {
-    console.error("❌ Error adding game event reward:", error.response?.data || error.message)
-
     // Handle specific error cases
     if (error.response?.status === 400) {
       const errorMessage = error.response?.data?.message || ""

@@ -3,8 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 
 const OrderSummary = ({ cartItems, handleSubmit, isLoading, addressId, paymentMethod }) => {
   const subtotal = cartItems.reduce((total, item) => total + (item.price || 0) * (item.quantity || 0), 0);
-  const shippingFee = subtotal >= 500000 ? 0 : 30000;
-  const total = subtotal + shippingFee;
+  const total = subtotal;
 
   return (
     <View style={styles.card}>
@@ -26,15 +25,6 @@ const OrderSummary = ({ cartItems, handleSubmit, isLoading, addressId, paymentMe
           <Text style={styles.summaryPrice}>0₫</Text>
         </View>
       )}
-      <View style={styles.summaryItem}>
-        <Text style={styles.summaryText}>Phí giao hàng</Text>
-        <Text style={styles.summaryPrice}>
-          {shippingFee.toLocaleString('vi-VN')}₫
-          {shippingFee === 0 && (
-            <Text style={styles.freeShippingText}> (Miễn phí đơn 500,000 đ)</Text>
-          )}
-        </Text>
-      </View>
       <View style={styles.divider} />
       <View style={styles.summaryTotal}>
         <Text style={styles.summaryTotalText}>Tổng cộng:</Text>
@@ -96,10 +86,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#d32f2f',
     textAlign: 'right',
-  },
-  freeShippingText: {
-    fontSize: 14,
-    color: '#E53935',
   },
   divider: {
     height: 1,

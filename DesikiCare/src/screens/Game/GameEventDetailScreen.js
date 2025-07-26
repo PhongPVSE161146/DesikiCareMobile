@@ -20,18 +20,10 @@ const GameEventDetailScreen = () => {
     const loadGameEvent = async () => {
       try {
         setLoading(true)
-        // console.log("🎮 Loading game event details for ID:", gameEventId)
-
-        // if (!gameEventId) {
-        //   throw new Error("ID sự kiện trò chơi không hợp lệ")
-        // }
+     
 
         const response = await fetchGameEventById(gameEventId)
-        // console.log("🎮 fetchGameEventById response:", JSON.stringify(response, null, 2))
-
-        // if (!response.gameEvent) {
-        //   throw new Error("Không tìm thấy thông tin sự kiện")
-        // }
+      
 
         setGameEventData(response)
         setError(null)

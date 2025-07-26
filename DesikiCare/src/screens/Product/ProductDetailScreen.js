@@ -1,5 +1,4 @@
 "use client"
-
 import { useState, useEffect } from "react"
 import {
   View,
@@ -25,6 +24,7 @@ const screenWidth = Dimensions.get("window").width
 const ProductDetailScreen = ({ route, navigation }) => {
   const { productId } = route.params || {}
   const dispatch = useDispatch()
+
   const [productData, setProductData] = useState(null)
   const [notificationMessage, setNotificationMessage] = useState("")
   const [notificationType, setNotificationType] = useState("success")
@@ -98,6 +98,7 @@ const ProductDetailScreen = ({ route, navigation }) => {
 
   const { product, category, productSkinTypes, productSkinStatuses, shipmentProducts } = productData
   const { name, description, salePrice, imageUrl, isDeactivated, volume } = product
+
   const categoryName = category?.name || "Không có danh mục"
   const skinTypes = productSkinTypes?.map((type) => type.name).join(", ") || "Không có loại da"
   const skinStatuses = productSkinStatuses?.map((status) => status.name).join(", ") || "Không có trạng thái da"
@@ -134,6 +135,7 @@ const ProductDetailScreen = ({ route, navigation }) => {
         if (typeof addToCart === "function") {
           dispatch(addToCart(productWithId))
           setNotificationMessage("") // Clear notification in ProductDetailScreen
+
           // Navigate to Cart screen with notification params
           navigation.navigate("Main", {
             screen: "Cart",
@@ -213,7 +215,7 @@ const ProductDetailScreen = ({ route, navigation }) => {
       console.log("Payment result:", JSON.stringify(paymentResult, null, 2))
 
       if (paymentResult.success) {
-        // Bước 4: Tạo orderData cho QR screen
+        // Bước 4: Tạo orderData cho QR screen - NO SHIPPING FEE
         const orderData = {
           cartItems: [
             {
@@ -225,16 +227,17 @@ const ProductDetailScreen = ({ route, navigation }) => {
           ],
           subtotal: salePrice,
           discount: 0,
-          shippingFee: salePrice >= 500000 ? 0 : 30000,
-          total: salePrice + (salePrice >= 500000 ? 0 : 30000),
+          // Removed shipping fee calculation
+          total: salePrice, // Total is now just the sale price
           pointUsed: 0,
           note: "",
         }
 
-        // Bước 5: Tạo paymentData cho QR screen
+        // Bước 5: Tạo paymentData cho QR screen - using total without shipping
         const paymentData = {
           orderCode: paymentResult.data.orderCode || `ORDER${Date.now()}`,
-          amount: orderData.total,
+          orderId: paymentResult.data.orderId || paymentResult.data.orderCode,
+          amount: orderData.total, // This is now just the product price
           currency: "VND",
           paymentMethod: "bank",
           description: "Chuyển khoản ngân hàng",
@@ -243,7 +246,7 @@ const ProductDetailScreen = ({ route, navigation }) => {
           paymentUrl: paymentResult.data.paymentUrl,
         }
 
-        console.log("Navigating to QRPaymentScreen with:", { paymentData, orderData })
+        console.log("Navigating to QRPaymentScreen with (no shipping):", { paymentData, orderData })
 
         // Bước 6: Navigate đến QR Payment Screen
         navigation.navigate("QRPaymentScreen", {
@@ -280,6 +283,7 @@ const ProductDetailScreen = ({ route, navigation }) => {
           setNotificationType("success")
         }}
       />
+
       <ScrollView>
         <View style={styles.imageContainer}>
           <Image
@@ -289,25 +293,35 @@ const ProductDetailScreen = ({ route, navigation }) => {
             accessibilityLabel={`Hình ảnh sản phẩm ${name}`}
           />
         </View>
+
         <View style={styles.detailsContainer}>
           <Text style={[styles.brand, isDeactivated ? styles.deactivatedText : null]}>
             {name || "Tên sản phẩm không có"}
           </Text>
+
           <Text style={styles.category}>Danh mục: {categoryName}</Text>
+
           <Text style={[styles.price, isDeactivated ? styles.deactivatedText : null]}>
             {(salePrice || 0).toLocaleString("vi-VN")} đ
           </Text>
+
+          {/* Added free shipping notice */}
+          <Text style={styles.freeShippingNotice}>🚚 Miễn phí giao hàng</Text>
+
           {isDeactivated && <Text style={styles.deactivatedLabel}>Hết hàng</Text>}
+
           <View style={styles.descriptionContainer}>
             <Text style={styles.sectionTitle}>Mô tả sản phẩm</Text>
             <Text style={styles.description}>{description || "Không có mô tả"}</Text>
           </View>
+
           <View style={styles.specificationContainer}>
             <Text style={styles.sectionTitle}>Thông tin chi tiết</Text>
             <Text style={styles.specification}>• Thương hiệu: {name || "N/A"}</Text>
             <Text style={styles.specification}>• Dung tích: {volume ? `${volume}ml` : "N/A"}</Text>
             <Text style={styles.specification}>• Loại da: {skinTypes}</Text>
             <Text style={styles.specification}>• Trạng thái da: {skinStatuses}</Text>
+            <Text style={styles.specification}>• Giao hàng: Miễn phí toàn quốc</Text>
             {latestShipment && (
               <>
                 <Text style={styles.specification}>
@@ -317,6 +331,7 @@ const ProductDetailScreen = ({ route, navigation }) => {
               </>
             )}
           </View>
+
           <View style={styles.buttonContainer}>
             <TouchableOpacity
               style={[styles.addToCartButton, isDeactivated ? styles.disabledButton : null]}
@@ -326,6 +341,7 @@ const ProductDetailScreen = ({ route, navigation }) => {
             >
               <Text style={styles.buttonText}>Thêm vào giỏ hàng</Text>
             </TouchableOpacity>
+
             <TouchableOpacity
               style={[styles.buyNowButton, isDeactivated ? styles.disabledButton : null]}
               onPress={handleBuyNow}
@@ -379,6 +395,12 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontWeight: "bold",
     color: "#E53935",
+    marginBottom: 5,
+  },
+  freeShippingNotice: {
+    fontSize: 14,
+    color: "#4CAF50",
+    fontWeight: "500",
     marginBottom: 10,
   },
   deactivatedText: {

@@ -141,9 +141,9 @@ const RegisterScreen = ({ navigation }) => {
               index: 0,
               routes: [
                 {
-                  name: 'Main',
+                  name: 'Login',
                   params: {
-                    screen: 'Home',
+                    screen: 'Login',
                     params: { notification: { message: 'Đăng ký tài khoản thành công!', type: 'success' } },
                   },
                 },

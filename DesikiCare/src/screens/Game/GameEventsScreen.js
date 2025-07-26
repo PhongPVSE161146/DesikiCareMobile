@@ -78,7 +78,7 @@ const GameEventsScreen = () => {
     }
 
     // Navigate to GameEventDetailScreen
-    navigation.navigate("GameEventDetailScreen", {
+    navigation.navigate("GameEventDetail", {
       gameEventId: gameEvent._id,
     })
   }
@@ -232,11 +232,10 @@ const GameEventsScreen = () => {
       <View style={styles.container}>
         {/* Header */}
         <View style={styles.header}>
-          {/* <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-            <MaterialIcons name="arrow-back" size={24} color="#fff" />
-          </TouchableOpacity> */}
+       
           <Text style={styles.headerTitle}>Sự kiện trò chơi</Text>
        
+
         </View>
 
         {/* Content */}

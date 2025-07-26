@@ -54,9 +54,9 @@ const RewardsScreen = () => {
   };
 
   const renderReward = ({ item }) => (
-    <TouchableOpacity
+    <View
       style={styles.eventCard}
-      onPress={() => navigation.navigate('GameEventDetail', { gameEventId: item.gameEvent._id })}
+      // onPress={() => navigation.navigate('GameEventDetail', { gameEventId: item.gameEvent._id })}
       accessible={true}
       accessibilityLabel={`Phần thưởng: ${item.gameEvent.eventName}`}
       accessibilityRole="button"
@@ -69,7 +69,7 @@ const RewardsScreen = () => {
       <Text style={styles.eventDate}>
         Nhận vào: {new Date(item.gameEventRewardResult.createdAt).toLocaleDateString()}
       </Text>
-    </TouchableOpacity>
+    </View>
   );
 
   const renderEmptyState = () => (

@@ -29,14 +29,11 @@ const Payment = ({ route, navigation }) => {
   const [notification, setNotification] = useState({ message: "", type: "" })
   const [addresses, setAddresses] = useState([])
 
-  // Generate order ID with UUID or fallback
+  
   const generateOrderId = () => {
     try {
       return `ORDER${uuidv4().replace(/-/g, "").slice(0, 12)}`
     } catch (error) {
-      if (process.env.NODE_ENV !== "production") {
-        console.warn("UUID generation failed, using timestamp fallback:", error.message)
-      }
       return `ORDER${Date.now().toString().slice(-12)}`
     }
   }
@@ -50,58 +47,43 @@ const Payment = ({ route, navigation }) => {
 
   // THÊM FUNCTION VALIDATE TẤT CẢ IDs TRONG PAYLOAD
   const validateOrderPayload = (payload) => {
-    console.log("=== VALIDATING ORDER PAYLOAD ===")
     const errors = []
 
     // Validate userId
     if (!payload.order.userId || !isValidObjectId(payload.order.userId)) {
       errors.push(`Invalid userId: ${payload.order.userId}`)
-    } else {
-      console.log("✅ userId valid:", payload.order.userId)
     }
 
     // Validate deliveryAddressId
     if (!payload.order.deliveryAddressId || !isValidObjectId(payload.order.deliveryAddressId)) {
       errors.push(`Invalid deliveryAddressId: ${payload.order.deliveryAddressId}`)
-    } else {
-      console.log("✅ deliveryAddressId valid:", payload.order.deliveryAddressId)
     }
 
     // Validate newOrderId (should be string, not ObjectId)
     if (!payload.order.newOrderId || typeof payload.order.newOrderId !== "string") {
       errors.push(`Invalid newOrderId: ${payload.order.newOrderId}`)
-    } else {
-      console.log("✅ newOrderId valid:", payload.order.newOrderId)
     }
 
     // Validate cartItems
     payload.order.cartItems.forEach((item, index) => {
       if (!item.productId || !isValidObjectId(item.productId)) {
         errors.push(`Invalid productId at index ${index}: ${item.productId}`)
-      } else {
-        console.log(`✅ cartItem[${index}] productId valid:`, item.productId)
       }
 
       if (!item.quantity || typeof item.quantity !== "number" || item.quantity <= 0) {
         errors.push(`Invalid quantity at index ${index}: ${item.quantity}`)
-      } else {
-        console.log(`✅ cartItem[${index}] quantity valid:`, item.quantity)
       }
 
       if (!item.price || typeof item.price !== "number" || item.price <= 0) {
         errors.push(`Invalid price at index ${index}: ${item.price}`)
-      } else {
-        console.log(`✅ cartItem[${index}] price valid:`, item.price)
       }
     })
 
     // Validate numeric fields
-    const numericFields = ["subtotal", "discount", "shippingFee", "total", "pointUsed"]
+    const numericFields = ["subtotal", "discount", "total", "pointUsed"]
     numericFields.forEach((field) => {
       if (typeof payload.order[field] !== "number") {
         errors.push(`Invalid ${field}: ${payload.order[field]} (type: ${typeof payload.order[field]})`)
-      } else {
-        console.log(`✅ ${field} valid:`, payload.order[field])
       }
     })
 
@@ -110,18 +92,13 @@ const Payment = ({ route, navigation }) => {
     stringFields.forEach((field) => {
       if (typeof payload.order[field] !== "string") {
         errors.push(`Invalid ${field}: ${payload.order[field]} (type: ${typeof payload.order[field]})`)
-      } else {
-        console.log(`✅ ${field} valid:`, payload.order[field])
       }
     })
 
-    console.log("=== END VALIDATION ===")
     if (errors.length > 0) {
-      console.error("❌ VALIDATION ERRORS:", errors)
       return { valid: false, errors }
     }
 
-    console.log("✅ ALL VALIDATIONS PASSED")
     return { valid: true, errors: [] }
   }
 
@@ -180,7 +157,6 @@ const Payment = ({ route, navigation }) => {
           setNotification({ message: addressResponse.message || "Không thể tải địa chỉ giao hàng.", type: "error" })
         }
       } catch (error) {
-        console.error("Error loading user info or addresses:", error.message, error.stack)
         setNotification({ message: "Lỗi hệ thống. Vui lòng thử lại.", type: "error" })
       } finally {
         setIsLoading(false)
@@ -192,10 +168,6 @@ const Payment = ({ route, navigation }) => {
 
   const processPayment = async (values) => {
     try {
-      console.log("Handle payment with values:", JSON.stringify(values, null, 2))
-      console.log("Cart items:", JSON.stringify(cartItems, null, 2))
-      console.log("Order ID:", orderId)
-
       // Validate addressId
       if (!values.addressId || !isValidObjectId(values.addressId)) {
         setNotification({ message: "Vui lòng chọn một địa chỉ giao hàng hợp lệ.", type: "error" })
@@ -252,8 +224,7 @@ const Payment = ({ route, navigation }) => {
         const quantity = item.quantity || 1
         return total + price * quantity
       }, 0)
-      const shippingFee = subtotal >= 500000 ? 0 : 30000
-      const totalAmount = subtotal + shippingFee
+      const totalAmount = subtotal
 
       // CREATE ORDER PAYLOAD WITH PROPER TYPES
       const orderPayload = {
@@ -273,7 +244,7 @@ const Payment = ({ route, navigation }) => {
           }),
           subtotal: Number(subtotal), // Ensure number
           discount: Number(0), // Ensure number
-          shippingFee: Number(shippingFee), // Ensure number
+          shippingFee: Number(0), // Ensure number
           total: Number(totalAmount), // Ensure number
           paymentMethod: String(values.paymentMethod), // Ensure string
           paymentStatus: String(values.paymentMethod === "cod" ? "Pending" : "Paid"), // Ensure string
@@ -292,10 +263,7 @@ const Payment = ({ route, navigation }) => {
         return
       }
 
-      console.log("Final Order Payload:", JSON.stringify(orderPayload, null, 2))
-
       const orderResponse = await orderService.createOrder(orderPayload)
-      console.log("Create Order Response:", JSON.stringify(orderResponse, null, 2))
 
       if (!orderResponse.success) {
         setNotification({ message: orderResponse.message || "Không thể tạo đơn hàng.", type: "error" })
@@ -311,7 +279,7 @@ const Payment = ({ route, navigation }) => {
         })),
         subtotal,
         discount: 0,
-        shippingFee,
+        shippingFee: 0,
         total: totalAmount,
         pointUsed: 0,
         note: values.note || "",
@@ -328,8 +296,6 @@ const Payment = ({ route, navigation }) => {
           description: "Chuyển khoản ngân hàng",
           transactionDateTime: new Date().toISOString(),
         }
-
-        console.log("Navigating to QRPaymentScreen with data:", JSON.stringify({ paymentData, orderData }, null, 2))
 
         navigation.navigate("QRPaymentScreen", {
           paymentData,
@@ -348,10 +314,7 @@ const Payment = ({ route, navigation }) => {
         transactionDateTime: new Date().toISOString(),
       }
 
-      console.log("Confirm Payment Payload:", JSON.stringify(paymentPayload, null, 2))
-
       const confirmResponse = await orderService.confirmPayment(paymentPayload)
-      console.log("Confirm Payment Response:", JSON.stringify(confirmResponse, null, 2))
 
       if (confirmResponse.success) {
         navigation.navigate("ConfirmPaymentScreen", {
@@ -361,7 +324,6 @@ const Payment = ({ route, navigation }) => {
         setNotification({ message: confirmResponse.message || "Không thể xác nhận thanh toán.", type: "error" })
       }
     } catch (error) {
-      console.error("Payment error:", error.message, error.stack)
       setNotification({ message: `Lỗi xử lý thanh toán: ${error.message}`, type: "error" })
     }
   }
@@ -399,7 +361,6 @@ const Payment = ({ route, navigation }) => {
         }}
         validationSchema={validationSchema}
         onSubmit={(values, { setSubmitting }) => {
-          console.log("Formik values before submit:", JSON.stringify(values, null, 2))
           setIsLoading(true)
           processPayment(values).finally(() => {
             setIsLoading(false)

@@ -1,5 +1,4 @@
 "use client"
-
 import { useCallback, useState, useEffect } from "react"
 import {
   View,
@@ -45,7 +44,6 @@ const generateImageUrlFromId = (productId) => {
   if (!productId || typeof productId !== "string") {
     return null
   }
-
   // Try different common image paths
   const possiblePaths = [
     `${API_BASE_URL}/public/images/products/${productId}/main.jpg`,
@@ -55,7 +53,6 @@ const generateImageUrlFromId = (productId) => {
     `${API_BASE_URL}/images/products/${productId}/main.jpg`,
     `${API_BASE_URL}/uploads/products/${productId}/main.jpg`,
   ]
-
   return possiblePaths
 }
 
@@ -86,7 +83,6 @@ const ProductImage = ({ imageUrl, title, style, productId }) => {
       // First, try the provided imageUrl if it exists and is valid
       if (imageUrl && typeof imageUrl === "string" && imageUrl.trim()) {
         let processedUrl = imageUrl.trim()
-
         if (processedUrl.startsWith("http://") || processedUrl.startsWith("https://")) {
           urlsToTry.push(processedUrl)
         } else {
@@ -111,14 +107,12 @@ const ProductImage = ({ imageUrl, title, style, productId }) => {
       urlsToTry.push(...PLACEHOLDER_IMAGES)
 
       console.log(`📋 URLs to try for ${title}:`, urlsToTry)
-
       setImageUrlsToTry(urlsToTry)
 
       // Start with the first URL
       if (urlsToTry.length > 0) {
         setCurrentImageUrl(urlsToTry[0])
       } else {
-
         setShowPlaceholder(true)
         setLoading(false)
       }
@@ -193,14 +187,12 @@ const ProductImage = ({ imageUrl, title, style, productId }) => {
       ) : (
         renderCustomPlaceholder()
       )}
-
       {loading && !error && (
         <View style={[style, styles.imageLoading]}>
           <ActivityIndicator size="small" color="#E53935" />
           <Text style={styles.loadingText}>Đang tải...</Text>
         </View>
       )}
-
       {error && !showPlaceholder && (
         <View style={[style, styles.imageError]}>
           <Text style={styles.imageErrorText}>⚠️</Text>
@@ -256,7 +248,6 @@ const CartScreen = ({ route, navigation }) => {
   const fetchCart = useCallback(async () => {
     setLoading(true)
     setError("")
-
     try {
       console.log("🛒 Fetching cart data...")
       const result = await orderService.getCart()
@@ -283,15 +274,11 @@ const CartScreen = ({ route, navigation }) => {
           cartItems = result.data.cart.items
         } else {
           setError("Dữ liệu giỏ hàng không đúng định dạng.")
-          console.error("❌ Invalid cart data structure:", result.data)
           return
         }
 
-        console.log("🛒 Processed cartItems:", JSON.stringify(cartItems, null, 2))
-
         const mappedItems = cartItems.map((item) => {
           const processedImageUrl = processImageUrl(item.product?.imageUrl)
-
           console.log(`🖼️ Image processing for ${item.product?.name}:`, {
             productId: item.product?._id,
             original: item.product?.imageUrl,
@@ -311,14 +298,11 @@ const CartScreen = ({ route, navigation }) => {
           }
         })
 
-        console.log("🛒 Final mapped cart items:", JSON.stringify(mappedItems, null, 2))
         dispatch(setCartItems(mappedItems))
       } else {
         setError(result.message || "Không thể tải giỏ hàng.")
-        console.error("❌ API error:", result.message)
       }
     } catch (e) {
-      console.error("❌ Fetch cart error:", e.message, e.response?.data)
       setError(e.response?.data?.message || e.message || "Lỗi kết nối. Vui lòng thử lại.")
     } finally {
       setLoading(false)
@@ -372,11 +356,9 @@ const CartScreen = ({ route, navigation }) => {
     }
 
     const quantity = Math.max(1, newQuantity)
-
     try {
       console.log("🔄 Updating cart item:", { id, quantity })
       const result = await orderService.updateCartItemQuantity(id, quantity)
-
       if (result.success) {
         dispatch(updateCartItemQuantity({ id, quantity }))
         setNotificationMessage(`Đã cập nhật số lượng thành ${quantity}`)
@@ -396,7 +378,6 @@ const CartScreen = ({ route, navigation }) => {
 
   const handleApplyPoints = async () => {
     const points = Number.parseInt(pointsInput, 10)
-
     if (isNaN(points) || points <= 0) {
       Alert.alert("Lỗi", "Vui lòng nhập số điểm hợp lệ (lớn hơn 0).")
       return
@@ -426,16 +407,14 @@ const CartScreen = ({ route, navigation }) => {
     }
   }
 
+  // Updated calculateTotal function without shipping fee
   const calculateTotal = () => {
     const subtotal = cartItems.reduce((sum, item) => sum + (item.price || 0) * (item.quantity || 1), 0)
     const discount = pointsApplied * 1000
-    const shippingFee = subtotal > 500000 ? 0 : 30000
-
     return {
       subtotal,
       discount,
-      shippingFee,
-      total: Math.max(0, subtotal - discount + shippingFee),
+      total: Math.max(0, subtotal - discount),
     }
   }
 
@@ -487,19 +466,18 @@ const CartScreen = ({ route, navigation }) => {
     )
   }
 
-  const { subtotal, discount, shippingFee, total } = calculateTotal()
+  // Updated to use the new calculateTotal function
+  const { subtotal, discount, total } = calculateTotal()
 
   const renderCartItem = ({ item }) => (
     <View style={styles.cartItem}>
       <ProductImage imageUrl={item.image} title={item.title} style={styles.cartItemImage} productId={item.productId} />
-
       <View style={styles.cartItemDetails}>
         <Text style={styles.cartItemName} numberOfLines={2}>
           {item.title}
         </Text>
         <Text style={styles.cartItemCategory}>Danh mục: {getCategoryName(item.categoryId)}</Text>
         <Text style={styles.cartItemPrice}>{(item.price * (item.quantity || 1)).toLocaleString("vi-VN")} đ</Text>
-
         <View style={styles.quantityContainer}>
           <TouchableOpacity
             style={[styles.quantityButton, item.quantity <= 1 && styles.quantityButtonDisabled]}
@@ -508,9 +486,7 @@ const CartScreen = ({ route, navigation }) => {
           >
             <Text style={[styles.quantityButtonText, item.quantity <= 1 && styles.quantityButtonTextDisabled]}>−</Text>
           </TouchableOpacity>
-
           <Text style={styles.quantityText}>{item.quantity || 1}</Text>
-
           <TouchableOpacity
             style={styles.quantityButton}
             onPress={() => handleQuantityChange(item.id, (item.quantity || 1) + 1)}
@@ -519,7 +495,6 @@ const CartScreen = ({ route, navigation }) => {
           </TouchableOpacity>
         </View>
       </View>
-
       <TouchableOpacity style={styles.removeButton} onPress={() => handleRemoveItem(item.id)}>
         <Text style={styles.removeButtonText}>✕</Text>
       </TouchableOpacity>
@@ -537,7 +512,6 @@ const CartScreen = ({ route, navigation }) => {
           setNotificationType("success")
         }}
       />
-
       <FlatList
         data={cartItems}
         renderItem={renderCartItem}
@@ -545,7 +519,6 @@ const CartScreen = ({ route, navigation }) => {
         contentContainerStyle={styles.cartList}
         showsVerticalScrollIndicator={false}
       />
-
       <View style={styles.pointsContainer}>
         <TextInput
           style={styles.pointsInput}
@@ -559,34 +532,23 @@ const CartScreen = ({ route, navigation }) => {
           <Text style={styles.applyPointsButtonText}>Áp dụng điểm</Text>
         </TouchableOpacity>
       </View>
-
+      {/* Updated total container without shipping fee */}
       <View style={styles.totalContainer}>
         <View style={styles.totalRow}>
           <Text style={styles.totalLabel}>Tạm tính:</Text>
           <Text style={styles.totalValue}>{subtotal.toLocaleString("vi-VN")} đ</Text>
         </View>
-
         {discount > 0 && (
           <View style={styles.totalRow}>
             <Text style={styles.discountLabel}>Giảm giá ({pointsApplied} điểm):</Text>
             <Text style={styles.discountValue}>-{discount.toLocaleString("vi-VN")} đ</Text>
           </View>
         )}
-
-        <View style={styles.totalRow}>
-          <Text style={styles.totalLabel}>Phí vận chuyển:</Text>
-          <Text style={styles.totalValue}>
-            {shippingFee.toLocaleString("vi-VN")} đ
-            {shippingFee === 0 && <Text style={styles.discountLabel}> (Miễn phí đơn 500,000 đ)</Text>}
-          </Text>
-        </View>
-
         <View style={[styles.totalRow, styles.totalFinalRow]}>
           <Text style={styles.totalFinalLabel}>Tổng cộng:</Text>
           <Text style={styles.totalFinalValue}>{total.toLocaleString("vi-VN")} đ</Text>
         </View>
       </View>
-
       <TouchableOpacity
         style={styles.checkoutButton}
         onPress={() => {
@@ -658,7 +620,6 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
     backgroundColor: "#fff",
   },
-
   // Enhanced Image container styles
   imageContainer: {
     position: "relative",
@@ -699,7 +660,6 @@ const styles = StyleSheet.create({
     textAlign: "center",
     fontWeight: "500",
   },
-
   // Custom placeholder styles
   customPlaceholder: {
     justifyContent: "center",
@@ -722,7 +682,6 @@ const styles = StyleSheet.create({
     textAlign: "center",
     fontWeight: "500",
   },
-
   cartItemDetails: {
     flex: 1,
     justifyContent: "flex-start",
