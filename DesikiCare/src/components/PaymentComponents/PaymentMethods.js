@@ -16,7 +16,7 @@ const PaymentMethods = ({ formikRef }) => {
 
   return (
     <View>
-      <TouchableOpacity
+      {/* <TouchableOpacity
         style={[
           styles.paymentOption,
           formikRef.current?.values.paymentMethod === 'cod' && styles.selectedOption,
@@ -24,7 +24,7 @@ const PaymentMethods = ({ formikRef }) => {
         onPress={() => handleSelectPaymentMethod('cod')}
       >
         <Text style={styles.paymentText}>Thanh toán khi nhận hàng (COD)</Text>
-      </TouchableOpacity>
+      </TouchableOpacity> */}
       <TouchableOpacity
         style={[
           styles.paymentOption,
