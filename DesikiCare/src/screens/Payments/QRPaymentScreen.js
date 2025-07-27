@@ -1,6 +1,6 @@
-"use client"
+"use client";
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -12,112 +12,132 @@ import {
   ScrollView,
   Clipboard,
   BackHandler,
-} from "react-native"
-import Ionicons from "react-native-vector-icons/Ionicons"
-import orderService from "../../config/axios/Order/orderService"
+  Modal,
+} from "react-native";
+import Ionicons from "react-native-vector-icons/Ionicons";
+import orderService from "../../config/axios/Order/orderService";
 
 const QRPaymentScreen = ({ route, navigation }) => {
-  const { paymentData, orderData } = route.params || {}
-  const [isProcessing, setIsProcessing] = useState(false)
-  const [isCancelling, setIsCancelling] = useState(false)
-  const [paymentCompleted, setPaymentCompleted] = useState(false)
+  const { paymentData, orderData } = route.params || {};
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [isCancelling, setIsCancelling] = useState(false);
+  const [paymentCompleted, setPaymentCompleted] = useState(false);
+  const [showPendingModal, setShowPendingModal] = useState(false);
+  const [countdown, setCountdown] = useState(5);
+  const [isChecking, setIsChecking] = useState(false);
 
   const BANK_INFO = {
     bankId: "STB",
     accountNumber: "070113484770",
     accountName: "PHAM VAN PHONG",
-  }
+  };
 
-  const currentOrderIdRef = useRef(null)
+  const currentOrderIdRef = useRef(null);
 
   const getOrderIdentifier = () => {
-    const orderId = paymentData?.orderId || paymentData?.orderCode || paymentData?.id
-    return orderId
-  }
+    const orderId =
+      paymentData?.orderId || paymentData?.orderCode || paymentData?.id;
+    return orderId;
+  };
 
   useEffect(() => {
-    const newOrderId = getOrderIdentifier()
+    const newOrderId = getOrderIdentifier();
     if (newOrderId && newOrderId !== currentOrderIdRef.current) {
-      currentOrderIdRef.current = newOrderId
-      setPaymentCompleted(false)
+      currentOrderIdRef.current = newOrderId;
+      setPaymentCompleted(false);
     }
-  }, [paymentData?.orderCode, paymentData?.orderId])
+  }, [paymentData?.orderCode, paymentData?.orderId]);
 
   useEffect(() => {
     const backAction = () => {
       if (paymentCompleted) {
-        return false
+        return false;
       }
 
-      Alert.alert("Thoát thanh toán?", "Bạn có chắc chắn muốn thoát? Giao dịch sẽ bị hủy.", [
-        { text: "Ở lại", style: "cancel" },
-        {
-          text: "Thoát",
-          style: "destructive",
-          onPress: () => handleCancelPayment(true),
-        },
-      ])
-      return true
-    }
+      Alert.alert(
+        "Thoát thanh toán?",
+        "Bạn có chắc chắn muốn thoát? Giao dịch sẽ bị hủy.",
+        [
+          { text: "Ở lại", style: "cancel" },
+          {
+            text: "Thoát",
+            style: "destructive",
+            onPress: () => handleCancelPayment(true),
+          },
+        ]
+      );
+      return true;
+    };
 
-    const backHandler = BackHandler.addEventListener("hardwareBackPress", backAction)
+    const backHandler = BackHandler.addEventListener(
+      "hardwareBackPress",
+      backAction
+    );
 
     navigation.setOptions({
       headerLeft: () => null,
       gestureEnabled: false,
-    })
+    });
 
-    return () => backHandler.remove()
-  }, [navigation, paymentCompleted])
+    return () => backHandler.remove();
+  }, [navigation, paymentCompleted]);
 
   const cancelPaymentLink = async (orderId, orderCode) => {
     try {
-      const cancelResult = await orderService.cancelPaymentLink?.(orderId || orderCode)
-      return cancelResult?.success || false
+      const cancelResult = await orderService.cancelPaymentLink?.(
+        orderId || orderCode
+      );
+      return cancelResult?.success || false;
     } catch (error) {
-      return false
+      return false;
     }
-  }
+  };
 
   const cancelOrder = async (orderId) => {
     try {
-      const cancelResult = await orderService.cancelOrder?.(orderId)
-      return cancelResult?.success || false
+      const cancelResult = await orderService.cancelOrder?.(orderId);
+      return cancelResult?.success || false;
     } catch (error) {
-      return false
+      return false;
     }
-  }
+  };
 
   const formatCurrency = (amount) => {
-    return amount?.toLocaleString("vi-VN") + "đ" || "0đ"
-  }
+    return amount?.toLocaleString("vi-VN") + "đ" || "0đ";
+  };
 
   const handleCopyBankInfo = async (text, label) => {
     try {
-      await Clipboard.setString(text)
-      Alert.alert("Đã sao chép", `${label} đã được sao chép vào clipboard`)
+      await Clipboard.setString(text);
+      Alert.alert("Đã sao chép", `${label} đã được sao chép vào clipboard`);
     } catch (error) {
-      Alert.alert("Lỗi", "Không thể sao chép. Vui lòng thử lại.")
+      Alert.alert("Lỗi", "Không thể sao chép. Vui lòng thử lại.");
     }
-  }
+  };
 
   const handleOpenPaymentLink = () => {
-    const paymentUrl = paymentData?.paymentUrl || paymentData?.paymentLink
+    const paymentUrl = paymentData?.paymentUrl || paymentData?.paymentLink;
+
     if (paymentUrl) {
+      console.log("Payment Url: ", paymentUrl);
       Linking.openURL(paymentUrl).catch(() => {
-        Alert.alert("Lỗi", "Không thể mở link thanh toán. Vui lòng thử lại.")
-      })
+        Alert.alert("Lỗi", "Không thể mở link thanh toán. Vui lòng thử lại.");
+      });
     } else {
-      Alert.alert("Lỗi", "Không tìm thấy link thanh toán.")
+      Alert.alert("Lỗi", "Không tìm thấy link thanh toán.");
     }
-  }
+  };
 
   const handlePaymentSuccess = async (autoDetected = false) => {
     if (paymentCompleted) {
-      return
+      return;
     }
 
-    setIsProcessing(true)
+    const orderIsPaidStatus = await orderService.getOrderIsPaid(
+      paymentData?.orderCode
+    );
+
+    setIsProcessing(true);
 
     const paymentPayload = {
       orderId: getOrderIdentifier(),
@@ -126,21 +146,27 @@ const QRPaymentScreen = ({ route, navigation }) => {
       description: "Thanh toán thành công",
       transactionDateTime: new Date().toISOString(),
       currency: "VND",
-    }
+    };
 
     try {
-      const confirmResult = await orderService.confirmPayment(paymentPayload)
+      const confirmResult = await orderService.confirmPayment(paymentPayload);
 
       if (!confirmResult.success) {
-        Alert.alert("Lỗi", "Không thể xác nhận thanh toán. Vui lòng liên hệ hỗ trợ.")
-        setIsProcessing(false)
-        return
+        Alert.alert(
+          "Lỗi",
+          "Không thể xác nhận thanh toán. Vui lòng liên hệ hỗ trợ."
+        );
+        setIsProcessing(false);
+        return;
       }
 
-      setPaymentCompleted(true)
-      const successMessage = autoDetected ? "Thanh toán đã được xác nhận tự động!" : "Xác nhận thanh toán thành công!"
+      // Chỉ set paymentCompleted = true khi orderIsPaidStatus.isPaid = true
+      const successMessage = orderIsPaidStatus.isPaid
+        ? "Thanh toán đã được xác nhận tự động!"
+        : "Xác nhận thanh toán thành công!";
 
-      if (autoDetected) {
+      if (orderIsPaidStatus.isPaid) {
+        setPaymentCompleted(true);
         navigation.navigate("ConfirmPaymentScreen", {
           paymentData: {
             ...paymentData,
@@ -152,39 +178,85 @@ const QRPaymentScreen = ({ route, navigation }) => {
             verified: true,
             autoDetected: true,
           },
-        })
+        });
       } else {
-        Alert.alert("Xác nhận thanh toán", successMessage, [
-          {
-            text: "OK",
-            onPress: () => {
-              navigation.navigate("ConfirmPaymentScreen", {
-                paymentData: {
-                  ...paymentData,
-                  orderData,
-                  paymentMethod: "bank",
-                  desc: confirmResult.data.desc || "Thanh toán thành công",
-                  code: confirmResult.data.code || "00",
-                  transactionDateTime: confirmResult.data.transactionDateTime,
-                  verified: true,
-                  manualConfirm: true,
-                },
-              })
-            },
-          },
-        ])
+        setIsProcessing(false);
+        setShowPendingModal(true);
+        startCountdown();
+        return;
       }
     } catch (error) {
-      Alert.alert("Lỗi", "Không thể xác nhận thanh toán. Vui lòng liên hệ hỗ trợ.")
+      Alert.alert(
+        "Lỗi",
+        "Không thể xác nhận thanh toán. Vui lòng liên hệ hỗ trợ."
+      );
     } finally {
-      setIsProcessing(false)
+      setIsProcessing(false);
     }
-  }
+  };
+
+  const startCountdown = () => {
+    setCountdown(5);
+    const timer = setInterval(() => {
+      setCountdown((prev) => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  };
+
+  const handleCheckAgain = async () => {
+    setIsChecking(true);
+    try {
+      const orderIsPaidStatus = await orderService.getOrderIsPaid(
+        paymentData?.orderCode
+      );
+
+      if (orderIsPaidStatus.isPaid) {
+        setShowPendingModal(false);
+        setPaymentCompleted(true);
+        navigation.navigate("ConfirmPaymentScreen", {
+          paymentData: {
+            ...paymentData,
+            orderData,
+            paymentMethod: "bank",
+            desc: "Thanh toán thành công",
+            code: "00",
+            transactionDateTime: new Date().toISOString(),
+            verified: true,
+            autoDetected: true,
+          },
+        });
+      } else {
+        Alert.alert(
+          "Thông báo",
+          "Giao dịch vẫn chưa được hoàn thành. Vui lòng kiểm tra lại sau.",
+          [
+            {
+              text: "OK",
+              onPress: () => {
+                setShowPendingModal(false);
+                startCountdown();
+                setTimeout(() => setShowPendingModal(true), 100);
+              },
+            },
+          ]
+        );
+      }
+    } catch (error) {
+      Alert.alert("Lỗi", "Không thể kiểm tra trạng thái thanh toán.");
+    } finally {
+      setIsChecking(false);
+    }
+  };
 
   const handleManualPaymentSuccess = () => {
     if (paymentCompleted) {
-      Alert.alert("Thông báo", "Thanh toán đã được xác nhận rồi.")
-      return
+      Alert.alert("Thông báo", "Thanh toán đã được xác nhận rồi.");
+      return;
     }
 
     Alert.alert(
@@ -197,52 +269,57 @@ const QRPaymentScreen = ({ route, navigation }) => {
           onPress: () => handlePaymentSuccess(false),
         },
       ]
-    )
-  }
+    );
+  };
 
   const handleCancelPayment = async (isAutoCancel = false) => {
     if (paymentCompleted) {
-      navigation.navigate("Main")
-      return
+      navigation.navigate("Main");
+      return;
     }
 
     const message = isAutoCancel
       ? "Phiên thanh toán đã bị hủy. Đơn hàng và link thanh toán sẽ bị hủy."
-      : "Bạn có chắc chắn muốn hủy thanh toán? Đơn hàng và link thanh toán sẽ bị hủy."
+      : "Bạn có chắc chắn muốn hủy thanh toán? Đơn hàng và link thanh toán sẽ bị hủy.";
 
     const confirmCancel = () => {
       Alert.alert("Hủy thanh toán", message, [
-        ...(isAutoCancel ? [] : [{ text: "Tiếp tục thanh toán", style: "cancel" }]),
+        ...(isAutoCancel
+          ? []
+          : [{ text: "Tiếp tục thanh toán", style: "cancel" }]),
         {
           text: isAutoCancel ? "OK" : "Hủy đơn hàng",
           style: "destructive",
           onPress: async () => {
-            setIsCancelling(true)
+            setIsCancelling(true);
 
             try {
-              const orderIdentifier = getOrderIdentifier()
+              const orderIdentifier = getOrderIdentifier();
 
               if (orderIdentifier) {
-                await cancelPaymentLink(orderIdentifier, orderIdentifier)
-                await cancelOrder(orderIdentifier)
+                await cancelPaymentLink(orderIdentifier, orderIdentifier);
+                await cancelOrder(orderIdentifier);
               }
 
-              currentOrderIdRef.current = null
+              currentOrderIdRef.current = null;
             } catch (error) {
             } finally {
-              setIsCancelling(false)
-              navigation.navigate("Main")
+              setIsCancelling(false);
+              navigation.navigate("Main");
             }
           },
         },
-      ])
-    }
+      ]);
+    };
 
-    confirmCancel()
-  }
+    confirmCancel();
+  };
 
-  const orderIdentifier = getOrderIdentifier()
-  const isObjectId = orderIdentifier && orderIdentifier.length === 24 && /^[0-9a-fA-F]{24}$/.test(orderIdentifier)
+  const orderIdentifier = getOrderIdentifier();
+  const isObjectId =
+    orderIdentifier &&
+    orderIdentifier.length === 24 &&
+    /^[0-9a-fA-F]{24}$/.test(orderIdentifier);
 
   return (
     <View style={styles.container}>
@@ -261,27 +338,45 @@ const QRPaymentScreen = ({ route, navigation }) => {
 
         <View style={styles.orderInfo}>
           <Text style={styles.orderInfoTitle}>Thông tin đơn hàng</Text>
-          <Text style={styles.orderInfoText}>Mã đơn: {paymentData?.orderCode}</Text>
-          {paymentData?.orderId && <Text style={styles.orderInfoText}>Order ID: {paymentData.orderId}</Text>}
-          <Text style={styles.orderInfoText}>Loại: Đơn hàng (xác minh thủ công)</Text>
+          <Text style={styles.orderInfoText}>
+            Mã đơn: {paymentData?.orderCode}
+          </Text>
+          {paymentData?.orderId && (
+            <Text style={styles.orderInfoText}>
+              Order ID: {paymentData.orderId}
+            </Text>
+          )}
+          <Text style={styles.orderInfoText}>
+            Loại: Đơn hàng (xác minh thủ công)
+          </Text>
         </View>
 
         <View style={styles.paymentInfo}>
           <Text style={styles.amountLabel}>Tổng thanh toán</Text>
-          <Text style={styles.amount}>{formatCurrency(paymentData?.amount)}</Text>
-          <Text style={styles.orderCode}>Mã đơn hàng: {paymentData?.orderCode}</Text>
+          <Text style={styles.amount}>
+            {formatCurrency(paymentData?.amount)}
+          </Text>
+          <Text style={styles.orderCode}>
+            Mã đơn hàng: {paymentData?.orderCode}
+          </Text>
           <Text style={styles.paymentNote}>Miễn phí giao hàng</Text>
         </View>
 
-        {(paymentData?.paymentUrl || paymentData?.paymentLink) && (
+        {(paymentData?.orderCode || paymentData?.paymentLink) && (
           <View style={styles.paymentLinkContainer}>
             <Text style={styles.paymentLinkTitle}>Link thanh toán</Text>
-            <TouchableOpacity style={styles.paymentLinkButton} onPress={handleOpenPaymentLink}>
+            <TouchableOpacity
+              style={styles.paymentLinkButton}
+              onPress={handleOpenPaymentLink}
+            >
               <Ionicons name="link-outline" size={20} color="#fff" />
-              <Text style={styles.paymentLinkButtonText}>Mở trang thanh toán</Text>
+              <Text style={styles.paymentLinkButtonText}>
+                Mở trang thanh toán
+              </Text>
             </TouchableOpacity>
             <Text style={styles.paymentLinkInstruction}>
-              Nhấn vào nút trên để mở trang thanh toán PayOS và hoàn tất giao dịch
+              Nhấn vào nút trên để mở trang thanh toán PayOS và hoàn tất giao
+              dịch. Sau đó quay lại và xác nhận thanh toán để kiểm tra
             </Text>
           </View>
         )}
@@ -303,7 +398,11 @@ const QRPaymentScreen = ({ route, navigation }) => {
               </>
             ) : (
               <>
-                <Ionicons name="checkmark-circle-outline" size={20} color="#fff" />
+                <Ionicons
+                  name="checkmark-circle-outline"
+                  size={20}
+                  color="#fff"
+                />
                 <Text style={styles.successButtonText}>Đã thanh toán</Text>
               </>
             )}
@@ -321,7 +420,11 @@ const QRPaymentScreen = ({ route, navigation }) => {
               </>
             ) : (
               <>
-                <Ionicons name="close-circle-outline" size={20} color="#FF5722" />
+                <Ionicons
+                  name="close-circle-outline"
+                  size={20}
+                  color="#FF5722"
+                />
                 <Text style={styles.cancelButtonText}>Hủy đơn hàng</Text>
               </>
             )}
@@ -335,9 +438,65 @@ const QRPaymentScreen = ({ route, navigation }) => {
           <Text style={styles.completedText}>Thanh toán đã được xác nhận!</Text>
         </View>
       )}
+
+      {/* Modal kiểm tra thanh toán */}
+      <Modal
+        visible={showPendingModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowPendingModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <View style={styles.modalHeader}>
+              <Ionicons name="time-outline" size={24} color="#FF9800" />
+              <Text style={styles.modalTitle}>Kiểm tra thanh toán</Text>
+            </View>
+
+            <Text style={styles.modalMessage}>
+              Có vẻ như giao dịch của bạn chưa được hoàn thành. Nếu như đã chắc
+              chắn hoàn thành, vui lòng đợi trong giây lát rồi kiểm tra lại.
+            </Text>
+
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[
+                  styles.modalButton,
+                  styles.checkButton,
+                  countdown > 0 && styles.disabledModalButton,
+                ]}
+                onPress={handleCheckAgain}
+                disabled={countdown > 0 || isChecking}
+              >
+                {isChecking ? (
+                  <>
+                    <ActivityIndicator size="small" color="#fff" />
+                    <Text style={styles.modalButtonText}>Đang kiểm tra...</Text>
+                  </>
+                ) : (
+                  <Text style={styles.modalButtonText}>
+                    {countdown > 0
+                      ? `Kiểm tra lại (${countdown}s)`
+                      : "Kiểm tra lại"}
+                  </Text>
+                )}
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.modalButton, styles.closeButton]}
+                onPress={() => setShowPendingModal(false)}
+              >
+                <Text style={[styles.modalButtonText, styles.closeButtonText]}>
+                  Đóng
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
-  )
-}
+  );
+};
 
 const styles = StyleSheet.create({
   container: {
@@ -605,6 +764,78 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     color: "#2E7D32",
   },
-})
+  // Modal styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  modalContainer: {
+    backgroundColor: "#fff",
+    margin: 20,
+    borderRadius: 16,
+    padding: 24,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+    maxWidth: 400,
+    width: "90%",
+  },
+  modalHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 16,
+    justifyContent: "center",
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: "#333",
+    marginLeft: 8,
+  },
+  modalMessage: {
+    fontSize: 14,
+    color: "#666",
+    textAlign: "center",
+    lineHeight: 20,
+    marginBottom: 24,
+  },
+  modalButtons: {
+    gap: 12,
+  },
+  modalButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+    flexDirection: "row",
+    minHeight: 44,
+  },
+  checkButton: {
+    backgroundColor: "#4CAF50",
+  },
+  closeButton: {
+    backgroundColor: "transparent",
+    borderWidth: 1,
+    borderColor: "#ddd",
+  },
+  disabledModalButton: {
+    backgroundColor: "#ccc",
+    opacity: 0.6,
+  },
+  modalButtonText: {
+    fontSize: 16,
+    fontWeight: "500",
+    color: "#fff",
+    marginLeft: 4,
+  },
+  closeButtonText: {
+    color: "#666",
+  },
+});
 
-export default QRPaymentScreen
+export default QRPaymentScreen;

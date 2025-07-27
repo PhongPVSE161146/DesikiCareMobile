@@ -1,17 +1,24 @@
-"use client"
+"use client";
 
-import "react-native-get-random-values"
-import { useState, useEffect, useRef } from "react"
-import { View, Text, ScrollView, TextInput, ActivityIndicator, StyleSheet } from "react-native"
-import { Formik } from "formik"
-import * as Yup from "yup"
-import AsyncStorage from "@react-native-async-storage/async-storage"
-import { v4 as uuidv4 } from "uuid"
-import AddressHandler from "../../components/PaymentComponents/AddressHandler"
-import PaymentMethods from "../../components/PaymentComponents/PaymentMethods"
-import OrderSummary from "../../components/PaymentComponents/OrderSummary"
-import orderService from "../../config/axios/Order/orderService"
-import profileService from "../../config/axios/Home/AccountProfile/profileService"
+import "react-native-get-random-values";
+import { useState, useEffect, useRef } from "react";
+import {
+  View,
+  Text,
+  ScrollView,
+  TextInput,
+  ActivityIndicator,
+  StyleSheet,
+} from "react-native";
+import { Formik } from "formik";
+import * as Yup from "yup";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { v4 as uuidv4 } from "uuid";
+import AddressHandler from "../../components/PaymentComponents/AddressHandler";
+import PaymentMethods from "../../components/PaymentComponents/PaymentMethods";
+import OrderSummary from "../../components/PaymentComponents/OrderSummary";
+import orderService from "../../config/axios/Order/orderService";
+import profileService from "../../config/axios/Home/AccountProfile/profileService";
 
 const validationSchema = Yup.object().shape({
   fullName: Yup.string().required("Vui lòng nhập họ và tên"),
@@ -20,106 +27,137 @@ const validationSchema = Yup.object().shape({
     .required("Vui lòng nhập số điện thoại"),
   addressId: Yup.string().required("Vui lòng chọn địa chỉ giao hàng"),
   paymentMethod: Yup.string().required("Vui lòng chọn phương thức thanh toán"),
-})
+});
 
 const Payment = ({ route, navigation }) => {
-  const { cartItems: passedCartItems } = route.params || {}
-  const [isLoading, setIsLoading] = useState(false)
-  const [notification, setNotification] = useState({ message: "", type: "" })
-  const [addresses, setAddresses] = useState([])
+  const { cartItems: passedCartItems } = route.params || {};
+  const [isLoading, setIsLoading] = useState(false);
+  const [notification, setNotification] = useState({ message: "", type: "" });
+  const [addresses, setAddresses] = useState([]);
+  const [isOrderCreated, setIsOrderCreated] = useState(false);
 
   const generateOrderId = () => {
     try {
-      return `ORDER${uuidv4().replace(/-/g, "").slice(0, 12)}`
+      return `ORDER${uuidv4().replace(/-/g, "").slice(0, 12)}`;
     } catch (error) {
-      return `ORDER${Date.now().toString().slice(-12)}`
+      return `ORDER${Date.now().toString().slice(-12)}`;
     }
-  }
+  };
 
-  const [orderId] = useState(generateOrderId())
-  const formikRef = useRef(null)
-  const cartItems = passedCartItems?.length > 0 ? passedCartItems : []
+  const [orderId] = useState(generateOrderId());
+  const formikRef = useRef(null);
+  const cartItems = passedCartItems?.length > 0 ? passedCartItems : [];
 
-  const isValidObjectId = (id) => /^[0-9a-fA-F]{24}$/.test(id)
+  const isValidObjectId = (id) => /^[0-9a-fA-F]{24}$/.test(id);
 
   const validateOrderPayload = (payload) => {
-    const errors = []
+    const errors = [];
 
     if (!payload.order.userId || !isValidObjectId(payload.order.userId)) {
-      errors.push(`Invalid userId: ${payload.order.userId}`)
+      errors.push(`Invalid userId: ${payload.order.userId}`);
     }
 
-    if (!payload.order.deliveryAddressId || !isValidObjectId(payload.order.deliveryAddressId)) {
-      errors.push(`Invalid deliveryAddressId: ${payload.order.deliveryAddressId}`)
+    if (
+      !payload.order.deliveryAddressId ||
+      !isValidObjectId(payload.order.deliveryAddressId)
+    ) {
+      errors.push(
+        `Invalid deliveryAddressId: ${payload.order.deliveryAddressId}`
+      );
     }
 
-    if (!payload.order.newOrderId || typeof payload.order.newOrderId !== "string") {
-      errors.push(`Invalid newOrderId: ${payload.order.newOrderId}`)
+    if (
+      !payload.order.newOrderId ||
+      typeof payload.order.newOrderId !== "string"
+    ) {
+      errors.push(`Invalid newOrderId: ${payload.order.newOrderId}`);
     }
 
     payload.order.cartItems.forEach((item, index) => {
       if (!item.productId || !isValidObjectId(item.productId)) {
-        errors.push(`Invalid productId at index ${index}: ${item.productId}`)
+        errors.push(`Invalid productId at index ${index}: ${item.productId}`);
       }
 
-      if (!item.quantity || typeof item.quantity !== "number" || item.quantity <= 0) {
-        errors.push(`Invalid quantity at index ${index}: ${item.quantity}`)
+      if (
+        !item.quantity ||
+        typeof item.quantity !== "number" ||
+        item.quantity <= 0
+      ) {
+        errors.push(`Invalid quantity at index ${index}: ${item.quantity}`);
       }
 
       if (!item.price || typeof item.price !== "number" || item.price <= 0) {
-        errors.push(`Invalid price at index ${index}: ${item.price}`)
+        errors.push(`Invalid price at index ${index}: ${item.price}`);
       }
-    })
+    });
 
-    const numericFields = ["subtotal", "discount", "total", "pointUsed"]
+    const numericFields = ["subtotal", "discount", "total", "pointUsed"];
     numericFields.forEach((field) => {
       if (typeof payload.order[field] !== "number") {
-        errors.push(`Invalid ${field}: ${payload.order[field]} (type: ${typeof payload.order[field]})`)
+        errors.push(
+          `Invalid ${field}: ${payload.order[field]} (type: ${typeof payload
+            .order[field]})`
+        );
       }
-    })
+    });
 
-    const stringFields = ["paymentMethod", "paymentStatus", "note"]
+    const stringFields = ["paymentMethod", "paymentStatus", "note"];
     stringFields.forEach((field) => {
       if (typeof payload.order[field] !== "string") {
-        errors.push(`Invalid ${field}: ${payload.order[field]} (type: ${typeof payload.order[field]})`)
+        errors.push(
+          `Invalid ${field}: ${payload.order[field]} (type: ${typeof payload
+            .order[field]})`
+        );
       }
-    })
+    });
 
     if (errors.length > 0) {
-      return { valid: false, errors }
+      return { valid: false, errors };
     }
 
-    return { valid: true, errors: [] }
-  }
+    return { valid: true, errors: [] };
+  };
 
   useEffect(() => {
     const loadUserInfo = async () => {
       try {
-        setIsLoading(true)
-        const userInfo = await AsyncStorage.getItem("userInfo")
-        let parsedUserInfo = userInfo ? JSON.parse(userInfo) : null
+        setIsLoading(true);
+        const userInfo = await AsyncStorage.getItem("userInfo");
+        let parsedUserInfo = userInfo ? JSON.parse(userInfo) : null;
 
-        if (!parsedUserInfo || !parsedUserInfo.accountId || !isValidObjectId(parsedUserInfo.accountId)) {
-          const profileResponse = await profileService.getProfile()
+        if (
+          !parsedUserInfo ||
+          !parsedUserInfo.accountId ||
+          !isValidObjectId(parsedUserInfo.accountId)
+        ) {
+          const profileResponse = await profileService.getProfile();
           if (profileResponse.success && profileResponse.data.account) {
             parsedUserInfo = {
               accountId: profileResponse.data.account._id,
               fullName: profileResponse.data.account.fullName,
               phone: profileResponse.data.account.phoneNumber,
-            }
-            await AsyncStorage.setItem("userInfo", JSON.stringify(parsedUserInfo))
+            };
+            await AsyncStorage.setItem(
+              "userInfo",
+              JSON.stringify(parsedUserInfo)
+            );
           } else {
             setNotification({
-              message: profileResponse.message || "Không thể tải thông tin người dùng.",
+              message:
+                profileResponse.message ||
+                "Không thể tải thông tin người dùng.",
               type: "error",
-            })
-            return
+            });
+            return;
           }
         }
 
         if (!isValidObjectId(parsedUserInfo.accountId)) {
-          setNotification({ message: "ID tài khoản không hợp lệ.", type: "error" })
-          return
+          setNotification({
+            message: "ID tài khoản không hợp lệ.",
+            type: "error",
+          });
+          return;
         }
 
         if (formikRef.current) {
@@ -127,84 +165,114 @@ const Payment = ({ route, navigation }) => {
             ...formikRef.current.values,
             fullName: parsedUserInfo.fullName || "",
             phone: parsedUserInfo.phone || "",
-          })
+          });
         }
 
-        const addressResponse = await profileService.getDeliveryAddresses()
+        const addressResponse = await profileService.getDeliveryAddresses();
         if (addressResponse.success) {
-          const validAddresses = addressResponse.data.filter((addr) => isValidObjectId(addr._id))
-          setAddresses(validAddresses)
-          const defaultAddress = validAddresses.find((addr) => addr.isDefault)
+          const validAddresses = addressResponse.data.filter((addr) =>
+            isValidObjectId(addr._id)
+          );
+          setAddresses(validAddresses);
+          const defaultAddress = validAddresses.find((addr) => addr.isDefault);
           if (defaultAddress && formikRef.current) {
-            formikRef.current.setFieldValue("addressId", defaultAddress._id)
+            formikRef.current.setFieldValue("addressId", defaultAddress._id);
           }
         } else {
-          setNotification({ message: addressResponse.message || "Không thể tải địa chỉ giao hàng.", type: "error" })
+          setNotification({
+            message:
+              addressResponse.message || "Không thể tải địa chỉ giao hàng.",
+            type: "error",
+          });
         }
       } catch (error) {
-        setNotification({ message: "Lỗi hệ thống. Vui lòng thử lại.", type: "error" })
+        setNotification({
+          message: "Lỗi hệ thống. Vui lòng thử lại.",
+          type: "error",
+        });
       } finally {
-        setIsLoading(false)
+        setIsLoading(false);
       }
-    }
+    };
 
-    loadUserInfo()
-  }, [])
+    loadUserInfo();
+  }, []);
 
   const processPayment = async (values) => {
     try {
       if (!values.addressId || !isValidObjectId(values.addressId)) {
-        setNotification({ message: "Vui lòng chọn một địa chỉ giao hàng hợp lệ.", type: "error" })
-        return
+        setNotification({
+          message: "Vui lòng chọn một địa chỉ giao hàng hợp lệ.",
+          type: "error",
+        });
+        return;
       }
 
-      const selectedAddress = addresses.find((addr) => addr._id === values.addressId)
+      const selectedAddress = addresses.find(
+        (addr) => addr._id === values.addressId
+      );
       if (!selectedAddress) {
-        setNotification({ message: "Địa chỉ giao hàng không hợp lệ.", type: "error" })
-        return
+        setNotification({
+          message: "Địa chỉ giao hàng không hợp lệ.",
+          type: "error",
+        });
+        return;
       }
 
-      const userInfo = await AsyncStorage.getItem("userInfo")
-      const parsedUserInfo = userInfo ? JSON.parse(userInfo) : null
-      if (!parsedUserInfo?.accountId || !isValidObjectId(parsedUserInfo.accountId)) {
-        setNotification({ message: "Không tìm thấy thông tin tài khoản. Vui lòng đăng nhập lại.", type: "error" })
-        return
+      const userInfo = await AsyncStorage.getItem("userInfo");
+      const parsedUserInfo = userInfo ? JSON.parse(userInfo) : null;
+      if (
+        !parsedUserInfo?.accountId ||
+        !isValidObjectId(parsedUserInfo.accountId)
+      ) {
+        setNotification({
+          message:
+            "Không tìm thấy thông tin tài khoản. Vui lòng đăng nhập lại.",
+          type: "error",
+        });
+        return;
       }
 
       if (!cartItems || cartItems.length === 0) {
-        setNotification({ message: "Giỏ hàng trống. Vui lòng thêm sản phẩm.", type: "error" })
-        return
+        setNotification({
+          message: "Giỏ hàng trống. Vui lòng thêm sản phẩm.",
+          type: "error",
+        });
+        return;
       }
 
       for (let i = 0; i < cartItems.length; i++) {
-        const item = cartItems[i]
-        const itemName = item.name || item.title || item.productName || `Sản phẩm #${i + 1}`
-        const productId = item._id || item.id
-        const productPrice = item.salePrice || item.price
+        const item = cartItems[i];
+        const itemName =
+          item.name || item.title || item.productName || `Sản phẩm #${i + 1}`;
+        const productId = item._id || item.id;
+        const productPrice = item.salePrice || item.price;
 
         if (!productId || !isValidObjectId(productId)) {
           setNotification({
-            message: `ID sản phẩm không hợp lệ: ${itemName} (ID: ${productId || "không có"})`,
+            message: `ID sản phẩm không hợp lệ: ${itemName} (ID: ${
+              productId || "không có"
+            })`,
             type: "error",
-          })
-          return
+          });
+          return;
         }
 
         if (!productPrice || typeof productPrice !== "number") {
           setNotification({
             message: `Giá sản phẩm không hợp lệ: ${itemName} (Giá: ${productPrice})`,
             type: "error",
-          })
-          return
+          });
+          return;
         }
       }
 
       const subtotal = cartItems.reduce((total, item) => {
-        const price = item.salePrice || item.price || 0
-        const quantity = item.quantity || 1
-        return total + price * quantity
-      }, 0)
-      const totalAmount = subtotal
+        const price = item.salePrice || item.price || 0;
+        const quantity = item.quantity || 1;
+        return total + price * quantity;
+      }, 0);
+      const totalAmount = subtotal;
 
       const orderPayload = {
         order: {
@@ -212,40 +280,59 @@ const Payment = ({ route, navigation }) => {
           userId: String(parsedUserInfo.accountId),
           deliveryAddressId: String(values.addressId),
           cartItems: cartItems.map((item) => {
-            const productId = item._id || item.id
-            const price = item.salePrice || item.price
-            const quantity = item.quantity || 1
+            const productId = item._id || item.id;
+            const price = item.salePrice || item.price;
+            const quantity = item.quantity || 1;
             return {
               productId: String(productId),
               quantity: Number(quantity),
               price: Number(price),
-            }
+            };
           }),
           subtotal: Number(subtotal),
           discount: Number(0),
           shippingFee: Number(0),
           total: Number(totalAmount),
           paymentMethod: String(values.paymentMethod),
-          paymentStatus: String(values.paymentMethod === "cod" ? "Pending" : "Paid"),
+          paymentStatus: String(
+            values.paymentMethod === "cod" ? "Pending" : "Paid"
+          ),
           note: String(values.note || ""),
           pointUsed: Number(0),
         },
-      }
+      };
 
-      const validation = validateOrderPayload(orderPayload)
+      const validation = validateOrderPayload(orderPayload);
       if (!validation.valid) {
         setNotification({
-          message: `Dữ liệu đơn hàng không hợp lệ: ${validation.errors.join(", ")}`,
+          message: `Dữ liệu đơn hàng không hợp lệ: ${validation.errors.join(
+            ", "
+          )}`,
           type: "error",
-        })
-        return
+        });
+        return;
       }
 
-      const orderResponse = await orderService.createOrder(orderPayload)
-
+      const orderResponse = await orderService.createOrder(orderPayload);
+      let paymentLink = "";
       if (!orderResponse.success) {
-        setNotification({ message: orderResponse.message || "Không thể tạo đơn hàng.", type: "error" })
-        return
+        setNotification({
+          message: orderResponse.message || "Không thể tạo đơn hàng.",
+          type: "error",
+        });
+        return;
+      } else {
+        const metaData = {
+          returnUrl: "",
+          cancelUrl: "",
+        };
+        paymentResponse = await orderService.getPaymentLinkForOrder(
+          orderResponse.data.newOrderId,
+          metaData
+        );
+        if (paymentResponse) {
+          paymentLink = paymentResponse.data.paymentLink;
+        }
       }
 
       const orderData = {
@@ -261,23 +348,24 @@ const Payment = ({ route, navigation }) => {
         total: totalAmount,
         pointUsed: 0,
         note: values.note || "",
-      }
+      };
 
       if (values.paymentMethod === "bank") {
         const paymentData = {
-          orderCode: orderResponse.data.orderId || orderId,
+          orderCode: orderResponse.data.newOrderId || orderId,
+          paymentLink: paymentLink,
           amount: totalAmount,
           currency: "VND",
           paymentMethod: values.paymentMethod,
           description: "Chuyển khoản ngân hàng",
           transactionDateTime: new Date().toISOString(),
-        }
+        };
 
         navigation.navigate("QRPaymentScreen", {
           paymentData,
           orderData,
-        })
-        return
+        });
+        return;
       }
 
       const paymentPayload = {
@@ -285,23 +373,32 @@ const Payment = ({ route, navigation }) => {
         amount: totalAmount,
         currency: "VND",
         paymentMethod: values.paymentMethod,
-        description: values.paymentMethod === "cod" ? "Thanh toán khi nhận hàng (COD)" : "Chuyển khoản ngân hàng",
+        description:
+          values.paymentMethod === "cod"
+            ? "Thanh toán khi nhận hàng (COD)"
+            : "Chuyển khoản ngân hàng",
         transactionDateTime: new Date().toISOString(),
-      }
+      };
 
-      const confirmResponse = await orderService.confirmPayment(paymentPayload)
+      const confirmResponse = await orderService.confirmPayment(paymentPayload);
 
       if (confirmResponse.success) {
         navigation.navigate("ConfirmPaymentScreen", {
           paymentData: { ...confirmResponse.data, orderData },
-        })
+        });
       } else {
-        setNotification({ message: confirmResponse.message || "Không thể xác nhận thanh toán.", type: "error" })
+        setNotification({
+          message: confirmResponse.message || "Không thể xác nhận thanh toán.",
+          type: "error",
+        });
       }
     } catch (error) {
-      setNotification({ message: `Lỗi xử lý thanh toán: ${error.message}`, type: "error" })
+      setNotification({
+        message: `Lỗi xử lý thanh toán: ${error.message}`,
+        type: "error",
+      });
     }
-  }
+  };
 
   if (isLoading) {
     return (
@@ -309,7 +406,7 @@ const Payment = ({ route, navigation }) => {
         <ActivityIndicator size="large" color="#E53935" />
         <Text style={styles.summaryText}>Đang tải...</Text>
       </View>
-    )
+    );
   }
 
   return (
@@ -318,7 +415,9 @@ const Payment = ({ route, navigation }) => {
         <View
           style={[
             styles.notification,
-            notification.type === "error" ? styles.errorNotification : styles.successNotification,
+            notification.type === "error"
+              ? styles.errorNotification
+              : styles.successNotification,
           ]}
         >
           <Text style={styles.notificationText}>{notification.message}</Text>
@@ -336,14 +435,21 @@ const Payment = ({ route, navigation }) => {
         }}
         validationSchema={validationSchema}
         onSubmit={(values, { setSubmitting }) => {
-          setIsLoading(true)
+          setIsLoading(true);
           processPayment(values).finally(() => {
-            setIsLoading(false)
-            setSubmitting(false)
-          })
+            setIsLoading(false);
+            setSubmitting(false);
+          });
         }}
       >
-        {({ handleChange, handleBlur, handleSubmit, values, errors, touched }) => (
+        {({
+          handleChange,
+          handleBlur,
+          handleSubmit,
+          values,
+          errors,
+          touched,
+        }) => (
           <View style={styles.formContainer}>
             <View style={styles.card}>
               <Text style={styles.cardTitle}>Thông tin giao hàng</Text>
@@ -353,7 +459,9 @@ const Payment = ({ route, navigation }) => {
                 setNotification={setNotification}
                 setAddresses={setAddresses}
               />
-              {touched.addressId && errors.addressId && <Text style={styles.errorText}>{errors.addressId}</Text>}
+              {touched.addressId && errors.addressId && (
+                <Text style={styles.errorText}>{errors.addressId}</Text>
+              )}
               <Text style={styles.label}>Họ và tên</Text>
               <TextInput
                 style={styles.input}
@@ -363,7 +471,9 @@ const Payment = ({ route, navigation }) => {
                 placeholder="Nhập họ và tên"
                 placeholderTextColor="#999"
               />
-              {touched.fullName && errors.fullName && <Text style={styles.errorText}>{errors.fullName}</Text>}
+              {touched.fullName && errors.fullName && (
+                <Text style={styles.errorText}>{errors.fullName}</Text>
+              )}
               <Text style={styles.label}>Số điện thoại</Text>
               <TextInput
                 style={styles.input}
@@ -374,7 +484,9 @@ const Payment = ({ route, navigation }) => {
                 keyboardType="phone-pad"
                 placeholderTextColor="#999"
               />
-              {touched.phone && errors.phone && <Text style={styles.errorText}>{errors.phone}</Text>}
+              {touched.phone && errors.phone && (
+                <Text style={styles.errorText}>{errors.phone}</Text>
+              )}
               <Text style={styles.label}>Ghi chú</Text>
               <TextInput
                 style={[styles.input, { height: 80, textAlignVertical: "top" }]}
@@ -403,8 +515,8 @@ const Payment = ({ route, navigation }) => {
         )}
       </Formik>
     </ScrollView>
-  )
-}
+  );
+};
 
 const styles = StyleSheet.create({
   container: {
@@ -487,6 +599,6 @@ const styles = StyleSheet.create({
     flexWrap: "wrap",
     marginRight: 8,
   },
-})
+});
 
-export default Payment
+export default Payment;
