@@ -556,7 +556,7 @@ const ProfileScreen = ({ navigation }) => {
         <View >
           <Text style={styles.sectionTitle1}>Version 2.4.7</Text>
           <Text style={styles.infoText1}>Ứng dụng DesikiCare</Text>
-          <Text style={styles.infoText1}>© 2024 DesikiCare. All rights reserved.</Text>
+          <Text style={styles.infoText1}>© 2025 DesikiCare. All rights reserved.</Text>
    
           </View>
         <TouchableOpacity
