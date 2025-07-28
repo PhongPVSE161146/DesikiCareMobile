@@ -10,7 +10,7 @@ import { logout } from '../../redux/authSlice';
 import Notification from '../../components/NotiComponnets/Notification';
 import styles from './styles';
 
-// In-memory cache for provinces, districts, and wards
+
 const cache = {
   provinces: null,
   districts: {},
@@ -297,10 +297,10 @@ const ProfileScreen = ({ navigation }) => {
       handleUnauthorized('Vui lòng đăng nhập để xem thông tin.');
     }
 
-    // Listen for navigation back from DeliveryAddress screen
+    
     const unsubscribe = navigation.addListener('focus', () => {
       if (user) {
-        fetchAddresses(); // Refresh addresses when returning to ProfileScreen
+        fetchAddresses(); 
       }
     });
 
@@ -379,7 +379,7 @@ const ProfileScreen = ({ navigation }) => {
                     {defaultAddress.addressDetailDescription}, {defaultAddress.wardName},{' '}
                     {defaultAddress.districtName}, {defaultAddress.provinceName}
                   </Text>
-                  {/* <Text style={[styles.infoText, styles.defaultText]}>Mặc định</Text> */}
+                  
                 </View>
               ) : (
                 <Text style={styles.infoText}>Chưa có địa chỉ mặc định. Vui lòng thêm địa chỉ.</Text>

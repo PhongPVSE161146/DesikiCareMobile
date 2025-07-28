@@ -62,7 +62,7 @@ const ProductDetailScreen = ({ route, navigation }) => {
     try {
       const addressResponse = await profileService.getDeliveryAddresses()
       if (addressResponse.success && addressResponse.data.length > 0) {
-        // Tìm địa chỉ mặc định hoặc lấy địa chỉ đầu tiên
+        
         const defaultAddress = addressResponse.data.find((addr) => addr.isDefault) || addressResponse.data[0]
         return defaultAddress._id
       }
@@ -122,7 +122,7 @@ const ProductDetailScreen = ({ route, navigation }) => {
     }
 
     try {
-      const result = await orderService.addCartItem(product._id, 1) // Fixed quantity to 1
+      const result = await orderService.addCartItem(product._id, 1) 
       if (result && (result.success || result.message === "Cart items added successfully")) {
         const productWithId = {
           id: product._id,
@@ -134,9 +134,9 @@ const ProductDetailScreen = ({ route, navigation }) => {
 
         if (typeof addToCart === "function") {
           dispatch(addToCart(productWithId))
-          setNotificationMessage("") // Clear notification in ProductDetailScreen
+          setNotificationMessage("") 
 
-          // Navigate to Cart screen with notification params
+          
           navigation.navigate("Main", {
             screen: "Cart",
             params: {
@@ -176,7 +176,7 @@ const ProductDetailScreen = ({ route, navigation }) => {
     }
 
     try {
-      // Bước 1: Thêm sản phẩm vào giỏ hàng
+    
       const addToCartResult = await orderService.addCartItem(product._id, 1)
       if (!addToCartResult.success) {
         setNotificationMessage("")
@@ -190,7 +190,7 @@ const ProductDetailScreen = ({ route, navigation }) => {
         return
       }
 
-      // Bước 2: Lấy địa chỉ giao hàng mặc định
+    
       const deliveryAddressId = await getDefaultAddressId()
       if (!deliveryAddressId) {
         setNotificationMessage("")
@@ -200,7 +200,7 @@ const ProductDetailScreen = ({ route, navigation }) => {
         return
       }
 
-      // Bước 3: Lấy payment link từ API
+ 
       const paymentResult = await orderService.getPaymentLink(
         {
           pointUsed: 0,
@@ -215,7 +215,7 @@ const ProductDetailScreen = ({ route, navigation }) => {
       console.log("Payment result:", JSON.stringify(paymentResult, null, 2))
 
       if (paymentResult.success) {
-        // Bước 4: Tạo orderData cho QR screen - NO SHIPPING FEE
+      
         const orderData = {
           cartItems: [
             {
@@ -227,17 +227,17 @@ const ProductDetailScreen = ({ route, navigation }) => {
           ],
           subtotal: salePrice,
           discount: 0,
-          // Removed shipping fee calculation
-          total: salePrice, // Total is now just the sale price
+          
+          total: salePrice, 
           pointUsed: 0,
           note: "",
         }
 
-        // Bước 5: Tạo paymentData cho QR screen - using total without shipping
+ 
         const paymentData = {
           orderCode: paymentResult.data.orderCode || `ORDER${Date.now()}`,
           orderId: paymentResult.data.orderId || paymentResult.data.orderCode,
-          amount: orderData.total, // This is now just the product price
+          amount: orderData.total, 
           currency: "VND",
           paymentMethod: "bank",
           description: "Chuyển khoản ngân hàng",
@@ -248,7 +248,7 @@ const ProductDetailScreen = ({ route, navigation }) => {
 
         console.log("Navigating to QRPaymentScreen with (no shipping):", { paymentData, orderData })
 
-        // Bước 6: Navigate đến QR Payment Screen
+       
         navigation.navigate("QRPaymentScreen", {
           paymentData,
           orderData,
@@ -305,7 +305,7 @@ const ProductDetailScreen = ({ route, navigation }) => {
             {(salePrice || 0).toLocaleString("vi-VN")} đ
           </Text>
 
-          {/* Added free shipping notice */}
+         
           <Text style={styles.freeShippingNotice}>🚚 Miễn phí giao hàng</Text>
 
           {isDeactivated && <Text style={styles.deactivatedLabel}>Hết hàng</Text>}

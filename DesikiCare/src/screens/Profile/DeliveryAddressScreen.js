@@ -18,7 +18,7 @@ import profileService from '../../config/axios/Home/AccountProfile/profileServic
 import Notification from '../../components/NotiComponnets/Notification';
 import styles from './styles';
 
-// In-memory cache for provinces, districts, and wards
+
 const cache = {
   provinces: null,
   districts: {},
@@ -46,7 +46,7 @@ const DeliveryAddressScreen = ({ navigation, route }) => {
   const [modalVisible, setModalVisible] = useState({ province: false, district: false, ward: false });
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Fetch functions with caching
+
   const mapCodeToName = async (provinceCode, districtCode, wardCode) => {
     try {
       const pCode = Number(provinceCode);
@@ -276,14 +276,14 @@ const DeliveryAddressScreen = ({ navigation, route }) => {
                 district: { name: '', code: '' },
                 ward: { name: '', code: '' },
               });
-              setTimeout(() => fetchDistricts(item.code), 0); // Defer to avoid render conflict
+              setTimeout(() => fetchDistricts(item.code), 0); 
             } else if (type === 'district') {
               setNewAddress({
                 ...newAddress,
                 district: { name: item.name, code: item.code },
                 ward: { name: '', code: '' },
               });
-              setTimeout(() => fetchWards(item.code), 0); // Defer to avoid render conflict
+              setTimeout(() => fetchWards(item.code), 0); 
             } else {
               setNewAddress({ ...newAddress, ward: { name: item.name, code: item.code } });
             }
@@ -334,15 +334,15 @@ const DeliveryAddressScreen = ({ navigation, route }) => {
     </RNModal>
   );
 
-  // Use useCallback to stabilize fetchAddresses
+
   const fetchAddressesCallback = useCallback(async () => {
     await fetchAddresses();
   }, []);
 
-  // UseEffect with deferred updates
+
   useEffect(() => {
     if (accountId) {
-      // Defer to next tick to avoid render phase updates
+    
       const timer = setTimeout(() => {
         fetchProvinces().then(fetchAddressesCallback);
       }, 0);

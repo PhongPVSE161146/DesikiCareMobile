@@ -25,9 +25,9 @@ const HomeScreen = ({ navigation, route }) => {
     height: Dimensions.get('window').height,
   });
 
-  // Auto-dismiss notification after 3 seconds
+
   useEffect(() => {
-    console.log('HomeScreen route.params:', JSON.stringify(route.params, null, 2)); // Debug log
+
     if (notificationMessage) {
       const timer = setTimeout(() => {
         setNotificationMessage('');
@@ -37,7 +37,7 @@ const HomeScreen = ({ navigation, route }) => {
     }
   }, [notificationMessage]);
 
-  // Debounced dimension updates
+
   useEffect(() => {
     let timeout;
     const updateDimensions = () => {
@@ -57,7 +57,7 @@ const HomeScreen = ({ navigation, route }) => {
     };
   }, []);
 
-  // Canvas animation
+
   useEffect(() => {
     if (canvasRef.current) {
       const ctx = canvasRef.current.getContext('2d');
@@ -200,7 +200,7 @@ const styles = StyleSheet.create({
   notification: {
     marginHorizontal: 8,
     marginTop: 8,
-    zIndex: 20, // Ensure notification is above other components
+    zIndex: 20, 
   },
   promoCarousel: {
     marginHorizontal: 8,

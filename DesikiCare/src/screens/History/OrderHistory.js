@@ -83,15 +83,15 @@ const OrderHistory = () => {
   const getTabActiveStyle = (status) => {
     switch (status) {
       case 'Chờ xử lý':
-        return { backgroundColor: '#FBBF24' }; // Yellow
+        return { backgroundColor: '#FBBF24' }; 
       case 'Đang giao':
-        return { backgroundColor: '#8B5CF6' }; // Purple
+        return { backgroundColor: '#8B5CF6' }; 
       case 'Đã giao':
-        return { backgroundColor: '#10B981' }; // Green
+        return { backgroundColor: '#10B981' }; 
       case 'Đã huỷ':
-        return { backgroundColor: '#EF4444' }; // Red
+        return { backgroundColor: '#EF4444' }; 
       default:
-        return { backgroundColor: '#007AFF' }; // Fallback
+        return { backgroundColor: '#007AFF' }; 
     }
   };
 
@@ -169,13 +169,13 @@ const styles = StyleSheet.create({
   tabsInnerContainer: {
     flexDirection: 'row',
     paddingHorizontal: scale(12),
-    paddingVertical: scale(4), // Further reduced from 6 to align closer to order items
+    paddingVertical: scale(4), 
     alignItems: 'center',
-    paddingBottom: scale(6), // Further reduced from 6
-    minHeight: scale(20), // Further reduced from 40 to make tabs more compact
+    paddingBottom: scale(6), 
+    minHeight: scale(20), 
     justifyContent: 'flex-start',
     backgroundColor: '#FFFFFF',
-    marginBottom: scale(8), // Further reduced from 12
+    marginBottom: scale(8), 
 
  
   },
@@ -191,7 +191,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   tabItemActive: {
-    // Base active style, overridden by getTabActiveStyle
+    
   },
   tabItemText: {
     color: '#1F2A44',
