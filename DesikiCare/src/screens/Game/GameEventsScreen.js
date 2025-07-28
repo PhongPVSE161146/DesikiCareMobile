@@ -94,7 +94,7 @@ const GameEventsScreen = () => {
     }
 
     // Navigate directly to spin wheel game
-    navigation.navigate("SpinWheelGameScreen", {
+    navigation.navigate("SpinWheelGame", {
       gameTypeId: String(gameEvent.gameTypeId),
       gameTypeName: gameEvent.gameTypeName,
       gameEventId: gameEvent._id,

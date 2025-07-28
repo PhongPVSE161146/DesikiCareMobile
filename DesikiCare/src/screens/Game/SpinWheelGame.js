@@ -503,7 +503,7 @@ const SpinWheelGameScreen = () => {
     <SafeAreaView style={styles.safeContainer}>
       <View style={styles.container}>
         {/* Header */}
-        <View style={styles.header}>
+        {/* <View style={styles.header}>
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
             <MaterialIcons name="arrow-back" size={24} color="#fff" />
           </TouchableOpacity>
@@ -511,7 +511,7 @@ const SpinWheelGameScreen = () => {
           <TouchableOpacity onPress={() => navigation.navigate("GameRewardHistoryScreen")} style={styles.historyButton}>
             <MaterialIcons name="history" size={24} color="#fff" />
           </TouchableOpacity>
-        </View>
+        </View> */}
 
         {/* Game Info */}
         <View style={styles.gameInfo}>
