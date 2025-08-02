@@ -13,7 +13,7 @@ const getUserToken = async () => {
 const axiosInstance = axios.create({
   baseURL: `${API_URL_LOGIN}/api/Order`,
   headers: { 'Content-Type': 'application/json' },
-  timeout: 10000,
+  timeout: 100000,
 });
 
 const paymentService = {

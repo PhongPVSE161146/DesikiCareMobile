@@ -17,7 +17,7 @@ const getAuthToken = async () => {
 const axiosInstance = axios.create({
   baseURL: `${API_URL_LOGIN}/api/Order`,
   headers: { "Content-Type": "application/json" },
-  timeout: 15000,
+  timeout: 150000,
 });
 
 const orderService = {
