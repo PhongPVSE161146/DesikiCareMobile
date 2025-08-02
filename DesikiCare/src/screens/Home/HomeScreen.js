@@ -1,5 +1,5 @@
-import React, { useEffect, useState, useRef } from 'react';
-import { View, FlatList, StyleSheet, Dimensions } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, FlatList, StyleSheet } from 'react-native';
 import ProductList from '../../components/ProductComponnets/ProductList';
 import FeatureButton from '../../components/HomeComponents/FeatureButton';
 import FeaturedBrandsCarousel from '../../components/HomeComponents/FeaturedBrandsCarousel';
@@ -7,7 +7,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 import CustomHeader from '../../components/Header/CustomHeader';
 import Notification from '../../components/NotiComponnets/Notification';
 import PromoCarousel from '../../components/HomeComponents/PromoCarousel';
-import Canvas from 'react-native-canvas';
+import { useSelector } from 'react-redux';
 
 const features = [
   { title: 'Danh Mục', icon: <MaterialIcons name="menu" size={28} color="#555" /> },
@@ -19,15 +19,9 @@ const features = [
 const HomeScreen = ({ navigation, route }) => {
   const [notificationMessage, setNotificationMessage] = useState(route.params?.notification?.message || '');
   const [notificationType, setNotificationType] = useState(route.params?.notification?.type || 'success');
-  const canvasRef = useRef(null);
-  const [dimensions, setDimensions] = useState({
-    width: Dimensions.get('window').width,
-    height: Dimensions.get('window').height,
-  });
-
+  const user = useSelector((state) => state.auth.user);
 
   useEffect(() => {
-
     if (notificationMessage) {
       const timer = setTimeout(() => {
         setNotificationMessage('');
@@ -37,96 +31,18 @@ const HomeScreen = ({ navigation, route }) => {
     }
   }, [notificationMessage]);
 
-
-  useEffect(() => {
-    let timeout;
-    const updateDimensions = () => {
-      clearTimeout(timeout);
-      timeout = setTimeout(() => {
-        setDimensions({
-          width: Dimensions.get('window').width,
-          height: Dimensions.get('window').height,
-        });
-      }, 100);
-    };
-
-    const subscription = Dimensions.addEventListener('change', updateDimensions);
-    return () => {
-      subscription?.remove();
-      clearTimeout(timeout);
-    };
-  }, []);
-
-
-  useEffect(() => {
-    if (canvasRef.current) {
-      const ctx = canvasRef.current.getContext('2d');
-      canvasRef.current.width = dimensions.width;
-      canvasRef.current.height = dimensions.height;
-
-      const scaleFactor = Math.min(dimensions.width / 414, 1);
-      const numPetals = Math.floor(10 * scaleFactor);
-      const petals = [];
-
-      for (let i = 0; i < numPetals; i++) {
-        petals.push({
-          x: Math.random() * dimensions.width,
-          y: Math.random() * dimensions.height,
-          size: (Math.random() * 8 + 6) * scaleFactor,
-          speedY: (Math.random() * 0.8 + 0.3) * scaleFactor,
-          speedX: (Math.random() * 0.5 - 0.25) * scaleFactor,
-          rotation: Math.random() * 360,
-          rotationSpeed: (Math.random() * 0.5 - 0.25) * scaleFactor,
-        });
-      }
-
-      const drawPetal = (petal) => {
-        ctx.save();
-        ctx.translate(petal.x, petal.y);
-        ctx.rotate((petal.rotation * Math.PI) / 180);
-        ctx.fillStyle = 'rgba(255, 182, 193, 0.7)';
-        ctx.beginPath();
-        ctx.ellipse(0, 0, petal.size / 2, petal.size / 4, 0, 0, 2 * Math.PI);
-        ctx.fill();
-        ctx.restore();
-      };
-
-      const updatePetals = () => {
-        ctx.clearRect(0, 0, dimensions.width, dimensions.height);
-        petals.forEach((petal) => {
-          petal.y += petal.speedY;
-          petal.x += petal.speedX;
-          petal.rotation += petal.rotationSpeed;
-
-          if (petal.y > dimensions.height) {
-            petal.y = -petal.size;
-            petal.x = Math.random() * dimensions.width;
-          }
-
-          drawPetal(petal);
-        });
-      };
-
-      let animationFrameId;
-      const animate = () => {
-        updatePetals();
-        animationFrameId = requestAnimationFrame(animate);
-      };
-
-      animate();
-
-      return () => {
-        cancelAnimationFrame(animationFrameId);
-      };
-    }
-  }, [dimensions]);
-
   const handlePress = (title) => {
     switch (title) {
       case 'Danh Mục':
         navigation.navigate('Category');
         break;
       case 'Mini Game':
+        if (!user) {
+          setNotificationMessage('Vui lòng đăng nhập để chơi Mini Game.');
+          setNotificationType('error');
+          navigation.navigate('Login');
+          return;
+        }
         navigation.navigate('MiniGameTabs', { screen: 'MiniGame' });
         break;
       case 'Hỗ Trợ':
@@ -169,7 +85,6 @@ const HomeScreen = ({ navigation, route }) => {
   return (
     <View style={styles.container}>
       <CustomHeader />
-      <Canvas ref={canvasRef} style={styles.canvas} />
       <FlatList
         ListHeaderComponent={renderHeader}
         data={[]}
@@ -200,7 +115,7 @@ const styles = StyleSheet.create({
   notification: {
     marginHorizontal: 8,
     marginTop: 8,
-    zIndex: 20, 
+    zIndex: 20,
   },
   promoCarousel: {
     marginHorizontal: 8,
@@ -223,15 +138,6 @@ const styles = StyleSheet.create({
   featuredBrands: {
     marginVertical: 8,
     zIndex: 5,
-  },
-  canvas: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    width: '100%',
-    height: '100%',
-    zIndex: 10,
-    pointerEvents: 'none',
   },
 });
 

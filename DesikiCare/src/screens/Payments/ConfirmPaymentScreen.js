@@ -1,32 +1,47 @@
-"use client"
-import { useState, useEffect, useRef } from "react"
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Animated, Dimensions, Easing } from "react-native"
-import Ionicons from "react-native-vector-icons/Ionicons"
+"use client";
+import { useState, useEffect, useRef } from "react";
+import {
+  View,
+  Text,
+  ScrollView,
+  TouchableOpacity,
+  StyleSheet,
+  Animated,
+  Dimensions,
+  Easing,
+} from "react-native";
+import Ionicons from "react-native-vector-icons/Ionicons";
 
-const { width: screenWidth, height: screenHeight } = Dimensions.get("window")
+const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
 
 // FIREWORKS COMPONENT
 const Fireworks = ({ show, onComplete }) => {
-  const animatedValues = useRef([])
-  const particles = useRef([])
+  const animatedValues = useRef([]);
+  const particles = useRef([]);
 
   const createParticles = () => {
-    const particleCount = 50
-    const newParticles = []
-    const newAnimatedValues = []
+    const particleCount = 50;
+    const newParticles = [];
+    const newAnimatedValues = [];
 
     for (let i = 0; i < particleCount; i++) {
-      const animatedValue = new Animated.ValueXY({ x: 0, y: 0 })
-      const opacity = new Animated.Value(1)
-      const scale = new Animated.Value(0)
+      const animatedValue = new Animated.ValueXY({ x: 0, y: 0 });
+      const opacity = new Animated.Value(1);
+      const scale = new Animated.Value(0);
 
-      newAnimatedValues.push({ position: animatedValue, opacity, scale })
+      newAnimatedValues.push({ position: animatedValue, opacity, scale });
 
-      const angle = (Math.PI * 2 * i) / particleCount
-      const velocity = 100 + Math.random() * 100
-      const color = ["#FF6B6B", "#4ECDC4", "#45B7D1", "#96CEB4", "#FFEAA7", "#DDA0DD", "#98D8C8"][
-        Math.floor(Math.random() * 7)
-      ]
+      const angle = (Math.PI * 2 * i) / particleCount;
+      const velocity = 100 + Math.random() * 100;
+      const color = [
+        "#FF6B6B",
+        "#4ECDC4",
+        "#45B7D1",
+        "#96CEB4",
+        "#FFEAA7",
+        "#DDA0DD",
+        "#98D8C8",
+      ][Math.floor(Math.random() * 7)];
 
       newParticles.push({
         id: i,
@@ -37,21 +52,21 @@ const Fireworks = ({ show, onComplete }) => {
         animatedValue,
         opacity,
         scale,
-      })
+      });
     }
 
-    particles.current = newParticles
-    animatedValues.current = newAnimatedValues
-  }
+    particles.current = newParticles;
+    animatedValues.current = newAnimatedValues;
+  };
 
   const startFireworks = () => {
-    createParticles()
+    createParticles();
 
     const animations = particles.current.map((particle) => {
-      const { angle, velocity, animatedValue, opacity, scale } = particle
+      const { angle, velocity, animatedValue, opacity, scale } = particle;
 
-      const endX = Math.cos(angle) * velocity
-      const endY = Math.sin(angle) * velocity
+      const endX = Math.cos(angle) * velocity;
+      const endY = Math.sin(angle) * velocity;
 
       return Animated.parallel([
         Animated.timing(animatedValue, {
@@ -80,24 +95,24 @@ const Fireworks = ({ show, onComplete }) => {
             useNativeDriver: false,
           }),
         ]),
-      ])
-    })
+      ]);
+    });
 
     Animated.parallel(animations).start(() => {
       if (onComplete) {
-        onComplete()
+        onComplete();
       }
-    })
-  }
+    });
+  };
 
   useEffect(() => {
     if (show) {
-      startFireworks()
+      startFireworks();
     }
-  }, [show])
+  }, [show]);
 
   if (!show || particles.current.length === 0) {
-    return null
+    return null;
   }
 
   return (
@@ -123,30 +138,38 @@ const Fireworks = ({ show, onComplete }) => {
         />
       ))}
     </View>
-  )
-}
+  );
+};
 
 // CONFETTI COMPONENT
 const Confetti = ({ show }) => {
-  const confettiPieces = useRef([])
-  const animatedValues = useRef([])
+  const confettiPieces = useRef([]);
+  const animatedValues = useRef([]);
 
   const createConfetti = () => {
-    const confettiCount = 30
-    const newConfetti = []
-    const newAnimatedValues = []
+    const confettiCount = 30;
+    const newConfetti = [];
+    const newAnimatedValues = [];
 
     for (let i = 0; i < confettiCount; i++) {
       const animatedValue = new Animated.ValueXY({
         x: Math.random() * screenWidth,
         y: -50,
-      })
-      const rotation = new Animated.Value(0)
+      });
+      const rotation = new Animated.Value(0);
 
-      newAnimatedValues.push({ position: animatedValue, rotation })
+      newAnimatedValues.push({ position: animatedValue, rotation });
 
-      const colors = ["#FF6B6B", "#4ECDC4", "#45B7D1", "#96CEB4", "#FFEAA7", "#DDA0DD", "#98D8C8"]
-      const shapes = ["square", "circle", "triangle"]
+      const colors = [
+        "#FF6B6B",
+        "#4ECDC4",
+        "#45B7D1",
+        "#96CEB4",
+        "#FFEAA7",
+        "#DDA0DD",
+        "#98D8C8",
+      ];
+      const shapes = ["square", "circle", "triangle"];
 
       newConfetti.push({
         id: i,
@@ -157,18 +180,18 @@ const Confetti = ({ show }) => {
         rotation,
         fallSpeed: 2000 + Math.random() * 1000,
         swayAmount: 50 + Math.random() * 50,
-      })
+      });
     }
 
-    confettiPieces.current = newConfetti
-    animatedValues.current = newAnimatedValues
-  }
+    confettiPieces.current = newConfetti;
+    animatedValues.current = newAnimatedValues;
+  };
 
   const startConfetti = () => {
-    createConfetti()
+    createConfetti();
 
     const animations = confettiPieces.current.map((piece) => {
-      const { animatedValue, rotation, fallSpeed, swayAmount } = piece
+      const { animatedValue, rotation, fallSpeed, swayAmount } = piece;
 
       return Animated.parallel([
         Animated.timing(animatedValue, {
@@ -186,22 +209,22 @@ const Confetti = ({ show }) => {
             duration: 1000,
             easing: Easing.linear,
             useNativeDriver: false,
-          }),
+          })
         ),
-      ])
-    })
+      ]);
+    });
 
-    Animated.parallel(animations).start()
-  }
+    Animated.parallel(animations).start();
+  };
 
   useEffect(() => {
     if (show) {
-      startConfetti()
+      startConfetti();
     }
-  }, [show])
+  }, [show]);
 
   if (!show || confettiPieces.current.length === 0) {
-    return null
+    return null;
   }
 
   return (
@@ -210,7 +233,7 @@ const Confetti = ({ show }) => {
         const rotationInterpolate = piece.rotation.interpolate({
           inputRange: [0, 1],
           outputRange: ["0deg", "360deg"],
-        })
+        });
 
         return (
           <Animated.View
@@ -230,20 +253,20 @@ const Confetti = ({ show }) => {
               },
             ]}
           />
-        )
+        );
       })}
     </View>
-  )
-}
+  );
+};
 
 const ConfirmPaymentScreen = ({ route, navigation }) => {
-  const { paymentData } = route.params || {}
-  const [showFireworks, setShowFireworks] = useState(false)
-  const [showConfetti, setShowConfetti] = useState(false)
-  const checkmarkScale = useRef(new Animated.Value(0)).current
-  const titleOpacity = useRef(new Animated.Value(0)).current
+  const { paymentData } = route.params || {};
+  const [showFireworks, setShowFireworks] = useState(false);
+  const [showConfetti, setShowConfetti] = useState(false);
+  const checkmarkScale = useRef(new Animated.Value(0)).current;
+  const titleOpacity = useRef(new Animated.Value(0)).current;
 
-  // Animation khi component mount
+  // Animation when component mounts
   useEffect(() => {
     const timer = setTimeout(() => {
       Animated.sequence([
@@ -259,49 +282,62 @@ const ConfirmPaymentScreen = ({ route, navigation }) => {
           friction: 8,
           useNativeDriver: true,
         }),
-      ]).start()
+      ]).start();
 
       Animated.timing(titleOpacity, {
         toValue: 1,
         duration: 800,
         easing: Easing.out(Easing.quad),
         useNativeDriver: true,
-      }).start()
+      }).start();
 
       setTimeout(() => {
-        setShowFireworks(true)
-        setShowConfetti(true)
-      }, 500)
-    }, 300)
+        setShowFireworks(true);
+        setShowConfetti(true);
+      }, 500);
+    }, 300);
 
-    return () => clearTimeout(timer)
-  }, [])
+    return () => clearTimeout(timer);
+  }, []);
 
   const formatCurrency = (amount) => {
-    return amount && typeof amount === "number" ? amount.toLocaleString("vi-VN") + "đ" : "0đ"
-  }
+    return amount && typeof amount === "number"
+      ? amount.toLocaleString("vi-VN") + "đ"
+      : "0đ";
+  };
 
   const formatDateTime = (dateTime) => {
-    if (!dateTime) return "N/A"
+    if (!dateTime) return "N/A";
     try {
-      return new Date(dateTime).toLocaleString("vi-VN")
+      return new Date(dateTime).toLocaleString("vi-VN");
     } catch {
-      return dateTime
+      return dateTime;
     }
-  }
+  };
 
   const getPaymentStatus = () => {
-    if (!paymentData?.paymentMethod) return "Đã xác nhận"
-    return paymentData.paymentMethod === "bank" || "cod" ? "Đơn Hàng Đang Xử Lý" : (paymentData.desc || "Đã xác nhận")
-  }
+    if (!paymentData?.paymentMethod) return "Chờ xử lý"; // Match OrderHistory STATUS_CATEGORIES
+    return paymentData.paymentMethod === "bank" || paymentData.paymentMethod === "cod"
+      ? "Chờ xử lý"
+      : paymentData.desc || "Chờ xử lý";
+  };
 
   const handleNavigateToOrders = () => {
-    navigation.navigate("Main", { screen: "PaidOrderHistory" })
-  }
+    // Transform paymentData to match OrderHistory's expected structure
+    const transformedOrder = {
+      order: { _id: paymentData.orderCode },
+      orderStatus: { name: getPaymentStatus() },
+      orderItems: paymentData.orderData?.cartItems || [],
+    };
+    navigation.navigate("Main", {
+      screen: "PaidOrderHistory",
+      params: { newOrder: transformedOrder },
+    });
+  };
 
   const handleNavigateToHome = () => {
-    navigation.navigate("Main", { screen: "Home" })
-  }
+    navigation.navigate("Main", { screen: "Home" });
+  };
 
   // Validate paymentData
   if (!paymentData) {
@@ -316,7 +352,7 @@ const ConfirmPaymentScreen = ({ route, navigation }) => {
           </TouchableOpacity>
         </View>
       </View>
-    )
+    );
   }
 
   return (
@@ -349,7 +385,9 @@ const ConfirmPaymentScreen = ({ route, navigation }) => {
           <View style={styles.infoRow}>
             <Text style={styles.label}>Phương thức thanh toán:</Text>
             <Text style={styles.value}>
-              {paymentData.paymentMethod === "cod" ? "Thanh toán khi nhận hàng" : "Chuyển khoản ngân hàng"}
+              {paymentData.paymentMethod === "cod"
+                ? "Thanh toán khi nhận hàng"
+                : "Chuyển khoản ngân hàng"}
             </Text>
           </View>
           <View style={styles.infoRow}>
@@ -376,11 +414,6 @@ const ConfirmPaymentScreen = ({ route, navigation }) => {
                 </View>
               </View>
             ))}
-            {/* <View style={styles.divider} /> */}
-            {/* <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>Tổng tiền:</Text>
-              <Text style={styles.summaryValue}>{formatCurrency(paymentData.orderData.subtotal)}</Text>
-            </View> */}
           </View>
         )}
 
@@ -396,8 +429,8 @@ const ConfirmPaymentScreen = ({ route, navigation }) => {
         </View>
       </ScrollView>
     </View>
-  )
-}
+  );
+};
 
 const styles = StyleSheet.create({
   container: {
@@ -525,25 +558,6 @@ const styles = StyleSheet.create({
     color: "#E91E63",
     fontWeight: "500",
   },
-  divider: {
-    height: 1,
-    backgroundColor: "#e0e0e0",
-    marginVertical: 12,
-  },
-  summaryRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingVertical: 4,
-  },
-  summaryLabel: {
-    fontSize: 14,
-    color: "#666",
-  },
-  summaryValue: {
-    fontSize: 14,
-    color: "#333",
-  },
   buttonContainer: {
     padding: 16,
     marginBottom: 20,
@@ -582,6 +596,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "500",
   },
-})
+});
 
-export default ConfirmPaymentScreen
+export default ConfirmPaymentScreen;

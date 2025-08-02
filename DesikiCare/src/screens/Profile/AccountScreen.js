@@ -169,6 +169,7 @@ const ProfileScreen = ({ navigation }) => {
           imageBase64: account.imageBase64 || '',
           password: '',
           roleId: account.roleId || 0,
+          gameTicketCount: account.gameTicketCount || 0,
         });
         await fetchAddresses();
       } else {
@@ -224,6 +225,7 @@ const ProfileScreen = ({ navigation }) => {
         imageBase64: formData.imageBase64 || undefined,
         password: formData.password || undefined,
         roleId: formData.roleId,
+        gameTicketCount: formData.gameTicketCount,
       };
 
       const updateRes = await profileService.updateAccount(profileData._id, payload);
@@ -512,6 +514,8 @@ const ProfileScreen = ({ navigation }) => {
             )}
             <Text style={styles.label}>Điểm tích lũy</Text>
             <Text style={styles.infoText}>{profileData.points || 0}</Text>
+            <Text style={styles.label}>Số vé trò chơi</Text>
+            <Text style={styles.infoText}>{profileData.gameTicketCount || 0}</Text>
             <Text style={styles.label}>Trạng thái tài khoản</Text>
             <Text style={styles.infoText}>
               {profileData.isDeactivated ? 'Đã bị vô hiệu hóa' : 'Hoạt động'}

@@ -9,11 +9,12 @@ import {
   FlatList,
   ActivityIndicator,
   Alert,
-  TextInput,
+  Switch,
 } from "react-native"
 import { useSelector, useDispatch } from "react-redux"
 import { removeFromCart, updateCartItemQuantity, applyPoints, setCartItems } from "../../redux/cartSlice"
 import orderService from "../../config/axios/Order/orderService"
+import profileService from "../../config/axios/Home/AccountProfile/profileService"
 import { useFocusEffect } from "@react-navigation/native"
 import Notification from "../../components/NotiComponnets/Notification"
 
@@ -182,7 +183,7 @@ const ProductImage = ({ imageUrl, title, style, productId }) => {
           resizeMode="cover"
           onLoadStart={handleLoadStart}
           onLoadEnd={handleLoadEnd}
-          // onError={handleError}
+          onError={handleError}
         />
       ) : (
         renderCustomPlaceholder()
@@ -208,11 +209,29 @@ const CartScreen = ({ route, navigation }) => {
   const pointsApplied = useSelector((state) => state.cart.points) || 0
   const dispatch = useDispatch()
 
-  const [pointsInput, setPointsInput] = useState("")
+  const [userPoints, setUserPoints] = useState(0)
+  const [usePoints, setUsePoints] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
   const [notificationMessage, setNotificationMessage] = useState(route.params?.notificationMessage || "")
   const [notificationType, setNotificationType] = useState(route.params?.notificationType || "success")
+
+  // Fetch user profile to get points
+  const fetchUserProfile = useCallback(async () => {
+    try {
+      console.log("👤 Fetching user profile...")
+      const result = await profileService.getProfile()
+      console.log("👤 Profile API response:", JSON.stringify(result, null, 2))
+
+      if (result.success && result.data?.account?.points != null) {
+        setUserPoints(result.data.account.points)
+      } else {
+        setError(result.message || "Không thể tải thông tin tài khoản.")
+      }
+    } catch (e) {
+      setError(e.message || "Lỗi kết nối khi tải thông tin tài khoản.")
+    }
+  }, [])
 
   // Handle notification auto-dismiss
   useEffect(() => {
@@ -261,7 +280,7 @@ const CartScreen = ({ route, navigation }) => {
             _id: cartItem._id,
             quantity: cartItem.quantity,
             product: {
-              _id: product._id, // Include product ID
+              _id: product._id,
               name: product.name,
               salePrice: product.salePrice,
               imageUrl: product.imageUrl,
@@ -287,13 +306,13 @@ const CartScreen = ({ route, navigation }) => {
 
           return {
             id: item._id && typeof item._id === "string" ? item._id : `temp-${Math.random().toString(36).substr(2, 9)}`,
-            productId: item.product?._id, // Include product ID for image generation
+            productId: item.product?._id,
             title:
               item.product?.name && typeof item.product.name === "string" ? item.product.name : "Sản phẩm không tên",
             price: typeof item.product?.salePrice === "number" ? item.product.salePrice : 0,
             quantity: typeof item.quantity === "number" && item.quantity > 0 ? item.quantity : 1,
-            image: processedImageUrl, // Can be null
-            originalImageUrl: item.product?.imageUrl, // Keep original for debugging
+            image: processedImageUrl,
+            originalImageUrl: item.product?.imageUrl,
             categoryId: typeof item.product?.categoryId === "number" ? item.product.categoryId.toString() : "0",
           }
         })
@@ -312,7 +331,8 @@ const CartScreen = ({ route, navigation }) => {
   useFocusEffect(
     useCallback(() => {
       fetchCart()
-    }, [fetchCart]),
+      fetchUserProfile()
+    }, [fetchCart, fetchUserProfile]),
   )
 
   const handleRemoveItem = async (cartItemId) => {
@@ -376,33 +396,40 @@ const CartScreen = ({ route, navigation }) => {
     }
   }
 
-  const handleApplyPoints = async () => {
-    const points = Number.parseInt(pointsInput, 10)
-    if (isNaN(points) || points <= 0) {
-      Alert.alert("Lỗi", "Vui lòng nhập số điểm hợp lệ (lớn hơn 0).")
+  const handleToggleUsePoints = async (value) => {
+    setUsePoints(value)
+    if (!value) {
+      // Turn off points usage
+      dispatch(applyPoints(0))
+      setNotificationMessage("Đã hủy sử dụng điểm")
+      setNotificationType("success")
       return
     }
 
+    // Calculate maximum points that can be used
     const subtotal = cartItems.reduce((sum, item) => sum + (item.price || 0) * (item.quantity || 1), 0)
-    const maxPoints = Math.floor(subtotal / 1000)
+    const maxPoints = Math.min(userPoints, Math.floor(subtotal / 1000))
 
-    if (points > maxPoints) {
-      Alert.alert("Lỗi", `Bạn chỉ có thể sử dụng tối đa ${maxPoints} điểm cho đơn hàng này.`)
+    if (maxPoints <= 0) {
+      Alert.alert("Lỗi", "Không có điểm nào để sử dụng hoặc tổng đơn hàng không đủ.")
+      setUsePoints(false)
       return
     }
 
     try {
-      const result = await orderService.applyPoints(points)
+      // Assuming orderService.applyPoints exists
+      const result = await orderService.applyPoints(maxPoints)
       if (result.success) {
-        dispatch(applyPoints(points))
-        setNotificationMessage(`Đã áp dụng ${points} điểm (giảm ${points * 1000} đ)`)
+        dispatch(applyPoints(maxPoints))
+        setNotificationMessage(`Đã áp dụng ${maxPoints} điểm (giảm ${maxPoints * 1000} đ)`)
         setNotificationType("success")
-        setPointsInput("")
       } else {
+        setUsePoints(false)
         Alert.alert("Lỗi", result.message || "Không thể áp dụng điểm.")
       }
     } catch (error) {
       console.error("❌ Apply points error:", error.message, error.response?.data)
+      setUsePoints(false)
       Alert.alert("Lỗi", "Có lỗi xảy ra khi áp dụng điểm. Vui lòng thử lại.")
     }
   }
@@ -520,19 +547,19 @@ const CartScreen = ({ route, navigation }) => {
         showsVerticalScrollIndicator={false}
       />
       <View style={styles.pointsContainer}>
-        <TextInput
-          style={styles.pointsInput}
-          value={pointsInput}
-          onChangeText={setPointsInput}
-          placeholder="Nhập số điểm"
-          keyboardType="numeric"
-          placeholderTextColor="#999"
-        />
-        <TouchableOpacity style={styles.applyPointsButton} onPress={handleApplyPoints}>
-          <Text style={styles.applyPointsButtonText}>Áp dụng điểm</Text>
-        </TouchableOpacity>
+        <Text style={styles.pointsText}>
+          Điểm hiện tại: {userPoints.toLocaleString("vi-VN")} điểm
+        </Text>
+        <View style={styles.pointsToggleContainer}>
+          <Text style={styles.pointsToggleLabel}>Sử dụng điểm</Text>
+          <Switch
+            value={usePoints}
+            onValueChange={handleToggleUsePoints}
+            trackColor={{ false: "#ddd", true: "#E53935" }}
+            thumbColor={usePoints ? "#fff" : "#f4f3f4"}
+          />
+        </View>
       </View>
-      {/* Updated total container without shipping fee */}
       <View style={styles.totalContainer}>
         <View style={styles.totalRow}>
           <Text style={styles.totalLabel}>Tạm tính:</Text>
@@ -620,7 +647,6 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
     backgroundColor: "#fff",
   },
-  // Enhanced Image container styles
   imageContainer: {
     position: "relative",
     backgroundColor: "#f8f8f8",
@@ -660,7 +686,6 @@ const styles = StyleSheet.create({
     textAlign: "center",
     fontWeight: "500",
   },
-  // Custom placeholder styles
   customPlaceholder: {
     justifyContent: "center",
     alignItems: "center",
@@ -754,36 +779,25 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
   },
   pointsContainer: {
-    flexDirection: "row",
     marginVertical: 15,
     paddingHorizontal: 4,
   },
-  pointsInput: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: "#ddd",
-    borderRadius: 8,
-    padding: 12,
-    marginRight: 12,
+  pointsText: {
     fontSize: 16,
-    backgroundColor: "#fafafa",
+    color: "#333",
+    marginBottom: 12,
+    fontWeight: "500",
   },
-  applyPointsButton: {
-    backgroundColor: "#E53935",
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 8,
-    justifyContent: "center",
-    elevation: 2,
-    shadowColor: "#E53935",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
+  pointsToggleContainer: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 8,
   },
-  applyPointsButtonText: {
-    color: "#fff",
-    fontWeight: "bold",
-    fontSize: 14,
+  pointsToggleLabel: {
+    fontSize: 16,
+    color: "#333",
+    fontWeight: "500",
   },
   totalContainer: {
     marginVertical: 15,

@@ -1,54 +1,64 @@
-import React from 'react';
-import { View, Text, Image, StyleSheet } from 'react-native';
+import React from "react";
+import { View, Text, StyleSheet, TouchableOpacity, Image } from "react-native";
 
-const OrderCard = ({ orderItem }) => {
-  const product = orderItem.product;
+const OrderCard = ({ orderItem, orderId, canCancel, onCancel }) => {
   return (
     <View style={styles.card}>
-      <Image source={{ uri: product.imageUrl }} style={styles.image} />
-      <View style={styles.info}>
-        <Text style={styles.name}>{product.name}</Text>
-        <Text style={styles.details}>Số lượng: {orderItem.orderItem.quantity}</Text>
-        <Text style={styles.price}>{product.salePrice.toLocaleString()}₫</Text>
-      </View>
+      {orderItem?.imageUrl ? (
+        <Image
+          source={{ uri: orderItem.imageUrl }}
+          style={styles.image}
+          resizeMode="contain"
+        />
+      ) : (
+        <View style={styles.imagePlaceholder}>
+          <Text style={{ color: "#999" }}>No Image</Text>
+        </View>
+      )}
+      <Text style={styles.title}>{orderItem.title}</Text>
+      <Text>Giá: {orderItem.price?.toLocaleString()}đ</Text>
+      <Text>Số lượng: {orderItem.quantity}</Text>
+      <Text>Mã đơn: {orderId}</Text>
+      {canCancel && (
+        <TouchableOpacity onPress={onCancel} style={styles.cancelBtn}>
+          <Text style={{ color: "white" }}>Huỷ đơn</Text>
+        </TouchableOpacity>
+      )}
     </View>
   );
 };
 
 const styles = StyleSheet.create({
   card: {
-    flexDirection: 'row',
-    paddingVertical: 10,
-    paddingHorizontal: 6,
-    marginBottom: 6,
-    backgroundColor: '#fdfdfd',
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#eee',
+    backgroundColor: "#fff",
+    padding: 15,
+    marginBottom: 10,
+    borderRadius: 8,
+    elevation: 3,
   },
   image: {
-    width: 60,
-    height: 60,
-    borderRadius: 8,
-    marginRight: 12,
+    height: 100,
+    width: "100%",
+    marginBottom: 10,
   },
-  info: {
-    flex: 1,
-    justifyContent: 'space-around',
+  imagePlaceholder: {
+    height: 100,
+    width: "100%",
+    backgroundColor: "#EEE",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 10,
   },
-  name: {
-    fontWeight: '600',
+  title: {
     fontSize: 16,
-    color: '#333',
+    fontWeight: "bold",
   },
-  details: {
-    color: '#555',
-    fontSize: 14,
-  },
-  price: {
-    color: '#007bff',
-    fontSize: 15,
-    fontWeight: 'bold',
+  cancelBtn: {
+    marginTop: 10,
+    padding: 10,
+    backgroundColor: "#EF4444",
+    borderRadius: 6,
+    alignItems: "center",
   },
 });
 
