@@ -1,6 +1,4 @@
-"use client";
-
-import { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -240,7 +238,10 @@ const QRPaymentScreen = ({ route, navigation }) => {
               onPress: () => {
                 setShowPendingModal(false);
                 startCountdown();
-                setTimeout(() => setShowPendingModal(true), 100);
+                // Defer modal show to avoid useInsertionEffect conflicts
+                setTimeout(() => {
+                  setShowPendingModal(true);
+                }, 100);
               },
             },
           ]

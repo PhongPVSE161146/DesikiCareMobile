@@ -6,7 +6,7 @@ import { createStackNavigator } from '@react-navigation/stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { View, StyleSheet, Platform } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
-import { enableScreens } from 'react-native-screens';
+// import { enableScreens } from 'react-native-screens';
 import GameEventDetailScreen from '../screens/Game/GameEventDetailScreen';
 import HomeScreen from '../screens/Home/HomeScreen';
 import ProductDetailScreen from '../screens/Product/ProductDetailScreen';
@@ -26,7 +26,7 @@ import ConfirmPaymentScreen from '../screens/Payments/ConfirmPaymentScreen';
 import QRPaymentScreen from '../screens/Payments/QRPaymentScreen';
 import GameEventsScreen from '../screens/Game/GameEventsScreen';
 import RewardsScreen from '../screens/Game/RewardsScreen';
-enableScreens(true); // Enable native screens for better performance
+// enableScreens(true); // Enable native screens for better performance
 //Game import
 // import GameEventDetailScreen from '../screens/Game/GameEventDetailScreen';
 // import FillBlankGame from '../screens/Game/FillBlankGame';

@@ -705,34 +705,58 @@ const orderService = {
       };
     }
   },
-  cancelOrder: async (orderId) => {
-  try {
-    const userToken = await getAuthToken();
-    const response = await axiosInstance.post(`/orders/${orderId}/cancel`, {}, {
-      headers: {
-        Authorization: `Bearer ${userToken}`,
-        "Content-Type": "application/json"
+cancelOrder: async (orderId) => {
+    try {
+      const userToken = await getAuthToken();
+      console.log("Cancel Order Request:", { orderId, userToken });
+      if (!userToken) {
+        return { success: false, message: "No authentication token found." };
       }
-    });
-    return response.status === 200 || response.status === 201
-      ? { success: true, data: response.data }
-      : { success: false, message: response.data?.message || "Failed to cancel order" };
-  } catch (error) {
-    return {
-      success: false,
-      message: error.response?.data?.message || error.message || "Failed to cancel order due to server error."
-    };
-  }
-},
+      const endpoint = `/orders/${orderId}/cancel`;
+      console.log("Calling endpoint:", endpoint);
+      const response = await axiosInstance.put(endpoint, {}, {
+        headers: {
+          Authorization: `Bearer ${userToken}`,
+          "Content-Type": "application/json",
+        },
+      });
+      console.log("Cancel Order Response:", response.data);
+      return response.status === 200 || response.status === 201
+        ? { success: true, data: response.data }
+        : {
+            success: false,
+            message: response.data?.message || "Failed to cancel order",
+          };
+    } catch (error) {
+      console.error("Error cancelling order:", {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+      });
+      return {
+        success: false,
+        message:
+          error.response?.data?.message ||
+          error.message ||
+          "Failed to cancel order due to server error.",
+      };
+    }
+  },
+
 getOrderStatuses: async () => {
   try {
-    const response = await axiosInstance.get("/Order/orderStatuses");
+    const token = await getAuthToken();
+    const response = await axiosInstance.get("/orderStatuses", {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
     return response.data;
   } catch (error) {
-    console.error("Lỗi khi lấy trạng thái đơn hàng", error);
-    return { success: false };
+    console.error("Error fetching order statuses:", error);
+    return { success: false, message: "Không thể tải trạng thái đơn hàng." };
   }
-}
+},
 
 };
 

@@ -1,5 +1,4 @@
-"use client"
-import { useState, useEffect } from "react"
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -12,7 +11,7 @@ import {
   ActivityIndicator,
 } from "react-native"
 import { useDispatch } from "react-redux"
-import { addToCart } from "../../redux/cartSlice" // Verify this path
+import { addToCart } from "../../redux/cartSlice"
 import ProductService from "../../config/axios/Product/productService"
 import orderService from "../../config/axios/Order/orderService"
 import profileService from "../../config/axios/Home/AccountProfile/profileService"
@@ -62,7 +61,6 @@ const ProductDetailScreen = ({ route, navigation }) => {
     try {
       const addressResponse = await profileService.getDeliveryAddresses()
       if (addressResponse.success && addressResponse.data.length > 0) {
-        
         const defaultAddress = addressResponse.data.find((addr) => addr.isDefault) || addressResponse.data[0]
         return defaultAddress._id
       }
@@ -97,7 +95,7 @@ const ProductDetailScreen = ({ route, navigation }) => {
   }
 
   const { product, category, productSkinTypes, productSkinStatuses, shipmentProducts } = productData
-  const { name, description, salePrice, imageUrl, isDeactivated, volume } = product
+  const { name, description, salePrice, imageUrl, isDeactivated, volume, gameTicketReward } = product
 
   const categoryName = category?.name || "Không có danh mục"
   const skinTypes = productSkinTypes?.map((type) => type.name).join(", ") || "Không có loại da"
@@ -117,12 +115,12 @@ const ProductDetailScreen = ({ route, navigation }) => {
   const handleAddToCart = async () => {
     if (isDeactivated) {
       setNotificationMessage("")
-      Alert.alert("", "Sản phẩm hiện không có sẵn.")
+      Alert.alert("Lỗi", "Sản phẩm đã ngừng kinh doanh.")
       return
     }
 
     try {
-      const result = await orderService.addCartItem(product._id, 1) 
+      const result = await orderService.addCartItem(product._id, 1)
       if (result && (result.success || result.message === "Cart items added successfully")) {
         const productWithId = {
           id: product._id,
@@ -130,19 +128,19 @@ const ProductDetailScreen = ({ route, navigation }) => {
           price: salePrice,
           quantity: 1,
           image: imageUrl,
+          gameTicketReward,
         }
 
         if (typeof addToCart === "function") {
           dispatch(addToCart(productWithId))
-          setNotificationMessage("") 
+          setNotificationMessage("")
 
-          
           navigation.navigate("Main", {
             screen: "Cart",
             params: {
               screen: "CartMain",
               params: {
-                notificationMessage: "Đã thêm vào giỏ hàng!",
+                notificationMessage: `Đã thêm vào giỏ hàng! Nhận ${gameTicketReward || 0} vé thưởng.`,
                 notificationType: "success",
               },
             },
@@ -171,12 +169,11 @@ const ProductDetailScreen = ({ route, navigation }) => {
   const handleBuyNow = async () => {
     if (isDeactivated) {
       setNotificationMessage("")
-      Alert.alert("Lỗi", "Sản phẩm hiện không có sẵn.")
+      Alert.alert("Lỗi", "Sản phẩm đã ngừng kinh doanh.")
       return
     }
 
     try {
-    
       const addToCartResult = await orderService.addCartItem(product._id, 1)
       if (!addToCartResult.success) {
         setNotificationMessage("")
@@ -190,7 +187,6 @@ const ProductDetailScreen = ({ route, navigation }) => {
         return
       }
 
-    
       const deliveryAddressId = await getDefaultAddressId()
       if (!deliveryAddressId) {
         setNotificationMessage("")
@@ -200,7 +196,6 @@ const ProductDetailScreen = ({ route, navigation }) => {
         return
       }
 
- 
       const paymentResult = await orderService.getPaymentLink(
         {
           pointUsed: 0,
@@ -215,7 +210,6 @@ const ProductDetailScreen = ({ route, navigation }) => {
       console.log("Payment result:", JSON.stringify(paymentResult, null, 2))
 
       if (paymentResult.success) {
-      
         const orderData = {
           cartItems: [
             {
@@ -223,21 +217,20 @@ const ProductDetailScreen = ({ route, navigation }) => {
               title: name,
               quantity: 1,
               price: salePrice,
+              gameTicketReward,
             },
           ],
           subtotal: salePrice,
           discount: 0,
-          
-          total: salePrice, 
+          total: salePrice,
           pointUsed: 0,
           note: "",
         }
 
- 
         const paymentData = {
           orderCode: paymentResult.data.orderCode || `ORDER${Date.now()}`,
           orderId: paymentResult.data.orderId || paymentResult.data.orderCode,
-          amount: orderData.total, 
+          amount: orderData.total,
           currency: "VND",
           paymentMethod: "bank",
           description: "Chuyển khoản ngân hàng",
@@ -248,13 +241,12 @@ const ProductDetailScreen = ({ route, navigation }) => {
 
         console.log("Navigating to QRPaymentScreen with (no shipping):", { paymentData, orderData })
 
-       
         navigation.navigate("QRPaymentScreen", {
           paymentData,
           orderData,
         })
 
-        setNotificationMessage("Đang chuyển tới trang thanh toán...")
+        setNotificationMessage(`Đang chuyển tới trang thanh toán... Nhận ${gameTicketReward || 0} vé thưởng.`)
         setNotificationType("success")
       } else {
         setNotificationMessage("")
@@ -305,10 +297,19 @@ const ProductDetailScreen = ({ route, navigation }) => {
             {(salePrice || 0).toLocaleString("vi-VN")} đ
           </Text>
 
-         
           <Text style={styles.freeShippingNotice}>🚚 Miễn phí giao hàng</Text>
 
-          {isDeactivated && <Text style={styles.deactivatedLabel}>Hết hàng</Text>}
+          {isDeactivated ? (
+            <Text style={styles.deactivatedLabel}>Sản phẩm đã ngừng kinh doanh</Text>
+          ) : (
+            <Text style={styles.activeLabel}>Đang được bán</Text>
+          )}
+
+          {!isDeactivated && (
+            <Text style={styles.rewardTickets}>
+              🎟️ Nhận {gameTicketReward || 0} vé thưởng khi mua sản phẩm
+            </Text>
+          )}
 
           <View style={styles.descriptionContainer}>
             <Text style={styles.sectionTitle}>Mô tả sản phẩm</Text>
@@ -322,6 +323,10 @@ const ProductDetailScreen = ({ route, navigation }) => {
             <Text style={styles.specification}>• Loại da: {skinTypes}</Text>
             <Text style={styles.specification}>• Trạng thái da: {skinStatuses}</Text>
             <Text style={styles.specification}>• Giao hàng: Miễn phí toàn quốc</Text>
+            <Text style={styles.specification}>• Trạng thái: {isDeactivated ? "Ngừng kinh doanh" : "Đang bán"}</Text>
+            {!isDeactivated && (
+              <Text style={styles.specification}>• Vé thưởng: {gameTicketReward || 0} vé</Text>
+            )}
             {latestShipment && (
               <>
                 <Text style={styles.specification}>
@@ -410,6 +415,18 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: "#E53935",
     fontWeight: "bold",
+    marginBottom: 10,
+  },
+  activeLabel: {
+    fontSize: 16,
+    color: "#4CAF50",
+    fontWeight: "bold",
+    marginBottom: 10,
+  },
+  rewardTickets: {
+    fontSize: 14,
+    color: "#FFA500",
+    fontWeight: "500",
     marginBottom: 10,
   },
   descriptionContainer: {

@@ -28,14 +28,21 @@ const ProductCard = ({ product, onPress }) => {
       style={[styles.card, isDeactivated ? styles.deactivatedCard : null]}
       disabled={isDeactivated}
     >
-      <Image
-        source={{
-          uri: imageUrl && imageUrl !== 'string' ? imageUrl : 'https://via.placeholder.com/150',
-        }}
-        style={styles.image}
-        resizeMode="contain"
-        onError={() => console.log('Error loading image:', imageUrl)}
-      />
+      <View style={styles.imageContainer}>
+        <Image
+          source={{
+            uri: imageUrl && imageUrl !== 'string' ? imageUrl : 'https://via.placeholder.com/150',
+          }}
+          style={styles.image}
+          resizeMode="contain"
+          onError={() => console.log('Error loading image:', imageUrl)}
+        />
+        {isDeactivated && (
+          <View style={styles.deactivatedBadge}>
+            <Text style={styles.deactivatedBadgeText}>Hết hàng</Text>
+          </View>
+        )}
+      </View>
       <Text style={[styles.brand, isDeactivated ? styles.deactivatedText : null]}>
         {name || 'Không có tên'}
       </Text>
@@ -50,9 +57,6 @@ const ProductCard = ({ product, onPress }) => {
       </Text>
       {volume > 0 && (
         <Text style={styles.volume}>Dung tích: {volume} ml</Text>
-      )}
-      {isDeactivated && (
-        <Text style={styles.deactivatedLabel}>Hết hàng</Text>
       )}
     </TouchableOpacity>
   );
@@ -196,12 +200,29 @@ const styles = StyleSheet.create({
     backgroundColor: '#f5f5f5',
     opacity: 0.6,
   },
+  imageContainer: {
+    position: 'relative',
+  },
   image: {
     width: '100%',
     height: 130,
     marginBottom: 10,
     borderRadius: 6,
     backgroundColor: '#f5f5f5',
+  },
+  deactivatedBadge: {
+    position: 'absolute',
+    top: 5,
+    left: 5,
+    backgroundColor: '#E53935',
+    paddingVertical: 2,
+    paddingHorizontal: 6,
+    borderRadius: 4,
+  },
+  deactivatedBadgeText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: 'bold',
   },
   brand: {
     fontWeight: 'bold',
@@ -226,13 +247,6 @@ const styles = StyleSheet.create({
   },
   deactivatedText: {
     color: '#999',
-  },
-  deactivatedLabel: {
-    fontSize: 12,
-    color: '#E53935',
-    fontWeight: 'bold',
-    marginTop: 4,
-    textAlign: 'center',
   },
   loader: {
     paddingVertical: 20,

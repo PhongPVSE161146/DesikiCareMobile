@@ -1,6 +1,4 @@
-"use client"
-
-import { useState, useEffect } from "react"
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, Image, ScrollView, StyleSheet, ActivityIndicator, Alert, TouchableOpacity } from "react-native"
 import { useRoute, useNavigation } from "@react-navigation/native"
 import { MaterialIcons } from "@expo/vector-icons"

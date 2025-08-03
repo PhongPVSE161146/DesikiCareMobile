@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Animated, Dimensions } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 
@@ -15,35 +15,7 @@ const Notification = ({
   const [fadeAnim] = useState(new Animated.Value(0));
   const [slideAnim] = useState(new Animated.Value(position === 'top' ? -100 : 100));
 
-  useEffect(() => {
-    if (message) {
-      setVisible(true);
-      Animated.parallel([
-        Animated.timing(fadeAnim, {
-          toValue: 1,
-          duration: 300,
-          useNativeDriver: true,
-        }),
-        Animated.spring(slideAnim, {
-          toValue: 0,
-          friction: 8,
-          tension: 40,
-          useNativeDriver: true,
-        }),
-      ]).start();
-
-      if (autoDismiss > 0) {
-        const timer = setTimeout(() => {
-          dismissNotification();
-        }, autoDismiss);
-        return () => clearTimeout(timer);
-      }
-    } else {
-      setVisible(false);
-    }
-  }, [message]);
-
-  const dismissNotification = () => {
+  const dismissNotification = useCallback(() => {
     Animated.parallel([
       Animated.timing(fadeAnim, {
         toValue: 0,
@@ -59,7 +31,38 @@ const Notification = ({
       setVisible(false);
       if (onDismiss) onDismiss();
     });
-  };
+  }, [fadeAnim, slideAnim, position, onDismiss]);
+
+  useEffect(() => {
+    if (message) {
+      // Defer state update to avoid useInsertionEffect conflicts
+      setTimeout(() => {
+        setVisible(true);
+        Animated.parallel([
+          Animated.timing(fadeAnim, {
+            toValue: 1,
+            duration: 300,
+            useNativeDriver: true,
+          }),
+          Animated.spring(slideAnim, {
+            toValue: 0,
+            friction: 8,
+            tension: 40,
+            useNativeDriver: true,
+          }),
+        ]).start();
+
+        if (autoDismiss > 0) {
+          const timer = setTimeout(() => {
+            dismissNotification();
+          }, autoDismiss);
+          return () => clearTimeout(timer);
+        }
+      }, 0);
+    } else {
+      setVisible(false);
+    }
+  }, [message, fadeAnim, slideAnim, autoDismiss, dismissNotification]);
 
   if (!visible || !message) return null;
 

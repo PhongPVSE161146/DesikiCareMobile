@@ -32,6 +32,9 @@ const cartSlice = createSlice({
         });
       }
     },
+     applyPoints: (state, action) => {
+      state.points = action.payload; // Cập nhật số điểm sử dụng
+    },
   },
 });
 
@@ -41,6 +44,7 @@ export const {
   updateCartItemQuantity,
   applyDiscount,
   addToCart,
+  applyPoints,
 } = cartSlice.actions;
 
 export default cartSlice.reducer;

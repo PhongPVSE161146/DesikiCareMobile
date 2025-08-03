@@ -1,4 +1,3 @@
-"use client"
 import { useCallback, useState, useEffect } from "react"
 import {
   View,
@@ -10,6 +9,7 @@ import {
   ActivityIndicator,
   Alert,
   Switch,
+  TextInput,
 } from "react-native"
 import { useSelector, useDispatch } from "react-redux"
 import { removeFromCart, updateCartItemQuantity, applyPoints, setCartItems } from "../../redux/cartSlice"
@@ -45,7 +45,6 @@ const generateImageUrlFromId = (productId) => {
   if (!productId || typeof productId !== "string") {
     return null
   }
-  // Try different common image paths
   const possiblePaths = [
     `${API_BASE_URL}/public/images/products/${productId}/main.jpg`,
     `${API_BASE_URL}/public/images/products/${productId}/image.jpg`,
@@ -81,13 +80,11 @@ const ProductImage = ({ imageUrl, title, style, productId }) => {
 
       const urlsToTry = []
 
-      // First, try the provided imageUrl if it exists and is valid
       if (imageUrl && typeof imageUrl === "string" && imageUrl.trim()) {
         let processedUrl = imageUrl.trim()
         if (processedUrl.startsWith("http://") || processedUrl.startsWith("https://")) {
           urlsToTry.push(processedUrl)
         } else {
-          // Remove leading slash if present to avoid double slashes
           if (processedUrl.startsWith("/")) {
             processedUrl = processedUrl.substring(1)
           }
@@ -95,22 +92,17 @@ const ProductImage = ({ imageUrl, title, style, productId }) => {
         }
       }
 
-      // If imageUrl is null/empty but we have productId, try to generate URLs
       if ((!imageUrl || imageUrl === null) && productId) {
-        console.log(`🔍 imageUrl is null for ${title}, trying to generate from productId: ${productId}`)
         const generatedUrls = generateImageUrlFromId(productId)
         if (generatedUrls) {
           urlsToTry.push(...generatedUrls)
         }
       }
 
-      // Add placeholder images as final fallbacks
       urlsToTry.push(...PLACEHOLDER_IMAGES)
 
-      console.log(`📋 URLs to try for ${title}:`, urlsToTry)
       setImageUrlsToTry(urlsToTry)
 
-      // Start with the first URL
       if (urlsToTry.length > 0) {
         setCurrentImageUrl(urlsToTry[0])
       } else {
@@ -129,7 +121,6 @@ const ProductImage = ({ imageUrl, title, style, productId }) => {
 
   const handleLoadEnd = () => {
     setLoading(false)
-    console.log(`✅ Successfully loaded image for ${title}: ${currentImageUrl}`)
   }
 
   const handleError = (e) => {
@@ -143,22 +134,17 @@ const ProductImage = ({ imageUrl, title, style, productId }) => {
 
     setLoading(false)
 
-    // Try next URL in the list
     const nextIndex = fallbackIndex + 1
     if (nextIndex < imageUrlsToTry.length) {
-      console.log(`🔄 Trying fallback image ${nextIndex + 1}/${imageUrlsToTry.length} for ${title}`)
       setCurrentImageUrl(imageUrlsToTry[nextIndex])
       setFallbackIndex(nextIndex)
       setError(false)
     } else {
-      // All URLs failed, show custom placeholder
-      console.log(`💥 All image sources failed for ${title}, showing custom placeholder`)
       setError(true)
       setShowPlaceholder(true)
     }
   }
 
-  // Custom placeholder component
   const renderCustomPlaceholder = () => (
     <View style={[style, styles.customPlaceholder]}>
       <View style={styles.placeholderIcon}>
@@ -215,21 +201,19 @@ const CartScreen = ({ route, navigation }) => {
   const [error, setError] = useState("")
   const [notificationMessage, setNotificationMessage] = useState(route.params?.notificationMessage || "")
   const [notificationType, setNotificationType] = useState(route.params?.notificationType || "success")
+  const [quantityInputs, setQuantityInputs] = useState({})
 
   // Fetch user profile to get points
   const fetchUserProfile = useCallback(async () => {
     try {
-      console.log("👤 Fetching user profile...")
       const result = await profileService.getProfile()
-      console.log("👤 Profile API response:", JSON.stringify(result, null, 2))
-
       if (result.success && result.data?.account?.points != null) {
         setUserPoints(result.data.account.points)
       } else {
         setError(result.message || "Không thể tải thông tin tài khoản.")
       }
     } catch (e) {
-      setError(e.message || "Lỗi kết nối khi tải thông tin tài khoản.")
+      setError(e.response?.data?.message || e.message || "Lỗi kết nối khi tải thông tin tài khoản.")
     }
   }, [])
 
@@ -247,20 +231,16 @@ const CartScreen = ({ route, navigation }) => {
   // Enhanced image URL processing function
   const processImageUrl = (imageUrl) => {
     if (!imageUrl || typeof imageUrl !== "string") {
-      return null // Return null instead of placeholder URL
+      return null
     }
 
     const trimmedUrl = imageUrl.trim()
 
-    // If it's already a full URL, return as is
     if (trimmedUrl.startsWith("http://") || trimmedUrl.startsWith("https://")) {
       return trimmedUrl
     }
 
-    // Remove leading slash to avoid double slashes
     const cleanUrl = trimmedUrl.startsWith("/") ? trimmedUrl.substring(1) : trimmedUrl
-
-    // Construct full URL
     return `${API_BASE_URL}/${cleanUrl}`
   }
 
@@ -268,7 +248,6 @@ const CartScreen = ({ route, navigation }) => {
     setLoading(true)
     setError("")
     try {
-      console.log("🛒 Fetching cart data...")
       const result = await orderService.getCart()
       console.log("🛒 Raw API response:", JSON.stringify(result, null, 2))
 
@@ -317,12 +296,21 @@ const CartScreen = ({ route, navigation }) => {
           }
         })
 
-        dispatch(setCartItems(mappedItems))
+        // Defer state updates to avoid useInsertionEffect conflicts
+        setTimeout(() => {
+          dispatch(setCartItems(mappedItems))
+          setQuantityInputs(
+            mappedItems.reduce((acc, item) => ({
+              ...acc,
+              [item.id]: item.quantity.toString(),
+            }), {}),
+          )
+        }, 0)
       } else {
         setError(result.message || "Không thể tải giỏ hàng.")
       }
     } catch (e) {
-      setError(e.response?.data?.message || e.message || "Lỗi kết nối. Vui lòng thử lại.")
+      setError(e.response?.data?.message || e.message || "Lỗi kết nối khi tải giỏ hàng.")
     } finally {
       setLoading(false)
     }
@@ -330,8 +318,15 @@ const CartScreen = ({ route, navigation }) => {
 
   useFocusEffect(
     useCallback(() => {
-      fetchCart()
-      fetchUserProfile()
+      // Defer fetch to avoid rendering phase conflicts
+      const timer = setTimeout(() => {
+        fetchCart()
+        // Defer fetchUserProfile to avoid conflicts
+        setTimeout(() => {
+          fetchUserProfile()
+        }, 100)
+      }, 0)
+      return () => clearTimeout(timer)
     }, [fetchCart, fetchUserProfile]),
   )
 
@@ -350,9 +345,17 @@ const CartScreen = ({ route, navigation }) => {
           try {
             const result = await orderService.deleteCartItem(cartItemId)
             if (result.success) {
-              dispatch(removeFromCart(cartItemId))
-              setNotificationMessage("Sản phẩm đã được xóa khỏi giỏ hàng")
-              setNotificationType("success")
+              // Defer state updates to avoid useInsertionEffect conflicts
+              setTimeout(() => {
+                dispatch(removeFromCart(cartItemId))
+                setNotificationMessage("Sản phẩm đã được xóa khỏi giỏ hàng")
+                setNotificationType("success")
+                setQuantityInputs((prev) => {
+                  const newInputs = { ...prev }
+                  delete newInputs[cartItemId]
+                  return newInputs
+                })
+              }, 0)
             } else {
               if (result.message === "No token found. Please log in.") {
                 Alert.alert("Lỗi", "Vui lòng đăng nhập.", [{ text: "OK", onPress: () => navigation.navigate("Login") }])
@@ -361,7 +364,6 @@ const CartScreen = ({ route, navigation }) => {
               }
             }
           } catch (error) {
-            console.error("❌ Remove item error:", error.message, error.response?.data)
             Alert.alert("Lỗi", "Có lỗi xảy ra khi xóa sản phẩm. Vui lòng thử lại.")
           }
         },
@@ -369,75 +371,124 @@ const CartScreen = ({ route, navigation }) => {
     ])
   }
 
-  const handleQuantityChange = async (id, newQuantity) => {
-    if (id.startsWith("temp-")) {
-      Alert.alert("Lỗi", "Không thể cập nhật số lượng cho sản phẩm với ID tạm thời.")
-      return
-    }
+  const handleQuantityChange = useCallback(
+    async (id, newQuantity) => {
+      if (id.startsWith("temp-")) {
+        Alert.alert("Lỗi", "Không thể cập nhật số lượng cho sản phẩm với ID tạm thời.")
+        return
+      }
 
-    const quantity = Math.max(1, newQuantity)
-    try {
-      console.log("🔄 Updating cart item:", { id, quantity })
-      const result = await orderService.updateCartItemQuantity(id, quantity)
-      if (result.success) {
-        dispatch(updateCartItemQuantity({ id, quantity }))
-        setNotificationMessage(`Đã cập nhật số lượng thành ${quantity}`)
-        setNotificationType("success")
-      } else {
-        if (result.message === "No token found. Please log in.") {
-          Alert.alert("Lỗi", "Vui lòng đăng nhập.", [{ text: "OK", onPress: () => navigation.navigate("Login") }])
-        } else {
-          Alert.alert("Lỗi", result.message || "Không thể cập nhật số lượng.")
+      const quantity = Math.min(999, Math.max(1, parseInt(newQuantity, 10) || 1))
+      if (isNaN(quantity)) {
+        Alert.alert("Lỗi", "Vui lòng nhập số lượng hợp lệ.")
+        setQuantityInputs((prev) => ({ ...prev, [id]: "1" }))
+        return
+      }
+
+      // Defer update to avoid useInsertionEffect conflicts
+      setTimeout(() => {
+        const updateQuantity = async () => {
+          try {
+            console.log("🔄 Updating cart item:", { id, quantity })
+            const result = await orderService.updateCartItemQuantity(id, quantity)
+            if (result.success) {
+              dispatch(updateCartItemQuantity({ id, quantity }))
+              setNotificationMessage(`Đã cập nhật số lượng thành ${quantity}`)
+              setNotificationType("success")
+              setQuantityInputs((prev) => ({ ...prev, [id]: quantity.toString() }))
+              if (usePoints) {
+                const subtotal = cartItems.reduce((sum, item) => sum + (item.price || 0) * (item.quantity || 1), 0)
+                const maxPoints = Math.min(userPoints, subtotal, 10000)
+                if (typeof applyPoints === "function") {
+                  dispatch(applyPoints(maxPoints))
+                } else {
+                  Alert.alert("Lỗi", "Không thể áp dụng điểm do lỗi hệ thống.")
+                }
+              }
+            } else {
+              if (result.message === "No token found. Please log in.") {
+                Alert.alert("Lỗi", "Vui lòng đăng nhập.", [
+                  { text: "OK", onPress: () => navigation.navigate("Login") },
+                ])
+              } else {
+                Alert.alert("Lỗi", result.message || "Không thể cập nhật số lượng.")
+                setQuantityInputs((prev) => ({ ...prev, [id]: cartItems.find((item) => item.id === id)?.quantity.toString() || "1" }))
+              }
+            }
+          } catch (error) {
+            Alert.alert("Lỗi", `Có lỗi khi cập nhật số lượng: ${error.message}`)
+            setQuantityInputs((prev) => ({ ...prev, [id]: cartItems.find((item) => item.id === id)?.quantity.toString() || "1" }))
+          }
         }
-      }
-    } catch (error) {
-      console.error("❌ Update quantity error:", error.response?.status, error.response?.data)
-      Alert.alert("Lỗi", `Có lỗi khi cập nhật số lượng: ${error.message}`)
-    }
-  }
+        updateQuantity()
+      }, 0)
+    },
+    [cartItems, dispatch, usePoints, userPoints, navigation],
+  )
 
-  const handleToggleUsePoints = async (value) => {
+  // Tách riêng các handler để tránh cập nhật state trong render
+  const handleDecreaseQuantity = useCallback((item) => {
+    const newQuantity = (item.quantity || 1) - 1
+    if (newQuantity >= 1) {
+      setQuantityInputs((prev) => ({ ...prev, [item.id]: newQuantity.toString() }))
+      handleQuantityChange(item.id, newQuantity)
+    }
+  }, [handleQuantityChange])
+
+  const handleIncreaseQuantity = useCallback((item) => {
+    const newQuantity = (item.quantity || 1) + 1
+    setQuantityInputs((prev) => ({ ...prev, [item.id]: newQuantity.toString() }))
+    handleQuantityChange(item.id, newQuantity)
+  }, [handleQuantityChange])
+
+  const handleQuantityInputChange = useCallback((itemId, text) => {
+    setQuantityInputs((prev) => ({ ...prev, [itemId]: text }))
+  }, [])
+
+  const handleQuantityInputBlur = useCallback((itemId) => {
+    const currentValue = quantityInputs[itemId] || "1"
+    handleQuantityChange(itemId, currentValue)
+  }, [quantityInputs, handleQuantityChange])
+
+  const handleToggleUsePoints = useCallback((value) => {
     setUsePoints(value)
-    if (!value) {
-      // Turn off points usage
-      dispatch(applyPoints(0))
-      setNotificationMessage("Đã hủy sử dụng điểm")
-      setNotificationType("success")
-      return
-    }
+    
+    // Defer state updates to avoid useInsertionEffect conflicts
+    setTimeout(() => {
+      if (!value) {
+        if (typeof applyPoints === "function") {
+          dispatch(applyPoints(0))
+          setNotificationMessage("Đã hủy sử dụng điểm")
+          setNotificationType("success")
+        } else {
+          Alert.alert("Lỗi", "Không thể hủy sử dụng điểm do lỗi hệ thống.")
+        }
+        return
+      }
 
-    // Calculate maximum points that can be used
-    const subtotal = cartItems.reduce((sum, item) => sum + (item.price || 0) * (item.quantity || 1), 0)
-    const maxPoints = Math.min(userPoints, Math.floor(subtotal / 1000))
+      const subtotal = cartItems.reduce((sum, item) => sum + (item.price || 0) * (item.quantity || 1), 0)
+      const maxPoints = Math.min(userPoints, subtotal, 10000)
 
-    if (maxPoints <= 0) {
-      Alert.alert("Lỗi", "Không có điểm nào để sử dụng hoặc tổng đơn hàng không đủ.")
-      setUsePoints(false)
-      return
-    }
+      if (maxPoints <= 0) {
+        Alert.alert("Lỗi", "Không có điểm nào để sử dụng hoặc tổng đơn hàng không đủ.")
+        setUsePoints(false)
+        return
+      }
 
-    try {
-      // Assuming orderService.applyPoints exists
-      const result = await orderService.applyPoints(maxPoints)
-      if (result.success) {
+      if (typeof applyPoints === "function") {
         dispatch(applyPoints(maxPoints))
-        setNotificationMessage(`Đã áp dụng ${maxPoints} điểm (giảm ${maxPoints * 1000} đ)`)
+        setNotificationMessage(`Đã áp dụng ${maxPoints.toLocaleString("vi-VN")} điểm (giảm ${maxPoints.toLocaleString("vi-VN")} đ)`)
         setNotificationType("success")
       } else {
+        Alert.alert("Lỗi", "Không thể áp dụng điểm do lỗi hệ thống.")
         setUsePoints(false)
-        Alert.alert("Lỗi", result.message || "Không thể áp dụng điểm.")
       }
-    } catch (error) {
-      console.error("❌ Apply points error:", error.message, error.response?.data)
-      setUsePoints(false)
-      Alert.alert("Lỗi", "Có lỗi xảy ra khi áp dụng điểm. Vui lòng thử lại.")
-    }
-  }
+    }, 0)
+  }, [cartItems, userPoints, dispatch])
 
-  // Updated calculateTotal function without shipping fee
   const calculateTotal = () => {
     const subtotal = cartItems.reduce((sum, item) => sum + (item.price || 0) * (item.quantity || 1), 0)
-    const discount = pointsApplied * 1000
+    const discount = pointsApplied * 1
     return {
       subtotal,
       discount,
@@ -493,7 +544,6 @@ const CartScreen = ({ route, navigation }) => {
     )
   }
 
-  // Updated to use the new calculateTotal function
   const { subtotal, discount, total } = calculateTotal()
 
   const renderCartItem = ({ item }) => (
@@ -508,15 +558,24 @@ const CartScreen = ({ route, navigation }) => {
         <View style={styles.quantityContainer}>
           <TouchableOpacity
             style={[styles.quantityButton, item.quantity <= 1 && styles.quantityButtonDisabled]}
-            onPress={() => handleQuantityChange(item.id, (item.quantity || 1) - 1)}
+            onPress={() => handleDecreaseQuantity(item)}
             disabled={item.quantity <= 1}
           >
             <Text style={[styles.quantityButtonText, item.quantity <= 1 && styles.quantityButtonTextDisabled]}>−</Text>
           </TouchableOpacity>
-          <Text style={styles.quantityText}>{item.quantity || 1}</Text>
+          <TextInput
+            style={styles.quantityInput}
+            value={quantityInputs[item.id] || item.quantity.toString()}
+            onChangeText={(text) => handleQuantityInputChange(item.id, text)}
+            onBlur={() => handleQuantityInputBlur(item.id)}
+            keyboardType="numeric"
+            placeholder="1"
+            maxLength={3}
+            returnKeyType="done"
+          />
           <TouchableOpacity
             style={styles.quantityButton}
-            onPress={() => handleQuantityChange(item.id, (item.quantity || 1) + 1)}
+            onPress={() => handleIncreaseQuantity(item)}
           >
             <Text style={styles.quantityButtonText}>+</Text>
           </TouchableOpacity>
@@ -559,6 +618,11 @@ const CartScreen = ({ route, navigation }) => {
             thumbColor={usePoints ? "#fff" : "#f4f3f4"}
           />
         </View>
+        {usePoints && pointsApplied > 0 && (
+          <Text style={styles.pointsAppliedText}>
+            Điểm sử dụng: {pointsApplied.toLocaleString("vi-VN")} điểm
+          </Text>
+        )}
       </View>
       <View style={styles.totalContainer}>
         <View style={styles.totalRow}>
@@ -567,7 +631,7 @@ const CartScreen = ({ route, navigation }) => {
         </View>
         {discount > 0 && (
           <View style={styles.totalRow}>
-            <Text style={styles.discountLabel}>Giảm giá ({pointsApplied} điểm):</Text>
+            <Text style={styles.discountLabel}>Giảm giá ({pointsApplied.toLocaleString("vi-VN")} điểm):</Text>
             <Text style={styles.discountValue}>-{discount.toLocaleString("vi-VN")} đ</Text>
           </View>
         )}
@@ -579,7 +643,7 @@ const CartScreen = ({ route, navigation }) => {
       <TouchableOpacity
         style={styles.checkoutButton}
         onPress={() => {
-          console.log("🚀 Navigating to Payment with cartItems:", JSON.stringify(cartItems, null, 2))
+          console.log("🚀 Navigating to Payment with cartItems:", JSON.stringify({ cartItems, pointsApplied }, null, 2))
           navigation.navigate("Payment", { cartItems, pointsApplied })
         }}
       >
@@ -757,13 +821,17 @@ const styles = StyleSheet.create({
   quantityButtonTextDisabled: {
     color: "#ccc",
   },
-  quantityText: {
+  quantityInput: {
+    width: 50,
+    height: 32,
+    borderWidth: 1,
+    borderColor: "#e0e0e0",
+    borderRadius: 6,
+    textAlign: "center",
     fontSize: 16,
     color: "#333",
-    marginHorizontal: 12,
-    minWidth: 30,
-    textAlign: "center",
-    fontWeight: "500",
+    backgroundColor: "#f8f8f8",
+    marginHorizontal: 8,
   },
   removeButton: {
     padding: 8,
@@ -798,6 +866,12 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: "#333",
     fontWeight: "500",
+  },
+  pointsAppliedText: {
+    fontSize: 14,
+    color: "#E53935",
+    fontWeight: "500",
+    marginTop: 8,
   },
   totalContainer: {
     marginVertical: 15,
