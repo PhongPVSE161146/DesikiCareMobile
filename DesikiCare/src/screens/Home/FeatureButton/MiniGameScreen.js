@@ -26,25 +26,52 @@ const MiniGameListScreen = () => {
           throw new Error("Invalid game types response")
         }
 
-        // Filter only supported game types (spin wheel only)
+        // Filter supported game types (Spin Wheel, Scratch Card, MemoryCatching)
         const supportedGameTypes = gameTypesData.filter((type) => {
           const gameTypeId = Number(type._id || type.id)
-          return gameTypeId === 1 // Only spin wheel
+          return [1, 2, 3].includes(gameTypeId)
         })
 
         if (supportedGameTypes.length === 0) {
           throw new Error("Không có loại trò chơi nào được hỗ trợ")
         }
 
-        const mappedGameTypes = supportedGameTypes.map((type) => ({
-          ...type,
-          id: type._id || type.id,
-          _id: String(type._id || type.id),
-          displayName: type.displayName || type.name || "Quay trúng thưởng",
-          description: type.description || "Quay bánh xe để nhận điểm thưởng",
-          icon: "casino", // Material icon for spin wheel
-          isSupported: true,
-        }))
+        const mappedGameTypes = supportedGameTypes.map((type) => {
+          const gameTypeId = Number(type._id || type.id)
+          let displayName, description, icon
+
+          switch (gameTypeId) {
+            case 1:
+              displayName = type.displayName || type.name || "Quay trúng thưởng"
+              description = type.description || "Quay bánh xe để nhận điểm thưởng"
+              icon = "casino"
+              break
+            case 2:
+              displayName = type.displayName || type.name || "Cào thẻ"
+              description = type.description || "Cào thẻ để nhận phần thưởng bất ngờ"
+              icon = "card-giftcard"
+              break
+            case 3:
+              displayName = type.displayName || type.name || "MemoryCatching"
+              description = type.description || "Tìm các cặp hình giống nhau để kiếm điểm"
+              icon = "image-search"
+              break
+            default:
+              displayName = type.displayName || type.name || "Unknown Game"
+              description = type.description || "Trò chơi chưa xác định"
+              icon = "games"
+          }
+
+          return {
+            ...type,
+            id: type._id || type.id,
+            _id: String(type._id || type.id),
+            displayName,
+            description,
+            icon,
+            isSupported: true,
+          }
+        })
 
         setGameTypes(mappedGameTypes)
         setError(null)
@@ -65,17 +92,29 @@ const MiniGameListScreen = () => {
 
   const handleGameTypePress = (gameType) => {
     const gameTypeId = gameType._id || gameType.id
-
     console.log("🎮 Selected game type:", gameTypeId, gameType.displayName)
 
-    // Only support spin wheel game (gameTypeId = 1)
-    if (Number(gameTypeId) === 1) {
-      navigation.navigate("SpinWheelGame", {
-        gameTypeId: String(gameTypeId),
-        gameTypeName: gameType.displayName,
-      })
-    } else {
-      Alert.alert("Thông báo", 'Loại trò chơi này chưa được hỗ trợ. Hiện tại chỉ có "Quay trúng thưởng" khả dụng.')
+    switch (Number(gameTypeId)) {
+      case 1:
+        navigation.navigate("SpinWheelGame", {
+          gameTypeId: String(gameTypeId),
+          gameTypeName: gameType.displayName,
+        })
+        break
+      case 2:
+        navigation.navigate("ScratchCardGame", {
+          gameTypeId: String(gameTypeId),
+          gameTypeName: gameType.displayName,
+        })
+        break
+      case 3:
+        navigation.navigate("MatchPairGame", {
+          gameTypeId: String(gameTypeId),
+          gameTypeName: gameType.displayName,
+        })
+        break
+      default:
+        Alert.alert("Thông báo", "Loại trò chơi này chưa được hỗ trợ.")
     }
   }
 
@@ -86,7 +125,7 @@ const MiniGameListScreen = () => {
       disabled={!item.isSupported}
     >
       <View style={styles.gameIconContainer}>
-        <MaterialIcons name={item.icon || "casino"} size={40} color={item.isSupported ? "#4CAF50" : "#BDBDBD"} />
+        <MaterialIcons name={item.icon || "games"} size={40} color={item.isSupported ? "#4CAF50" : "#BDBDBD"} />
       </View>
 
       <View style={styles.gameInfo}>
@@ -114,7 +153,6 @@ const MiniGameListScreen = () => {
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Mini Games</Text>
           <View style={styles.headerRight}>
-          
           </View>
         </View>
 
@@ -133,21 +171,47 @@ const MiniGameListScreen = () => {
                 onPress={() => {
                   setError(null)
                   setLoading(true)
-                  // Reload game types
                   const loadGameTypes = async () => {
                     try {
                       const response = await fetchGameTypes()
                       const gameTypesData = response.gameTypes || []
-                      const supportedGameTypes = gameTypesData.filter((type) => Number(type._id || type.id) === 1)
-                      const mappedGameTypes = supportedGameTypes.map((type) => ({
-                        ...type,
-                        id: type._id || type.id,
-                        _id: String(type._id || type.id),
-                        displayName: type.displayName || type.name || "Quay trúng thưởng",
-                        description: type.description || "Quay bánh xe để nhận điểm thưởng",
-                        icon: "casino",
-                        isSupported: true,
-                      }))
+                      const supportedGameTypes = gameTypesData.filter((type) => [1, 2, 3].includes(Number(type._id || type.id)))
+                      const mappedGameTypes = supportedGameTypes.map((type) => {
+                        const gameTypeId = Number(type._id || type.id)
+                        let displayName, description, icon
+
+                        switch (gameTypeId) {
+                          case 1:
+                            displayName = type.displayName || type.name || "Quay trúng thưởng"
+                            description = type.description || "Quay bánh xe để nhận điểm thưởng"
+                            icon = "casino"
+                            break
+                          case 2:
+                            displayName = type.displayName || type.name || "Cào thẻ"
+                            description = type.description || "Cào thẻ để nhận phần thưởng bất ngờ"
+                            icon = "card-giftcard"
+                            break
+                          case 3:
+                            displayName = type.displayName || type.name || "MemoryCatching"
+                            description = type.description || "Tìm các cặp hình giống nhau để kiếm điểm"
+                            icon = "image-search"
+                            break
+                          default:
+                            displayName = type.displayName || type.name || "Unknown Game"
+                            description = type.description || "Trò chơi chưa xác định"
+                            icon = "games"
+                        }
+
+                        return {
+                          ...type,
+                          id: type._id || type.id,
+                          _id: String(type._id || type.id),
+                          displayName,
+                          description,
+                          icon,
+                          isSupported: true,
+                        }
+                      })
                       setGameTypes(mappedGameTypes)
                       setError(null)
                     } catch (err) {
@@ -224,9 +288,6 @@ const styles = StyleSheet.create({
   },
   headerRight: {
     flexDirection: "row",
-  },
-  historyButton: {
-    padding: 8,
   },
   content: {
     flex: 1,

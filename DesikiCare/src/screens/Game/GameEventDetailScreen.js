@@ -3,7 +3,7 @@ import { View, Text, Image, ScrollView, StyleSheet, ActivityIndicator, Alert, To
 import { useRoute, useNavigation } from "@react-navigation/native"
 import { MaterialIcons } from "@expo/vector-icons"
 import { SafeAreaView } from "react-native-safe-area-context"
-import { fetchGameEventById, canSpinWheel, getGameEventStatusText } from "../../config/axios/MiniGame/minigameService"
+import { fetchGameEventById, canPlay, getGameEventStatusText } from "../../config/axios/MiniGame/minigameService"
 
 const GameEventDetailScreen = () => {
   const route = useRoute()
@@ -18,24 +18,29 @@ const GameEventDetailScreen = () => {
     const loadGameEvent = async () => {
       try {
         setLoading(true)
-     
+        console.log("🎮 Loading game event for ID:", gameEventId)
 
         const response = await fetchGameEventById(gameEventId)
-      
+        console.log("🎮 fetchGameEventById response:", JSON.stringify(response, null, 2))
 
         setGameEventData(response)
         setError(null)
       } catch (err) {
         const errorMessage = err.message || "Không thể tải thông tin sự kiện"
-        // console.error("❌ Error loading game event:", err)
+        console.error("❌ Error loading game event:", err)
         setError(errorMessage)
-        // Alert.alert("Lỗi", errorMessage)
+        Alert.alert("Lỗi", errorMessage)
       } finally {
         setLoading(false)
       }
     }
 
-    loadGameEvent()
+    if (gameEventId) {
+      loadGameEvent()
+    } else {
+      setError("Không tìm thấy ID sự kiện")
+      setLoading(false)
+    }
   }, [gameEventId])
 
   const formatDate = (dateString) => {
@@ -62,19 +67,74 @@ const GameEventDetailScreen = () => {
     }
   }
 
+  const getGameIcon = (gameTypeId) => {
+    switch (Number(gameTypeId)) {
+      case 1:
+        return "casino"
+      case 2:
+        return "card-giftcard"
+      case 3:
+        return "image-search"
+      default:
+        return "games"
+    }
+  }
+
+  const getPlayTerminology = (gameTypeId) => {
+    switch (Number(gameTypeId)) {
+      case 1:
+        return "Lượt quay"
+      case 2:
+        return "Lượt cào"
+      case 3:
+        return "Lượt chơi"
+      default:
+        return "Lượt chơi"
+    }
+  }
+
+  const getGameTag = (gameTypeId) => {
+    switch (Number(gameTypeId)) {
+      case 1:
+        return "Quay thưởng"
+      case 2:
+        return "Cào thẻ"
+      case 3:
+        return "Tìm hình"
+      default:
+        return "Trò chơi"
+    }
+  }
+
   const handlePlayGame = () => {
     if (!gameEventData?.gameEvent) return
 
     const gameEvent = gameEventData.gameEvent
+    const gameTypeId = Number(gameEvent.gameTypeId)
 
-    if (!canSpinWheel(gameEvent)) {
+    if (!canPlay(gameEvent)) {
       const statusText = getGameEventStatusText(gameEvent)
-      // Alert.alert("Không thể chơi", `Trạng thái: ${statusText}`)
+      Alert.alert("Không thể chơi", `Trạng thái: ${statusText}`)
       return
     }
 
-    // Navigate to spin wheel game with specific event
-    navigation.navigate("SpinWheelGame", {
+    let targetScreen
+    switch (gameTypeId) {
+      case 1:
+        targetScreen = "SpinWheelGame"
+        break
+      case 2:
+        targetScreen = "ScratchCardGame"
+        break
+      case 3:
+        targetScreen = "MatchPairGame"
+        break
+      default:
+        Alert.alert("Thông báo", "Loại trò chơi này chưa được hỗ trợ.")
+        return
+    }
+
+    navigation.navigate(targetScreen, {
       gameTypeId: String(gameEvent.gameTypeId),
       gameTypeName: gameEvent.gameTypeName,
       gameEventId: gameEvent._id,
@@ -91,7 +151,7 @@ const GameEventDetailScreen = () => {
         return "#FF5722"
       case "upcoming":
         return "#FF9800"
-      case "no_spins_left":
+      case "no_plays_left":
         return "#9C27B0"
       case "deactivated":
         return "#757575"
@@ -104,13 +164,7 @@ const GameEventDetailScreen = () => {
     return (
       <SafeAreaView style={styles.safeContainer}>
         <View style={styles.container}>
-          <View style={styles.header}>
-            <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-              <MaterialIcons name="arrow-back" size={24} color="#fff" />
-            </TouchableOpacity>
-            <Text style={styles.headerTitle}>Chi tiết sự kiện</Text>
-            <View style={styles.headerRight} />
-          </View>
+    
 
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color="#4CAF50" />
@@ -125,14 +179,7 @@ const GameEventDetailScreen = () => {
     return (
       <SafeAreaView style={styles.safeContainer}>
         <View style={styles.container}>
-          {/* <View style={styles.header}>
-            <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-              <MaterialIcons name="arrow-back" size={24} color="#fff" />
-            </TouchableOpacity>
-            <Text style={styles.headerTitle}>Chi tiết sự kiện</Text>
-            <View style={styles.headerRight} />
-          </View> */}
-
+   
           <View style={styles.errorContainer}>
             <MaterialIcons name="error-outline" size={64} color="#ff4444" />
             <Text style={styles.errorText}>{error || "Không tìm thấy thông tin sự kiện"}</Text>
@@ -147,11 +194,11 @@ const GameEventDetailScreen = () => {
 
   const { gameEvent, gameEventRewardResults, gameTypeImageUrls } = gameEventData
   const config = gameEvent.parsedConfig || {}
+  const gameTypeId = Number(gameEvent.gameTypeId)
 
   return (
     <SafeAreaView style={styles.safeContainer}>
       <View style={styles.container}>
-        {/* Header */}
        
 
         <ScrollView style={styles.scrollContainer} showsVerticalScrollIndicator={false}>
@@ -161,7 +208,7 @@ const GameEventDetailScreen = () => {
               <Image source={{ uri: gameEvent.imageUrl }} style={styles.eventImage} resizeMode="cover" />
             ) : (
               <View style={styles.placeholderImage}>
-                <MaterialIcons name="casino" size={48} color="#BDBDBD" />
+                <MaterialIcons name={getGameIcon(gameTypeId)} size={48} color="#BDBDBD" />
                 <Text style={styles.placeholderText}>Không có hình ảnh</Text>
               </View>
             )}
@@ -192,8 +239,8 @@ const GameEventDetailScreen = () => {
             {/* Event Tags */}
             <View style={styles.tagsContainer}>
               <View style={styles.tag}>
-                <MaterialIcons name="casino" size={14} color="#4CAF50" />
-                <Text style={styles.tagText}>Quay thưởng</Text>
+                <MaterialIcons name={getGameIcon(gameTypeId)} size={14} color="#4CAF50" />
+                <Text style={styles.tagText}>{getGameTag(gameTypeId)}</Text>
               </View>
               {gameEvent.isActive && (
                 <View style={[styles.tag, styles.activeTag]}>
@@ -208,9 +255,9 @@ const GameEventDetailScreen = () => {
           <View style={styles.statsContainer}>
             <View style={styles.statItem}>
               <View style={styles.statIconContainer}>
-                <MaterialIcons name="casino" size={24} color="#4CAF50" />
+                <MaterialIcons name={getGameIcon(gameTypeId)} size={24} color="#4CAF50" />
               </View>
-              <Text style={styles.statLabel}>Lượt quay còn lại</Text>
+              <Text style={styles.statLabel}>{getPlayTerminology(gameTypeId)} còn lại</Text>
               <Text style={styles.statValue}>{gameEvent.remainingPlays}</Text>
             </View>
 
@@ -290,20 +337,44 @@ const GameEventDetailScreen = () => {
               </Text>
             </View>
 
-            <View style={styles.detailRow}>
-              <View style={styles.detailIcon}>
-                <MaterialIcons name="pie-chart" size={18} color="#666" />
+            {gameTypeId === 1 && (
+              <View style={styles.detailRow}>
+                <View style={styles.detailIcon}>
+                  <MaterialIcons name="pie-chart" size={18} color="#666" />
+                </View>
+                <Text style={styles.detailLabel}>Số sectors:</Text>
+                <Text style={styles.detailValue}>{config.numOfSectors || "N/A"}</Text>
               </View>
-              <Text style={styles.detailLabel}>Số sectors:</Text>
-              <Text style={styles.detailValue}>{config.numOfSectors || "N/A"}</Text>
-            </View>
+            )}
+
+            {gameTypeId === 2 && (
+              <View style={styles.detailRow}>
+                <View style={styles.detailIcon}>
+                  <MaterialIcons name="card-giftcard" size={18} color="#666" />
+                </View>
+                <Text style={styles.detailLabel}>Số thẻ cào:</Text>
+                <Text style={styles.detailValue}>{config.numOfScratchs || "N/A"}</Text>
+              </View>
+            )}
+
+            {gameTypeId === 3 && (
+              <View style={styles.detailRow}>
+                <View style={styles.detailIcon}>
+                  <MaterialIcons name="image-search" size={18} color="#666" />
+                </View>
+                <Text style={styles.detailLabel}>Số cặp hình:</Text>
+                <Text style={styles.detailValue}>{config.numOfPairs || "N/A"}</Text>
+              </View>
+            )}
 
             <View style={styles.detailRow}>
               <View style={styles.detailIcon}>
                 <MaterialIcons name="repeat" size={18} color="#666" />
               </View>
-              <Text style={styles.detailLabel}>Lượt quay tối đa:</Text>
-              <Text style={styles.detailValue}>{config.maxSpin || "N/A"}</Text>
+              <Text style={styles.detailLabel}>{getPlayTerminology(gameTypeId)} tối đa:</Text>
+              <Text style={styles.detailValue}>
+                {gameTypeId === 1 ? config.maxSpin : gameTypeId === 2 ? config.maxScratch : config.maxPlay || "N/A"}
+              </Text>
             </View>
 
             <View style={styles.detailRow}>
@@ -315,25 +386,52 @@ const GameEventDetailScreen = () => {
             </View>
           </View>
 
-          {/* Wheel Configuration */}
-          {config.sectors && config.sectors.length > 0 && (
+          {/* Game Configuration */}
+          {(config.sectors || config.cards || config.pairs) && (
             <View style={styles.configContainer}>
               <Text style={styles.sectionTitle}>
-                <MaterialIcons name="settings" size={20} color="#333" /> Cấu hình vòng quay
+                <MaterialIcons name="settings" size={20} color="#333" /> Cấu hình trò chơi
               </Text>
 
-              {config.sectors.map((sector, index) => (
-                <View key={index} style={styles.sectorItem}>
-                  <View style={[styles.sectorColor, { backgroundColor: sector.color }]} />
-                  <View style={styles.sectorInfo}>
-                    <Text style={styles.sectorLabel}>{sector.label}</Text>
-                    <Text style={styles.sectorValue}>{sector.value} điểm</Text>
+              {gameTypeId === 1 && config.sectors && config.sectors.length > 0 && (
+                config.sectors.map((sector, index) => (
+                  <View key={index} style={styles.sectorItem}>
+                    <View style={[styles.sectorColor, { backgroundColor: sector.color }]} />
+                    <View style={styles.sectorInfo}>
+                      <Text style={styles.sectorLabel}>{sector.label}</Text>
+                      <Text style={styles.sectorValue}>{sector.value} điểm</Text>
+                    </View>
+                    <View style={styles.sectorChance}>
+                      <Text style={styles.sectorChanceText}>{Math.round((1 / config.sectors.length) * 100)}%</Text>
+                    </View>
                   </View>
-                  <View style={styles.sectorChance}>
-                    <Text style={styles.sectorChanceText}>{Math.round((1 / config.sectors.length) * 100)}%</Text>
+                ))
+              )}
+
+              {gameTypeId === 2 && config.cards && config.cards.length > 0 && (
+                config.cards.map((card, index) => (
+                  <View key={index} style={styles.sectorItem}>
+                    <View style={styles.sectorInfo}>
+                      <Text style={styles.sectorLabel}>{card.label}</Text>
+                      <Text style={styles.sectorValue}>{card.value} điểm</Text>
+                    </View>
+                    <View style={styles.sectorChance}>
+                      <Text style={styles.sectorChanceText}>{Math.round((1 / config.cards.length) * 100)}%</Text>
+                    </View>
                   </View>
-                </View>
-              ))}
+                ))
+              )}
+
+              {gameTypeId === 3 && config.pairs && config.pairs.length > 0 && (
+                config.pairs.map((pair, index) => (
+                  <View key={index} style={styles.sectorItem}>
+                    <View style={styles.sectorInfo}>
+                      <Text style={styles.sectorLabel}>Cặp {index + 1}</Text>
+                      <Text style={styles.sectorValue}>{pair.originalPoint} điểm</Text>
+                    </View>
+                  </View>
+                ))
+              )}
             </View>
           )}
 
@@ -378,13 +476,13 @@ const GameEventDetailScreen = () => {
         {gameEvent && (
           <View style={styles.playButtonContainer}>
             <TouchableOpacity
-              style={[styles.playButton, !canSpinWheel(gameEvent) && styles.disabledPlayButton]}
+              style={[styles.playButton, !canPlay(gameEvent) && styles.disabledPlayButton]}
               onPress={handlePlayGame}
-              disabled={!canSpinWheel(gameEvent)}
+              disabled={!canPlay(gameEvent)}
             >
-              <MaterialIcons name="casino" size={24} color="#fff" />
+              <MaterialIcons name={getGameIcon(gameTypeId)} size={24} color="#fff" />
               <Text style={styles.playButtonText}>
-                {canSpinWheel(gameEvent) ? "Chơi ngay" : getGameEventStatusText(gameEvent)}
+                {canPlay(gameEvent) ? "Chơi ngay" : getGameEventStatusText(gameEvent)}
               </Text>
             </TouchableOpacity>
           </View>
@@ -426,9 +524,6 @@ const styles = StyleSheet.create({
     flex: 1,
     textAlign: "center",
     marginHorizontal: 16,
-  },
-  historyButton: {
-    padding: 8,
   },
   headerRight: {
     width: 40,

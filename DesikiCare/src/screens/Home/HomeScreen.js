@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { View, FlatList, StyleSheet } from 'react-native';
+import React, { useEffect, useState, useCallback } from 'react';
+import { View, FlatList, StyleSheet, TouchableOpacity, Text } from 'react-native';
 import ProductList from '../../components/ProductComponnets/ProductList';
 import FeatureButton from '../../components/HomeComponents/FeatureButton';
 import FeaturedBrandsCarousel from '../../components/HomeComponents/FeaturedBrandsCarousel';
@@ -8,6 +8,7 @@ import CustomHeader from '../../components/Header/CustomHeader';
 import Notification from '../../components/NotiComponnets/Notification';
 import PromoCarousel from '../../components/HomeComponents/PromoCarousel';
 import { useSelector } from 'react-redux';
+import { useFocusEffect } from '@react-navigation/native';
 
 const features = [
   { title: 'Danh Mục', icon: <MaterialIcons name="menu" size={28} color="#555" /> },
@@ -19,8 +20,10 @@ const features = [
 const HomeScreen = ({ navigation, route }) => {
   const [notificationMessage, setNotificationMessage] = useState(route.params?.notification?.message || '');
   const [notificationType, setNotificationType] = useState(route.params?.notification?.type || 'success');
+  const [reloadTrigger, setReloadTrigger] = useState(0); // Trigger for reloading components
   const user = useSelector((state) => state.auth.user);
 
+  // Handle notification auto-dismiss
   useEffect(() => {
     if (notificationMessage) {
       const timer = setTimeout(() => {
@@ -30,6 +33,30 @@ const HomeScreen = ({ navigation, route }) => {
       return () => clearTimeout(timer);
     }
   }, [notificationMessage]);
+
+  // Reload function to trigger data refresh
+  const reload = useCallback(() => {
+    setReloadTrigger((prev) => prev + 1); // Increment to trigger re-fetch in components
+    // Reset notifications from route params
+    setNotificationMessage(route.params?.notification?.message || '');
+    setNotificationType(route.params?.notification?.type || 'success');
+  }, [route.params]);
+
+  // Auto-reload when screen is focused
+  useFocusEffect(
+    useCallback(() => {
+      let isActive = true;
+      const timer = setTimeout(() => {
+        if (isActive) {
+          reload(); // Trigger reload on focus
+        }
+      }, 0);
+      return () => {
+        isActive = false;
+        clearTimeout(timer);
+      };
+    }, [reload])
+  );
 
   const handlePress = (title) => {
     switch (title) {
@@ -66,7 +93,7 @@ const HomeScreen = ({ navigation, route }) => {
         }}
         style={styles.notification}
       />
-      <PromoCarousel style={styles.promoCarousel} />
+      <PromoCarousel style={styles.promoCarousel} reloadTrigger={reloadTrigger} />
       <View style={styles.featureContainer}>
         {features.map((feature, index) => (
           <FeatureButton
@@ -78,7 +105,11 @@ const HomeScreen = ({ navigation, route }) => {
           />
         ))}
       </View>
-      <FeaturedBrandsCarousel style={styles.featuredBrands} />
+      <FeaturedBrandsCarousel style={styles.featuredBrands} reloadTrigger={reloadTrigger} />
+      <TouchableOpacity style={styles.refreshButton} onPress={reload}>
+        <MaterialIcons name="refresh" size={24} color="#fff" />
+        <Text style={styles.refreshButtonText}>Làm mới</Text>
+      </TouchableOpacity>
     </View>
   );
 
@@ -91,7 +122,7 @@ const HomeScreen = ({ navigation, route }) => {
         renderItem={() => null}
         keyExtractor={() => 'dummy'}
         contentContainerStyle={styles.scrollContainer}
-        ListFooterComponent={<ProductList navigation={navigation} />}
+        ListFooterComponent={<ProductList navigation={navigation} reloadTrigger={reloadTrigger} />}
         initialNumToRender={10}
         maxToRenderPerBatch={10}
       />
@@ -138,6 +169,28 @@ const styles = StyleSheet.create({
   featuredBrands: {
     marginVertical: 8,
     zIndex: 5,
+  },
+  refreshButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#E53935',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    marginVertical: 8,
+    marginHorizontal: 8,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  refreshButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 14,
+    marginLeft: 8,
   },
 });
 

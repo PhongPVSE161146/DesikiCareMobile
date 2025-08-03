@@ -31,8 +31,8 @@ import RewardsScreen from '../screens/Game/RewardsScreen';
 // import GameEventDetailScreen from '../screens/Game/GameEventDetailScreen';
 // import FillBlankGame from '../screens/Game/FillBlankGame';
 import SpinWheelGame from '../screens/Game/SpinWheelGame';
-// import ScratchCardGame from '../screens/Game/ScratchCardGame';
-// import MatchPairGame from '../screens/Game/MatchPairGame';
+import ScratchCardGame from '../screens/Game/ScratchCardGame';
+import MatchPairGame from '../screens/Game/MatchPairGame';
 
 
 const Stack = createStackNavigator();
@@ -246,7 +246,7 @@ const AppNavigator = () => {
               headerTitleStyle: { fontWeight: 'bold' },
             }}
             />
-          {/* <Stack.Screen name="ScratchCardGame" component={ScratchCardGame}
+         <Stack.Screen name="ScratchCardGame" component={ScratchCardGame}
            options={{
               headerShown: true,
               title: 'Cào thẻ',
@@ -264,15 +264,7 @@ const AppNavigator = () => {
               headerTitleStyle: { fontWeight: 'bold' },
             }}
             />
-          <Stack.Screen name="FillBlankGame" component={FillBlankGame}
-           options={{
-              headerShown: true,
-              title: 'Điền từ',
-              headerStyle: { backgroundColor: '#5dd36dff' },
-              headerTintColor: '#fff',
-              headerTitleStyle: { fontWeight: 'bold' },
-            }}
-            /> */}
+     
           <Stack.Screen name="GameEventDetail" component={GameEventDetailScreen}
             options={{
               headerShown: true,

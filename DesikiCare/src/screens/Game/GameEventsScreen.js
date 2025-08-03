@@ -13,7 +13,7 @@ import {
 import { useNavigation } from "@react-navigation/native"
 import { MaterialIcons } from "@expo/vector-icons"
 import { SafeAreaView } from "react-native-safe-area-context"
-import { fetchGameEvents, canSpinWheel, getGameEventStatusText } from "../../config/axios/MiniGame/minigameService"
+import { fetchGameEvents, canPlay, getGameEventStatusText } from "../../config/axios/MiniGame/minigameService"
 
 const GameEventsScreen = () => {
   const navigation = useNavigation()
@@ -36,15 +36,15 @@ const GameEventsScreen = () => {
         throw new Error("Invalid game events response")
       }
 
-      // Filter only spin wheel events (gameTypeId = 1)
-      const spinWheelEvents = gameEventsData.filter((eventWrapper) => {
+      // Filter supported game types (Spin Wheel, Scratch Card, MemoryCatching)
+      const supportedGameEvents = gameEventsData.filter((eventWrapper) => {
         const gameEvent = eventWrapper.gameEvent
-        return gameEvent && Number(gameEvent.gameTypeId) === 1
+        return gameEvent && [1, 2, 3].includes(Number(gameEvent.gameTypeId))
       })
 
-      console.log(`✅ Loaded ${spinWheelEvents.length} spin wheel game events`)
+      console.log(`✅ Loaded ${supportedGameEvents.length} supported game events`)
 
-      setGameEvents(spinWheelEvents)
+      setGameEvents(supportedGameEvents)
       setError(null)
     } catch (err) {
       const errorMessage = err.message || "Không thể tải danh sách sự kiện"
@@ -85,14 +85,31 @@ const GameEventsScreen = () => {
     const gameEvent = eventWrapper.gameEvent
     if (!gameEvent) return
 
-    if (!canSpinWheel(gameEvent)) {
+    if (!canPlay(gameEvent)) {
       const statusText = getGameEventStatusText(gameEvent)
       Alert.alert("Không thể chơi", `Trạng thái: ${statusText}`)
       return
     }
 
-    // Navigate directly to spin wheel game
-    navigation.navigate("SpinWheelGame", {
+    // Navigate to the appropriate game screen based on gameTypeId
+    const gameTypeId = Number(gameEvent.gameTypeId)
+    let targetScreen
+    switch (gameTypeId) {
+      case 1:
+        targetScreen = "SpinWheelGame"
+        break
+      case 2:
+        targetScreen = "ScratchCardGame"
+        break
+      case 3:
+        targetScreen = "MemoryCatchingGame"
+        break
+      default:
+        Alert.alert("Thông báo", "Loại trò chơi này chưa được hỗ trợ.")
+        return
+    }
+
+    navigation.navigate(targetScreen, {
       gameTypeId: String(gameEvent.gameTypeId),
       gameTypeName: gameEvent.gameTypeName,
       gameEventId: gameEvent._id,
@@ -109,12 +126,38 @@ const GameEventsScreen = () => {
         return "#FF5722"
       case "upcoming":
         return "#FF9800"
-      case "no_spins_left":
+      case "no_plays_left":
         return "#9C27B0"
       case "deactivated":
         return "#757575"
       default:
         return "#666"
+    }
+  }
+
+  const getGameIcon = (gameTypeId) => {
+    switch (Number(gameTypeId)) {
+      case 1:
+        return "casino"
+      case 2:
+        return "card-giftcard"
+      case 3:
+        return "image-search"
+      default:
+        return "games"
+    }
+  }
+
+  const getPlayTerminology = (gameTypeId) => {
+    switch (Number(gameTypeId)) {
+      case 1:
+        return "lượt quay"
+      case 2:
+        return "lượt cào"
+      case 3:
+        return "lượt chơi"
+      default:
+        return "lượt"
     }
   }
 
@@ -130,7 +173,7 @@ const GameEventsScreen = () => {
             <Image source={{ uri: imageUrl }} style={styles.gameImage} resizeMode="cover" />
           ) : (
             <View style={[styles.gameImage, styles.placeholderImage]}>
-              <MaterialIcons name="casino" size={32} color="#BDBDBD" />
+              <MaterialIcons name={getGameIcon(gameEvent.gameTypeId)} size={32} color="#BDBDBD" />
               <Text style={styles.placeholderText}>Không có ảnh</Text>
             </View>
           )}
@@ -147,7 +190,7 @@ const GameEventsScreen = () => {
             {gameEvent.eventName || "Sự kiện trò chơi"}
           </Text>
 
-          <Text style={styles.gameType}>{gameEvent.gameTypeName || "Quay trúng thưởng"}</Text>
+          <Text style={styles.gameType}>{gameEvent.gameTypeName || "Trò chơi"}</Text>
 
           {gameEvent.description && (
             <Text style={styles.gameDescription} numberOfLines={2}>
@@ -158,8 +201,10 @@ const GameEventsScreen = () => {
           {/* Game Stats */}
           <View style={styles.statsRow}>
             <View style={styles.statItem}>
-              <MaterialIcons name="casino" size={16} color="#4CAF50" />
-              <Text style={styles.statText}>{gameEvent.remainingPlays} lượt</Text>
+              <MaterialIcons name={getGameIcon(gameEvent.gameTypeId)} size={16} color="#4CAF50" />
+              <Text style={styles.statText}>
+                {gameEvent.remainingPlays} {getPlayTerminology(gameEvent.gameTypeId)}
+              </Text>
             </View>
 
             <View style={styles.statItem}>
@@ -188,12 +233,12 @@ const GameEventsScreen = () => {
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={[styles.playButton, !canSpinWheel(gameEvent) && styles.disabledPlayButton]}
+              style={[styles.playButton, !canPlay(gameEvent) && styles.disabledPlayButton]}
               onPress={() => handlePlayGame(item)}
-              disabled={!canSpinWheel(gameEvent)}
+              disabled={!canPlay(gameEvent)}
             >
-              <MaterialIcons name="casino" size={16} color="#fff" />
-              <Text style={styles.playButtonText}>{canSpinWheel(gameEvent) ? "Chơi ngay" : "Không thể chơi"}</Text>
+              <MaterialIcons name={getGameIcon(gameEvent.gameTypeId)} size={16} color="#fff" />
+              <Text style={styles.playButtonText}>{canPlay(gameEvent) ? "Chơi ngay" : "Không thể chơi"}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -203,7 +248,7 @@ const GameEventsScreen = () => {
 
   const renderEmptyState = () => (
     <View style={styles.emptyContainer}>
-      <MaterialIcons name="casino" size={64} color="#BDBDBD" />
+      <MaterialIcons name="games" size={64} color="#BDBDBD" />
       <Text style={styles.emptyTitle}>Không có sự kiện nào</Text>
       <Text style={styles.emptyText}>Hiện tại chưa có sự kiện trò chơi nào đang diễn ra.</Text>
       <TouchableOpacity style={styles.retryButton} onPress={() => loadGameEvents()}>
@@ -230,10 +275,7 @@ const GameEventsScreen = () => {
       <View style={styles.container}>
         {/* Header */}
         <View style={styles.header}>
-       
           <Text style={styles.headerTitle}>Sự kiện trò chơi</Text>
-       
-
         </View>
 
         {/* Content */}
@@ -298,9 +340,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 4,
   },
-  backButton: {
-    padding: 8,
-  },
   headerTitle: {
     fontSize: 20,
     fontWeight: "600",
@@ -308,9 +347,6 @@ const styles = StyleSheet.create({
     flex: 1,
     textAlign: "center",
     marginHorizontal: 16,
-  },
-  historyButton: {
-    padding: 8,
   },
   content: {
     flex: 1,

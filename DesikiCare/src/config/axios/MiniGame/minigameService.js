@@ -2,9 +2,11 @@ import AsyncStorage from "@react-native-async-storage/async-storage"
 import axios from "axios"
 import { API_URL_LOGIN } from "@env"
 
-// Chỉ có spin wheel game
+// Define game types
 const GAME_TYPES = {
   1: "Quay trúng thưởng",
+  2: "Cào thẻ",
+  3: "MemoryCatching",
 }
 
 // Function to parse and validate spin wheel configJson
@@ -14,10 +16,8 @@ const parseSpinWheelConfig = (configJson) => {
       return getDefaultSpinConfig()
     }
 
-    // If configJson is already an object, use it directly
     const config = typeof configJson === "string" ? JSON.parse(configJson) : configJson
 
-    // Validate required fields for spin wheel
     const requiredFields = ["numOfSectors", "sectors", "maxSpin"]
 
     for (const field of requiredFields) {
@@ -26,13 +26,11 @@ const parseSpinWheelConfig = (configJson) => {
       }
     }
 
-    // Validate sectors array
     if (!Array.isArray(config.sectors) || config.sectors.length !== config.numOfSectors) {
       return getDefaultSpinConfig()
     }
 
-    // Validate each sector
-    const validatedSectors = config.sectors.map((sector, index) => {
+    const validatedSectors = config.sectors.map((sector) => {
       const requiredSectorFields = ["value", "label", "color"]
 
       for (const field of requiredSectorFields) {
@@ -48,9 +46,7 @@ const parseSpinWheelConfig = (configJson) => {
 
       return {
         ...sector,
-        // Ensure text color exists
         text: sector.text || "#ffffff",
-        // Ensure value is number
         value: Number(sector.value) || 0,
       }
     })
@@ -62,12 +58,110 @@ const parseSpinWheelConfig = (configJson) => {
       isDuplicate: config.isDuplicate !== undefined ? Boolean(config.isDuplicate) : true,
       spinDuration: Number(config.spinDuration) || 3000,
       minSpins: Number(config.minSpins) || 3,
-      // Additional spin wheel settings
       enableSound: config.enableSound !== undefined ? Boolean(config.enableSound) : true,
       showConfetti: config.showConfetti !== undefined ? Boolean(config.showConfetti) : true,
     }
   } catch (error) {
     return getDefaultSpinConfig()
+  }
+}
+
+// Function to parse and validate scratch card configJson
+const parseScratchCardConfig = (configJson) => {
+  try {
+    if (!configJson) {
+      return getDefaultScratchCardConfig()
+    }
+
+    const config = typeof configJson === "string" ? JSON.parse(configJson) : configJson
+
+    const requiredFields = ["numOfScratchs", "maxScratch", "backCoverImg", "cards"]
+
+    for (const field of requiredFields) {
+      if (!config[field]) {
+        return getDefaultScratchCardConfig()
+      }
+    }
+
+    if (!Array.isArray(config.cards) || config.cards.length < 1) {
+      return getDefaultScratchCardConfig()
+    }
+
+    const validatedCards = config.cards.map((card) => {
+      const requiredCardFields = ["label", "text", "img", "point"]
+
+      for (const field of requiredCardFields) {
+        if (card[field] === undefined || card[field] === null) {
+          return {
+            label: "10 points",
+            text: "#ffffff",
+            img: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwADZQGO4rB7WQAAAABJRU5ErkJggg==",
+            point: 10,
+          }
+        }
+      }
+
+      return {
+        ...card,
+        point: Number(card.point) || 0,
+      }
+    })
+
+    return {
+      numOfScratchs: Number(config.numOfScratchs) || 3,
+      maxScratch: Number(config.maxScratch) || 2,
+      backCoverImg: config.backCoverImg,
+      cards: validatedCards,
+      enableSound: config.enableSound !== undefined ? Boolean(config.enableSound) : true,
+    }
+  } catch (error) {
+    return getDefaultScratchCardConfig()
+  }
+}
+
+// Function to parse and validate memory catching configJson
+const parseMemoryCatchingConfig = (configJson) => {
+  try {
+    if (!configJson) {
+      return getDefaultMemoryCatchingConfig()
+    }
+
+    const config = typeof configJson === "string" ? JSON.parse(configJson) : configJson
+
+    const requiredFields = ["numOfPairs", "backCoverImg", "originalPoint", "minusPoint", "pairs"]
+
+    for (const field of requiredFields) {
+      if (!config[field]) {
+        return getDefaultMemoryCatchingConfig()
+      }
+    }
+
+    if (!Array.isArray(config.pairs) || config.pairs.length !== config.numOfPairs * 2) {
+      return getDefaultMemoryCatchingConfig()
+    }
+
+    const validatedPairs = config.pairs.map((pair) => {
+      if (!pair.img) {
+        return {
+          img: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwADZQGO4rB7WQAAAABJRU5ErkJggg==",
+        }
+      }
+
+      return {
+        ...pair,
+      }
+    })
+
+    return {
+      numOfPairs: Number(config.numOfPairs) || 2,
+      backCoverImg: config.backCoverImg,
+      originalPoint: Number(config.originalPoint) || 100,
+      minusPoint: Number(config.minusPoint) || 10,
+      pairs: validatedPairs,
+      enableSound: config.enableSound !== undefined ? Boolean(config.enableSound) : true,
+    }
+  } catch (error) {
+    return getDefaultMemoryCatchingConfig()
   }
 }
 
@@ -87,6 +181,48 @@ const getDefaultSpinConfig = () => ({
   enableSound: true,
   showConfetti: true,
 })
+
+// Default scratch card configuration
+const getDefaultScratchCardConfig = () => ({
+  numOfScratchs: 3,
+  maxScratch: 2,
+  backCoverImg: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwADZQGO4rB7WQAAAABJRU5ErkJggg==",
+  cards: [
+    { label: "10 points", text: "#ffffff", img: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwADZQGO4rB7WQAAAABJRU5ErkJggg==", point: 10 },
+    { label: "20 points", text: "#ffffff", img: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwADZQGO4rB7WQAAAABJRU5ErkJggg==", point: 20 },
+    { label: "50 points", text: "#ffffff", img: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwADZQGO4rB7WQAAAABJRU5ErkJggg==", point: 50 },
+  ],
+  enableSound: true,
+})
+
+// Default memory catching configuration
+const getDefaultMemoryCatchingConfig = () => ({
+  numOfPairs: 2,
+  backCoverImg: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwADZQGO4rB7WQAAAABJRU5ErkJggg==",
+  originalPoint: 100,
+  minusPoint: 10,
+  pairs: [
+    { img: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwADZQGO4rB7WQAAAABJRU5ErkJggg==" },
+    { img: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwADZQGO4rB7WQAAAABJRU5ErkJggg==" },
+    { img: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8DwHwAE5AGOr3Z3YgAAAABJRU5ErkJggg==" },
+    { img: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8DwHwAE5AGOr3Z3YgAAAABJRU5ErkJggg==" },
+  ],
+  enableSound: true,
+})
+
+// Function to parse config based on game type
+const parseGameConfig = (gameTypeId, configJson) => {
+  switch (Number(gameTypeId)) {
+    case 1:
+      return parseSpinWheelConfig(configJson)
+    case 2:
+      return parseScratchCardConfig(configJson)
+    case 3:
+      return parseMemoryCatchingConfig(configJson)
+    default:
+      throw new Error("Unsupported game type")
+  }
+}
 
 // Function to fetch all game events
 export const fetchGameEvents = async () => {
@@ -111,36 +247,31 @@ export const fetchGameEvents = async () => {
     }
 
     const mappedEvents = gameEvents
-      .map((eventWrapper, index) => {
+      .map((eventWrapper) => {
         try {
           if (!eventWrapper.gameEvent) {
             return null
           }
 
           const gameEvent = eventWrapper.gameEvent
-          const gameTypeId = gameEvent.gameTypeId
+          const gameTypeId = Number(gameEvent.gameTypeId)
 
-          // Only process spin wheel games (gameTypeId = 1)
-          if (Number(gameTypeId) !== 1) {
+          if (![1, 2, 3].includes(gameTypeId)) {
             return null
           }
 
-          // Parse and validate configJson for spin wheel
-          const parsedConfig = parseSpinWheelConfig(gameEvent.configJson)
+          const parsedConfig = parseGameConfig(gameTypeId, gameEvent.configJson)
 
-          // Check if event is currently active
           const now = new Date()
           const startDate = new Date(gameEvent.startDate)
           const endDate = new Date(gameEvent.endDate)
           const isActive = now >= startDate && now <= endDate && !gameEvent.isDeactivated
 
-          // Calculate user plays and remaining plays
           const userRewards = eventWrapper.gameEventRewardResults || []
           const totalPlays = userRewards.length
-          const maxPlays = parsedConfig.maxSpin
+          const maxPlays = gameTypeId === 1 ? parsedConfig.maxSpin : gameTypeId === 2 ? parsedConfig.maxScratch : parsedConfig.numOfPairs
           const remainingPlays = Math.max(0, maxPlays - totalPlays)
 
-          // Calculate total points earned
           const totalPointsEarned = userRewards.reduce((sum, rewardWrapper) => {
             const reward = rewardWrapper.gameEventRewardResult || rewardWrapper
             return sum + (Number(reward.points) || 0)
@@ -150,31 +281,22 @@ export const fetchGameEvents = async () => {
             ...eventWrapper,
             gameEvent: {
               ...gameEvent,
-              // Enhanced properties
-              gameTypeName: GAME_TYPES[1], // Always "Quay trúng thưởng"
+              gameTypeName: GAME_TYPES[gameTypeId],
               parsedConfig: parsedConfig,
               isActive: isActive,
               remainingPlays: remainingPlays,
               totalPlays: totalPlays,
               maxPlays: maxPlays,
               totalPointsEarned: totalPointsEarned,
-
-              // Formatted dates
               formattedStartDate: startDate.toLocaleDateString("vi-VN"),
               formattedEndDate: endDate.toLocaleDateString("vi-VN"),
               formattedStartTime: startDate.toLocaleString("vi-VN"),
               formattedEndTime: endDate.toLocaleString("vi-VN"),
-
-              // Status calculations
               status: getGameEventStatus(gameEvent, now, startDate, endDate, remainingPlays),
               remainingTimeText: getRemainingTimeText(endDate, now),
-
-              // Spin wheel specific
-              canSpin: isActive && remainingPlays > 0,
-              nextSpinAvailable: remainingPlays > 0,
+              canPlay: isActive && remainingPlays > 0,
+              nextPlayAvailable: remainingPlays > 0,
             },
-
-            // Include additional data
             gameTypeImageUrls: eventWrapper.gameTypeImageUrls || [],
             gameEventRewardResults: userRewards.map((rewardWrapper) => ({
               ...rewardWrapper,
@@ -196,15 +318,12 @@ export const fetchGameEvents = async () => {
           return null
         }
       })
-      .filter(Boolean) // Remove null entries
+      .filter(Boolean)
 
-    // Sort events: active first, then by start date (newest first)
     const sortedEvents = mappedEvents.sort((a, b) => {
-      // Active events first
       if (a.gameEvent.isActive !== b.gameEvent.isActive) {
         return b.gameEvent.isActive - a.gameEvent.isActive
       }
-      // Then by start date (newest first)
       return new Date(b.gameEvent.startDate) - new Date(a.gameEvent.startDate)
     })
 
@@ -241,27 +360,23 @@ export const fetchGameEventById = async (gameEventId) => {
       throw new Error("Game event missing gameTypeId")
     }
 
-    // Only process spin wheel games
-    if (Number(gameEvent.gameTypeId) !== 1) {
-      throw new Error("This game type is not supported. Only spin wheel games are available.")
+    const gameTypeId = Number(gameEvent.gameTypeId)
+    if (![1, 2, 3].includes(gameTypeId)) {
+      throw new Error("This game type is not supported.")
     }
 
-    // Parse and validate configJson for spin wheel
-    const parsedConfig = parseSpinWheelConfig(gameEvent.configJson)
+    const parsedConfig = parseGameConfig(gameTypeId, gameEvent.configJson)
 
-    // Check if event is currently active
     const now = new Date()
     const startDate = new Date(gameEvent.startDate)
     const endDate = new Date(gameEvent.endDate)
     const isActive = now >= startDate && now <= endDate && !gameEvent.isDeactivated
 
-    // Calculate user plays and remaining plays
     const userRewards = eventData.gameEventRewardResults || []
     const totalPlays = userRewards.length
-    const maxPlays = parsedConfig.maxSpin
+    const maxPlays = gameTypeId === 1 ? parsedConfig.maxSpin : gameTypeId === 2 ? parsedConfig.maxScratch : parsedConfig.numOfPairs
     const remainingPlays = Math.max(0, maxPlays - totalPlays)
 
-    // Calculate total points earned
     const totalPointsEarned = userRewards.reduce((sum, rewardWrapper) => {
       const reward = rewardWrapper.gameEventRewardResult || rewardWrapper
       return sum + (Number(reward.points) || 0)
@@ -269,28 +384,21 @@ export const fetchGameEventById = async (gameEventId) => {
 
     const enhancedGameEvent = {
       ...gameEvent,
-      // Enhanced properties
-      gameTypeName: GAME_TYPES[1],
+      gameTypeName: GAME_TYPES[gameTypeId],
       parsedConfig: parsedConfig,
       isActive: isActive,
       remainingPlays: remainingPlays,
       totalPlays: totalPlays,
       maxPlays: maxPlays,
       totalPointsEarned: totalPointsEarned,
-
-      // Formatted dates
       formattedStartDate: startDate.toLocaleDateString("vi-VN"),
       formattedEndDate: endDate.toLocaleDateString("vi-VN"),
       formattedStartTime: startDate.toLocaleString("vi-VN"),
       formattedEndTime: endDate.toLocaleString("vi-VN"),
-
-      // Status calculations
       status: getGameEventStatus(gameEvent, now, startDate, endDate, remainingPlays),
       remainingTimeText: getRemainingTimeText(endDate, now),
-
-      // Spin wheel specific
-      canSpin: isActive && remainingPlays > 0,
-      nextSpinAvailable: remainingPlays > 0,
+      canPlay: isActive && remainingPlays > 0,
+      nextPlayAvailable: remainingPlays > 0,
     }
 
     return {
@@ -334,19 +442,23 @@ export const fetchGameTypes = async () => {
 
     const gameTypes = response.data.gameTypes || []
 
-    // Filter and enhance only spin wheel game type
-    const spinWheelGameTypes = gameTypes
-      .filter((gameType) => Number(gameType._id) === 1) // Only spin wheel
+    const supportedGameTypes = gameTypes
+      .filter((gameType) => [1, 2, 3].includes(Number(gameType._id)))
       .map((gameType) => ({
         ...gameType,
         id: gameType._id,
-        name: gameType.name || GAME_TYPES[1] || "Quay trúng thưởng",
-        displayName: "Quay trúng thưởng",
-        description: "Quay bánh xe để nhận điểm thưởng",
+        name: gameType.name || GAME_TYPES[gameType._id] || "Unknown Game",
+        displayName: GAME_TYPES[gameType._id] || "Unknown Game",
+        description:
+          gameType._id === "1"
+            ? "Quay bánh xe để nhận điểm thưởng"
+            : gameType._id === "2"
+            ? "Cào thẻ để nhận phần thưởng bất ngờ"
+            : "Tìm các cặp hình giống nhau để kiếm điểm",
         isSupported: true,
       }))
 
-    return { gameTypes: spinWheelGameTypes }
+    return { gameTypes: supportedGameTypes }
   } catch (error) {
     throw new Error(error.response?.data?.message || "Lỗi kết nối. Vui lòng thử lại.")
   }
@@ -372,9 +484,8 @@ export const fetchUserGameRewards = async () => {
 
     const enhancedRewards = rewards
       .filter((rewardWrapper) => {
-        // Only include spin wheel game rewards
         const gameEvent = rewardWrapper.gameEvent || {}
-        return Number(gameEvent.gameTypeId) === 1
+        return [1, 2, 3].includes(Number(gameEvent.gameTypeId))
       })
       .map((rewardWrapper) => {
         const reward = rewardWrapper.gameEventRewardResult || rewardWrapper
@@ -391,21 +502,19 @@ export const fetchUserGameRewards = async () => {
           },
           gameEvent: {
             ...gameEvent,
-            gameTypeName: GAME_TYPES[1] || "Quay trúng thưởng",
+            gameTypeName: GAME_TYPES[gameEvent.gameTypeId] || "Unknown Game",
             formattedStartDate: new Date(gameEvent.startDate).toLocaleDateString("vi-VN"),
             formattedEndDate: new Date(gameEvent.endDate).toLocaleDateString("vi-VN"),
           },
         }
       })
 
-    // Sort by creation date (newest first)
     enhancedRewards.sort((a, b) => {
       const dateA = new Date(a.gameEventRewardResult?.createdAt || 0)
       const dateB = new Date(b.gameEventRewardResult?.createdAt || 0)
       return dateB - dateA
     })
 
-    // Calculate statistics
     const totalRewards = enhancedRewards.length
     const totalPoints = enhancedRewards.reduce((sum, rewardWrapper) => {
       return sum + (rewardWrapper.gameEventRewardResult?.points || 0)
@@ -424,7 +533,7 @@ export const fetchUserGameRewards = async () => {
   }
 }
 
-// Function to add a game event reward (spin result)
+// Function to add a game event reward
 export const addGameEventReward = async (gameEventId, points) => {
   try {
     const token = await AsyncStorage.getItem("userToken")
@@ -450,27 +559,26 @@ export const addGameEventReward = async (gameEventId, points) => {
     return {
       ...response.data,
       success: true,
-      message: `🎉 Chúc mừng! Bạn đã quay trúng ${points} điểm!`,
+      message: `🎉 Chúc mừng! Bạn đã nhận được ${points} điểm!`,
       points: Number(points),
       timestamp: new Date().toISOString(),
     }
   } catch (error) {
-    // Handle specific error cases
     if (error.response?.status === 400) {
       const errorMessage = error.response?.data?.message || ""
       if (errorMessage.includes("spin") || errorMessage.includes("lượt")) {
-        throw new Error("Bạn đã hết lượt quay cho sự kiện này.")
+        throw new Error("Bạn đã hết lượt chơi cho sự kiện này.")
       }
       throw new Error("Không thể thêm phần thưởng. Vui lòng kiểm tra lại.")
     } else if (error.response?.status === 404) {
-      throw new Error("Sự kiện quay thưởng không tồn tại hoặc đã kết thúc.")
+      throw new Error("Sự kiện không tồn tại hoặc đã kết thúc.")
     } else if (error.response?.status === 401) {
       throw new Error("Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.")
     } else if (error.response?.status === 403) {
       throw new Error("Bạn không có quyền tham gia sự kiện này.")
     }
 
-    throw new Error(error.response?.data?.message || "Lỗi khi lưu kết quả quay. Vui lòng thử lại.")
+    throw new Error(error.response?.data?.message || "Lỗi khi lưu kết quả. Vui lòng thử lại.")
   }
 }
 
@@ -479,12 +587,12 @@ const getGameEventStatus = (gameEvent, now, startDate, endDate, remainingPlays) 
   if (gameEvent.isDeactivated) return "deactivated"
   if (now < startDate) return "upcoming"
   if (now > endDate) return "ended"
-  if (remainingPlays <= 0) return "no_spins_left"
+  if (remainingPlays <= 0) return "no_plays_left"
   return "active"
 }
 
-// Helper function to check if user can spin
-export const canSpinWheel = (gameEvent) => {
+// Helper function to check if user can play
+export const canPlay = (gameEvent) => {
   if (!gameEvent) return false
   return gameEvent.isActive && gameEvent.remainingPlays > 0
 }
@@ -500,8 +608,8 @@ export const getGameEventStatusText = (gameEvent) => {
       return "Sắp diễn ra"
     case "ended":
       return "Đã kết thúc"
-    case "no_spins_left":
-      return "Hết lượt quay"
+    case "no_plays_left":
+      return "Hết lượt chơi"
     case "active":
       return "Đang diễn ra"
     default:
@@ -528,26 +636,52 @@ export const getRemainingTimeText = (endDate, now = new Date()) => {
   return "Sắp kết thúc"
 }
 
-// Helper function to get spin wheel sector by value
-export const getSpinWheelSectorByValue = (gameEvent, value) => {
-  if (!gameEvent?.parsedConfig?.sectors) return null
-
-  return gameEvent.parsedConfig.sectors.find((sector) => sector.value === value) || null
-}
-
 // Helper function to validate spin result
 export const validateSpinResult = (gameEvent, resultValue) => {
   if (!gameEvent?.parsedConfig?.sectors) return false
-
   const validValues = gameEvent.parsedConfig.sectors.map((sector) => sector.value)
   return validValues.includes(Number(resultValue))
 }
 
-// Helper function to get random spin result (for testing)
+// Helper function to validate scratch card result
+export const validateScratchCardResult = (gameEvent, resultPoint) => {
+  if (!gameEvent?.parsedConfig?.cards) return false
+  const validPoints = gameEvent.parsedConfig.cards.map((card) => card.point)
+  return validPoints.includes(Number(resultPoint))
+}
+
+// Helper function to validate memory catching result
+export const validateMemoryCatchingResult = (gameEvent, points) => {
+  if (!gameEvent?.parsedConfig) return false
+  const { originalPoint, minusPoint, numOfPairs } = gameEvent.parsedConfig
+  const maxPossiblePoints = originalPoint * numOfPairs
+  const minPossiblePoints = -minusPoint * numOfPairs
+  return Number(points) >= minPossiblePoints && Number(points) <= maxPossiblePoints
+}
+
+// Helper function to get random spin result
 export const getRandomSpinResult = (gameEvent) => {
   if (!gameEvent?.parsedConfig?.sectors) return null
-
   const sectors = gameEvent.parsedConfig.sectors
   const randomIndex = Math.floor(Math.random() * sectors.length)
   return sectors[randomIndex]
+}
+
+// Helper function to get random scratch card result
+export const getRandomScratchCardResult = (gameEvent) => {
+  if (!gameEvent?.parsedConfig?.cards) return null
+  const cards = gameEvent.parsedConfig.cards
+  const randomIndex = Math.floor(Math.random() * cards.length)
+  return cards[randomIndex]
+}
+
+// Helper function to get random memory catching result
+export const getRandomMemoryCatchingResult = (gameEvent) => {
+  if (!gameEvent?.parsedConfig) return null
+  const { originalPoint, minusPoint, numOfPairs } = gameEvent.parsedConfig
+  const maxPoints = originalPoint * numOfPairs
+  const minPoints = -minusPoint * numOfPairs
+  return {
+    points: Math.floor(Math.random() * (maxPoints - minPoints + 1)) + minPoints,
+  }
 }

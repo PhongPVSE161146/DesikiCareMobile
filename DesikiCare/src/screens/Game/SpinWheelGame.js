@@ -49,11 +49,7 @@ const SpinWheelGameScreen = () => {
     const loadGameEvent = async () => {
       try {
         setLoading(true)
-        // console.log("🎮 Loading spin wheel game events for gameTypeId:", gameTypeId)
-
         const response = await fetchGameEvents()
-        // console.log("🎮 fetchGameEvents response:", JSON.stringify(response, null, 2))
-
         const gameEvents = response.gameEvents || []
 
         // Process game events and filter only spin wheel games
@@ -62,17 +58,12 @@ const SpinWheelGameScreen = () => {
           if (!event) return false
 
           const typeId = Number(event.gameTypeId)
-          // console.log(`🎮 Processing game event: ${event.eventName}, typeId: ${typeId}`)
-
           if (typeId !== 1) {
-            console.log(`⏭️ Skipping non-spin game with typeId: ${typeId}`)
             return false
           }
 
           return event.isActive && event.canSpin
         })
-
-        console.log(`✅ Successfully processed ${spinWheelEvents.length} spin wheel game events`)
 
         if (spinWheelEvents.length === 0) {
           throw new Error("Không tìm thấy sự kiện quay thưởng đang hoạt động")
@@ -80,14 +71,11 @@ const SpinWheelGameScreen = () => {
 
         // Get the first active spin wheel event
         const activeEvent = spinWheelEvents[0]
-        console.log("✅ Found active spin wheel event:", activeEvent.gameEvent.eventName)
-
         setGameEvent(activeEvent.gameEvent)
         setError(null)
-        setHasClaimedReward(false) // Reset claim status for new event
+        setHasClaimedReward(false)
       } catch (err) {
         const errorMessage = err.message || "Không thể tải cấu hình trò chơi"
-        // console.error("❌ Error loading game event:", err)
         setError(errorMessage)
       } finally {
         setLoading(false)
@@ -228,46 +216,28 @@ const SpinWheelGameScreen = () => {
     let availableSectors = sectors
     const remainingPlays = gameEvent.remainingPlays || 0
 
-    // Progressive sector reduction logic
     if (remainingPlays <= 3 && remainingPlays > 2) {
-      // Show 3 sectors when 3 plays remaining
       availableSectors = sectors.slice(0, 3)
     } else if (remainingPlays <= 2 && remainingPlays > 1) {
-      // Show 2 sectors when 2 plays remaining
       availableSectors = sectors.slice(0, 2)
     } else if (remainingPlays <= 1) {
-      // Show 1 sector when 1 play remaining
       availableSectors = sectors.slice(0, 1)
     }
 
-    console.log(`🎯 Available sectors for ${remainingPlays} remaining plays:`, availableSectors.length)
-
-    // Calculate spin result from available sectors
     const randomIndex = Math.floor(Math.random() * availableSectors.length)
     const selectedSector = availableSectors[randomIndex]
-    const degreesPerSector = 360 / sectors.length // Use original sectors length for consistent wheel
+    const degreesPerSector = 360 / sectors.length
 
-    // Calculate target angle (reverse direction for visual effect)
     const originalIndex = sectors.findIndex((s) => s.label === selectedSector.label)
     const targetAngle = 360 - (originalIndex * degreesPerSector + degreesPerSector / 2)
-    const extraRotations = 360 * (config.minSpins || 5) // Multiple full rotations
+    const extraRotations = 360 * (config.minSpins || 5)
     const finalRotation = totalRotation.current + extraRotations + targetAngle
 
-    console.log("🎯 Spin calculation:", {
-      randomIndex,
-      selectedSector: selectedSector.label,
-      points: selectedSector.value,
-      targetAngle,
-      finalRotation,
-    })
-
-    // Start spinning
     setIsSpinning(true)
     setResult(null)
     setPointsEarned(null)
     resultOpacity.setValue(0)
 
-    // Animate wheel spin
     Animated.timing(spinAnimation, {
       toValue: finalRotation,
       duration: config.spinDuration || 4000,
@@ -282,53 +252,29 @@ const SpinWheelGameScreen = () => {
       setResult(label)
       setPointsEarned(points)
 
-      // Animate result appearance
       Animated.timing(resultOpacity, {
         toValue: 1,
         duration: 500,
         useNativeDriver: true,
       }).start()
 
-      // Validate result
       if (!validateSpinResult(gameEvent, points)) {
-        console.warn("⚠️ Invalid spin result:", points)
         Alert.alert("Lỗi", "Kết quả quay không hợp lệ. Vui lòng thử lại.")
         return
       }
 
-      // Save result to server
       try {
-        console.log("💾 Saving spin result:", {
-          gameEventId: gameEvent._id,
-          points: points,
-        })
-
-        console.log("🎮 Adding spin wheel reward:", {
-          gameEventReward: {
-            gameEventId: gameEvent._id,
-            points: points,
-          },
-        })
-
         const response = await addGameEventReward(gameEvent._id, points)
-        console.log("🎮 addGameEventReward response:", response)
-
         if (response.success || response.message.includes("successfully")) {
-          console.log("✅ Spin result saved:", response)
-
-          // Mark as claimed to prevent duplicate attempts
           setHasClaimedReward(true)
-
-          // Update remaining plays
           setGameEvent((prev) => ({
             ...prev,
             remainingPlays: Math.max(0, prev.remainingPlays - 1),
             totalPlays: prev.totalPlays + 1,
             totalPointsEarned: prev.totalPointsEarned + points,
-            canSpin: prev.remainingPlays > 1, // Update canSpin status
+            canSpin: prev.remainingPlays > 1,
           }))
 
-          // Show success message
           const message =
             points > 0 ? `🎉 Chúc mừng! Bạn đã nhận được ${points} điểm!` : `😔 ${label}. Chúc bạn may mắn lần sau!`
 
@@ -337,7 +283,6 @@ const SpinWheelGameScreen = () => {
               {
                 text: "OK",
                 onPress: () => {
-                  // Reset for next spin if available
                   if (gameEvent.remainingPlays > 1) {
                     setHasClaimedReward(false)
                     setResult(null)
@@ -351,18 +296,12 @@ const SpinWheelGameScreen = () => {
           throw new Error(response.message || "Failed to save reward")
         }
       } catch (error) {
-        // console.error("❌ Error adding game event reward:", error)
-
-        // Check if it's a duplicate reward error
         if (error.message && error.message.includes("already received reward")) {
-          console.log("⚠️ Duplicate reward attempt detected")
           setHasClaimedReward(true)
-
           Alert.alert("Thông báo", "Bạn đã nhận thưởng cho lượt quay này rồi. Vui lòng chờ lượt quay tiếp theo.", [
             {
               text: "OK",
               onPress: () => {
-                // Reload game event to get updated status
                 const loadGameEvent = async () => {
                   try {
                     const response = await fetchGameEvents()
@@ -377,7 +316,7 @@ const SpinWheelGameScreen = () => {
                       setHasClaimedReward(false)
                     }
                   } catch (err) {
-                    // console.error("❌ Error reloading game event:", err)
+                    // Handle error silently or log it
                   }
                 }
                 loadGameEvent()
@@ -404,8 +343,6 @@ const SpinWheelGameScreen = () => {
       <View style={styles.wheelSectors}>
         {sectors.map((sector, index) => {
           const rotation = (360 / numSectors) * index
-
-          // Determine if this sector should be dimmed based on remaining plays
           let shouldDim = false
           if (remainingPlays <= 3 && index >= 3) shouldDim = true
           if (remainingPlays <= 2 && index >= 2) shouldDim = true
@@ -502,7 +439,7 @@ const SpinWheelGameScreen = () => {
     <SafeAreaView style={styles.safeContainer}>
       <View style={styles.container}>
         {/* Header */}
-        {/* <View style={styles.header}>
+        <View style={styles.header}>
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
             <MaterialIcons name="arrow-back" size={24} color="#fff" />
           </TouchableOpacity>
@@ -510,7 +447,7 @@ const SpinWheelGameScreen = () => {
           <TouchableOpacity onPress={() => navigation.navigate("GameRewardHistoryScreen")} style={styles.historyButton}>
             <MaterialIcons name="history" size={24} color="#fff" />
           </TouchableOpacity>
-        </View> */}
+        </View>
 
         {/* Game Info */}
         <View style={styles.gameInfo}>
@@ -523,31 +460,38 @@ const SpinWheelGameScreen = () => {
         </View>
 
         {/* Wheel Container */}
-        <View style={styles.wheelContainer}>
-          <Animated.View
-            style={[
-              styles.wheel,
-              {
-                transform: [
-                  {
-                    rotate: spinAnimation.interpolate({
-                      inputRange: [0, 360],
-                      outputRange: ["0deg", "360deg"],
-                    }),
-                  },
-                ],
-              },
-            ]}
-          >
-            {renderWheel()}
-          </Animated.View>
+        {gameEvent.remainingPlays > 0 ? (
+          <View style={styles.wheelContainer}>
+            <Animated.View
+              style={[
+                styles.wheel,
+                {
+                  transform: [
+                    {
+                      rotate: spinAnimation.interpolate({
+                        inputRange: [0, 360],
+                        outputRange: ["0deg", "360deg"],
+                      }),
+                    },
+                  ],
+                },
+              ]}
+            >
+              {renderWheel()}
+            </Animated.View>
 
-          {/* Pointer */}
-          <View style={styles.pointer} />
+            {/* Pointer */}
+            <View style={styles.pointer} />
 
-          {/* Confetti */}
-          {result && pointsEarned > 0 && renderConfetti()}
-        </View>
+            {/* Confetti */}
+            {result && pointsEarned > 0 && renderConfetti()}
+          </View>
+        ) : (
+          <View style={styles.noSpinsContainer}>
+            <MaterialIcons name="info-outline" size={64} color="#666" />
+            <Text style={styles.noSpinsText}>Bạn đã hết lượt quay!</Text>
+          </View>
+        )}
 
         {/* Result */}
         {result && (
@@ -811,6 +755,18 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 16,
     fontWeight: "500",
+  },
+  noSpinsContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    marginVertical: 20,
+  },
+  noSpinsText: {
+    fontSize: 18,
+    color: "#666",
+    marginTop: 16,
+    textAlign: "center",
   },
 })
 
