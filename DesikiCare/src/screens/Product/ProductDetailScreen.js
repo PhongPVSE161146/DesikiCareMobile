@@ -36,7 +36,14 @@ const ProductDetailScreen = ({ route, navigation }) => {
         const result = await ProductService.getProductById(productId);
         console.log('Product Data:', JSON.stringify(result.data, null, 2)); // Log product data
         if (result.success) {
-          setProductData(result.data);
+          const productWithStock = {
+            ...result.data,
+            product: {
+              ...result.data.product,
+              stock: typeof result.data.product.stock === 'number' ? result.data.product.stock : 0, // Ensure stock is a number
+            },
+          };
+          setProductData(productWithStock);
         } else {
           Alert.alert('Lỗi', result.message || 'Không thể lấy thông tin sản phẩm.', [
             { text: 'OK', onPress: () => navigation.goBack() },
@@ -96,16 +103,21 @@ const ProductDetailScreen = ({ route, navigation }) => {
   }
 
   const { product, category, productSkinTypes, productSkinStatuses, shipmentProducts, isAvailable, availabilityStatus } = productData;
-  const { name, description, salePrice, imageUrl, isDeactivated, volume, gameTicketReward } = product;
+  const { name, description, salePrice, imageUrl, isDeactivated, volume, gameTicketReward, stock } = product;
   const latestShipment = shipmentProducts?.length > 0 ? shipmentProducts[0].shipmentProduct : null;
 
-  const statusLabel = isAvailable
+  // Updated statusLabel logic to account for stock
+  const statusLabel = stock === 0
+    ? 'Hết hàng'
+    : isAvailable
     ? 'Đang được bán'
     : availabilityStatus === 'expired'
     ? 'Sản phẩm đã hết hạn'
     : availabilityStatus === 'outOfStock'
     ? 'Hết hàng'
     : 'Sản phẩm đã ngừng kinh doanh';
+
+  const isProductAvailable = isAvailable && stock > 0;
 
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
@@ -118,7 +130,7 @@ const ProductDetailScreen = ({ route, navigation }) => {
   };
 
   const handleAddToCart = async () => {
-    if (!isAvailable) {
+    if (!isProductAvailable) {
       setNotificationMessage('');
       Alert.alert('Lỗi', statusLabel);
       return;
@@ -137,6 +149,7 @@ const ProductDetailScreen = ({ route, navigation }) => {
           quantity: 1,
           image: imageUrl,
           gameTicketReward,
+          stock, // Include stock in cart item
         };
 
         if (typeof addToCart === 'function') {
@@ -175,7 +188,7 @@ const ProductDetailScreen = ({ route, navigation }) => {
   };
 
   const handleBuyNow = async () => {
-    if (!isAvailable) {
+    if (!isProductAvailable) {
       setNotificationMessage('');
       Alert.alert('Lỗi', statusLabel);
       return;
@@ -239,6 +252,7 @@ const ProductDetailScreen = ({ route, navigation }) => {
               quantity: 1,
               price: salePrice,
               gameTicketReward,
+              stock, // Include stock in order data
             },
           ],
           subtotal: salePrice,
@@ -314,23 +328,23 @@ const ProductDetailScreen = ({ route, navigation }) => {
         </View>
 
         <View style={styles.detailsContainer}>
-          <Text style={[styles.brand, !isAvailable ? styles.deactivatedText : null]}>
+          <Text style={[styles.brand, !isProductAvailable ? styles.deactivatedText : null]}>
             {name || 'Tên sản phẩm không có'}
           </Text>
 
           <Text style={styles.category}>Danh mục: {category?.name || 'Không có danh mục'}</Text>
 
-          <Text style={[styles.price, !isAvailable ? styles.deactivatedText : null]}>
+          <Text style={[styles.price, !isProductAvailable ? styles.deactivatedText : null]}>
             {(salePrice || 0).toLocaleString('vi-VN')} đ
           </Text>
 
           <Text style={styles.freeShippingNotice}>🚚 Miễn phí giao hàng</Text>
 
-          <Text style={isAvailable ? styles.activeLabel : styles.deactivatedLabel}>
+          <Text style={isProductAvailable ? styles.activeLabel : styles.deactivatedLabel}>
             {statusLabel}
           </Text>
 
-          {isAvailable && (
+          {isProductAvailable && (
             <Text style={styles.rewardTickets}>
               🎟️ Nhận {gameTicketReward || 0} vé thưởng khi mua sản phẩm
             </Text>
@@ -349,7 +363,10 @@ const ProductDetailScreen = ({ route, navigation }) => {
             <Text style={styles.specification}>• Trạng thái da: {productSkinStatuses?.map((status) => status.name).join(', ') || 'Không có trạng thái da'}</Text>
             <Text style={styles.specification}>• Giao hàng: Miễn phí toàn quốc</Text>
             <Text style={styles.specification}>• Trạng thái: {statusLabel}</Text>
-            {isAvailable && (
+            <Text style={[styles.specification, !isProductAvailable ? styles.deactivatedText : null]}>
+              • Tồn kho: {(typeof stock === 'number' ? stock : 0).toLocaleString('vi-VN')} sản phẩm
+            </Text>
+            {isProductAvailable && (
               <Text style={styles.specification}>• Vé thưởng: {gameTicketReward || 0} vé</Text>
             )}
             {latestShipment && (
@@ -366,18 +383,18 @@ const ProductDetailScreen = ({ route, navigation }) => {
 
           <View style={styles.buttonContainer}>
             <TouchableOpacity
-              style={[styles.addToCartButton, !isAvailable ? styles.disabledButton : null]}
+              style={[styles.addToCartButton, !isProductAvailable ? styles.disabledButton : null]}
               onPress={handleAddToCart}
-              disabled={!isAvailable}
+              disabled={!isProductAvailable}
               accessibilityLabel="Thêm sản phẩm vào giỏ hàng"
             >
               <Text style={styles.buttonText}>Thêm vào giỏ hàng</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={[styles.buyNowButton, !isAvailable ? styles.disabledButton : null]}
+              style={[styles.buyNowButton, !isProductAvailable ? styles.disabledButton : null]}
               onPress={handleBuyNow}
-              disabled={!isAvailable}
+              disabled={!isProductAvailable}
               accessibilityLabel="Mua ngay sản phẩm"
             >
               <Text style={styles.buttonText}>Mua ngay</Text>

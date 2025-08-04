@@ -40,6 +40,9 @@ const predefinedCategories = [
   { _id: 7, name: "Mặt nạ" },
 ]
 
+// Maximum quantity per item in cart
+const MAX_QUANTITY_PER_ITEM = 20
+
 // Function to generate image URL from product ID
 const generateImageUrlFromId = (productId) => {
   if (!productId || typeof productId !== "string") {
@@ -201,7 +204,7 @@ const CartScreen = ({ route, navigation }) => {
   const [error, setError] = useState("")
   const [notificationMessage, setNotificationMessage] = useState(route.params?.notificationMessage || "")
   const [notificationType, setNotificationType] = useState(route.params?.notificationType || "success")
-  const [quantityInputs, setQuantityInputs] = useState("")
+  const [quantityInputs, setQuantityInputs] = useState({})
 
   // Fetch user profile to get points
   const fetchUserProfile = useCallback(async () => {
@@ -264,12 +267,25 @@ const CartScreen = ({ route, navigation }) => {
               salePrice: product.salePrice,
               imageUrl: product.imageUrl,
               categoryId: product.categoryId,
+              stock: typeof product.stock === "number" ? product.stock : 0, // Ensure stock is a number
             },
           }))
         } else if (Array.isArray(result.data?.items)) {
-          cartItems = result.data.items
+          cartItems = result.data.items.map(item => ({
+            ...item,
+            product: {
+              ...item.product,
+              stock: typeof item.product?.stock === "number" ? item.product.stock : 0, // Ensure stock is a number
+            },
+          }))
         } else if (Array.isArray(result.data?.cart?.items)) {
-          cartItems = result.data.cart.items
+          cartItems = result.data.cart.items.map(item => ({
+            ...item,
+            product: {
+              ...item.product,
+              stock: typeof item.product?.stock === "number" ? item.product.stock : 0, // Ensure stock is a number
+            },
+          }))
         } else {
           setError("Dữ liệu giỏ hàng không đúng định dạng.")
           return
@@ -289,10 +305,13 @@ const CartScreen = ({ route, navigation }) => {
             title:
               item.product?.name && typeof item.product.name === "string" ? item.product.name : "Sản phẩm không tên",
             price: typeof item.product?.salePrice === "number" ? item.product.salePrice : 0,
-            quantity: typeof item.quantity === "number" && item.quantity > 0 ? item.quantity : 1,
+            quantity: typeof item.quantity === "number" && item.quantity > 0 
+              ? Math.min(item.quantity, MAX_QUANTITY_PER_ITEM, item.product?.stock || MAX_QUANTITY_PER_ITEM) 
+              : 1,
             image: processedImageUrl,
             originalImageUrl: item.product?.imageUrl,
             categoryId: typeof item.product?.categoryId === "number" ? item.product.categoryId.toString() : "0",
+            stock: typeof item.product?.stock === "number" ? item.product.stock : 0, // Ensure stock is a number
           }
         })
 
@@ -304,7 +323,6 @@ const CartScreen = ({ route, navigation }) => {
               ...acc,
               [item.id]: item.quantity.toString(),
             }), {}),
-            
           )
         }, 0)
       } else {
@@ -379,10 +397,19 @@ const CartScreen = ({ route, navigation }) => {
         return
       }
 
-      const quantity = Math.min(999, Math.max(1, parseInt(newQuantity, 10) || 1))
+      const item = cartItems.find((item) => item.id === id)
+      const maxQuantity = Math.min(MAX_QUANTITY_PER_ITEM, item?.stock || MAX_QUANTITY_PER_ITEM)
+      const quantity = Math.min(maxQuantity, Math.max(1, parseInt(newQuantity, 10) || 1))
+
       if (isNaN(quantity)) {
         Alert.alert("Lỗi", "Vui lòng nhập số lượng hợp lệ.")
         setQuantityInputs((prev) => ({ ...prev, [id]: "1" }))
+        return
+      }
+
+      if (quantity > item?.stock) {
+        Alert.alert("Lỗi", `Sản phẩm chỉ còn ${item.stock} trong kho.`)
+        setQuantityInputs((prev) => ({ ...prev, [id]: item.stock.toString() }))
         return
       }
 
@@ -417,7 +444,7 @@ const CartScreen = ({ route, navigation }) => {
               }
             }
           } catch (error) {
-            // Alert.alert("Lỗi", `Có lỗi khi cập nhật số lượng: ${error.message}`)
+            Alert.alert("Lỗi", `Có lỗi khi cập nhật số lượng: ${error.message}`)
             setQuantityInputs((prev) => ({ ...prev, [id]: cartItems.find((item) => item.id === id)?.quantity.toString() || "1" }))
           }
         }
@@ -437,9 +464,14 @@ const CartScreen = ({ route, navigation }) => {
   }, [handleQuantityChange])
 
   const handleIncreaseQuantity = useCallback((item) => {
+    const maxQuantity = Math.min(MAX_QUANTITY_PER_ITEM, item.stock || MAX_QUANTITY_PER_ITEM)
     const newQuantity = (item.quantity || 1) + 1
-    setQuantityInputs((prev) => ({ ...prev, [item.id]: newQuantity.toString() }))
-    handleQuantityChange(item.id, newQuantity)
+    if (newQuantity <= maxQuantity) {
+      setQuantityInputs((prev) => ({ ...prev, [item.id]: newQuantity.toString() }))
+      handleQuantityChange(item.id, newQuantity)
+    } else {
+      Alert.alert("Lỗi", `Không thể thêm quá ${maxQuantity} sản phẩm (giới hạn kho: ${item.stock}, tối đa: ${MAX_QUANTITY_PER_ITEM}).`)
+    }
   }, [handleQuantityChange])
 
   const handleQuantityInputChange = useCallback((itemId, text) => {
@@ -547,46 +579,52 @@ const CartScreen = ({ route, navigation }) => {
 
   const { subtotal, discount, total } = calculateTotal()
 
-  const renderCartItem = ({ item }) => (
-    <View style={styles.cartItem}>
-      <ProductImage imageUrl={item.image} title={item.title} style={styles.cartItemImage} productId={item.productId} />
-      <View style={styles.cartItemDetails}>
-        <Text style={styles.cartItemName} numberOfLines={2}>
-          {item.title}
-        </Text>
-        <Text style={styles.cartItemCategory}>Danh mục: {getCategoryName(item.categoryId)}</Text>
-        <Text style={styles.cartItemPrice}>{(item.price * (item.quantity || 1)).toLocaleString("vi-VN")} đ</Text>
-        <View style={styles.quantityContainer}>
-          <TouchableOpacity
-            style={[styles.quantityButton, item.quantity <= 1 && styles.quantityButtonDisabled]}
-            onPress={() => handleDecreaseQuantity(item)}
-            disabled={item.quantity <= 1}
-          >
-            <Text style={[styles.quantityButtonText, item.quantity <= 1 && styles.quantityButtonTextDisabled]}>−</Text>
-          </TouchableOpacity>
-          <TextInput
-            style={styles.quantityInput}
-            value={quantityInputs[item.id] || item.quantity.toString()}
-            onChangeText={(text) => handleQuantityInputChange(item.id, text)}
-            onBlur={() => handleQuantityInputBlur(item.id)}
-            keyboardType="numeric"
-            placeholder="1"
-            maxLength={3}
-            returnKeyType="done"
-          />
-          <TouchableOpacity
-            style={styles.quantityButton}
-            onPress={() => handleIncreaseQuantity(item)}
-          >
-            <Text style={styles.quantityButtonText}>+</Text>
-          </TouchableOpacity>
+  const renderCartItem = ({ item }) => {
+    const maxQuantity = Math.min(MAX_QUANTITY_PER_ITEM, item.stock || MAX_QUANTITY_PER_ITEM)
+    const stockDisplay = typeof item.stock === "number" ? item.stock.toLocaleString("vi-VN") : "0"
+    return (
+      <View style={styles.cartItem}>
+        <ProductImage imageUrl={item.image} title={item.title} style={styles.cartItemImage} productId={item.productId} />
+        <View style={styles.cartItemDetails}>
+          <Text style={styles.cartItemName} numberOfLines={2}>
+            {item.title}
+          </Text>
+          <Text style={styles.cartItemCategory}>Danh mục: {getCategoryName(item.categoryId)}</Text>
+          <Text style={styles.cartItemStock}>Còn: {stockDisplay} sản phẩm</Text>
+          <Text style={styles.cartItemPrice}>{(item.price * (item.quantity || 1)).toLocaleString("vi-VN")} đ</Text>
+          <View style={styles.quantityContainer}>
+            <TouchableOpacity
+              style={[styles.quantityButton, item.quantity <= 1 && styles.quantityButtonDisabled]}
+              onPress={() => handleDecreaseQuantity(item)}
+              disabled={item.quantity <= 1}
+            >
+              <Text style={[styles.quantityButtonText, item.quantity <= 1 && styles.quantityButtonTextDisabled]}>−</Text>
+            </TouchableOpacity>
+            <TextInput
+              style={styles.quantityInput}
+              value={quantityInputs[item.id] || item.quantity.toString()}
+              onChangeText={(text) => handleQuantityInputChange(item.id, text)}
+              onBlur={() => handleQuantityInputBlur(item.id)}
+              keyboardType="numeric"
+              placeholder="1"
+              maxLength={3}
+              returnKeyType="done"
+            />
+            <TouchableOpacity
+              style={[styles.quantityButton, item.quantity >= maxQuantity && styles.quantityButtonDisabled]}
+              onPress={() => handleIncreaseQuantity(item)}
+              disabled={item.quantity >= maxQuantity}
+            >
+              <Text style={[styles.quantityButtonText, item.quantity >= maxQuantity && styles.quantityButtonTextDisabled]}>+</Text>
+            </TouchableOpacity>
+          </View>
         </View>
+        <TouchableOpacity style={styles.removeButton} onPress={() => handleRemoveItem(item.id)}>
+          <Text style={styles.removeButtonText}>✕</Text>
+        </TouchableOpacity>
       </View>
-      <TouchableOpacity style={styles.removeButton} onPress={() => handleRemoveItem(item.id)}>
-        <Text style={styles.removeButtonText}>✕</Text>
-      </TouchableOpacity>
-    </View>
-  )
+    )
+  }
 
   return (
     <View style={styles.container}>
@@ -785,6 +823,11 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   cartItemCategory: {
+    fontSize: 13,
+    color: "#666",
+    marginBottom: 6,
+  },
+  cartItemStock: {
     fontSize: 13,
     color: "#666",
     marginBottom: 6,
