@@ -66,7 +66,7 @@ const ProductImage = ({ imageUrl, title, style, productId }) => {
   const [currentImageUrl, setCurrentImageUrl] = useState("")
   const [fallbackIndex, setFallbackIndex] = useState(0)
   const [showPlaceholder, setShowPlaceholder] = useState(false)
-  const [imageUrlsToTry, setImageUrlsToTry] = useState([])
+  const [imageUrlsToTry, setImageUrlsToTry] = useState("")
 
   useEffect(() => {
     const processImageUrl = () => {
