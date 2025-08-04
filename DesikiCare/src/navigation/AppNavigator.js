@@ -26,6 +26,7 @@ import ConfirmPaymentScreen from '../screens/Payments/ConfirmPaymentScreen';
 import QRPaymentScreen from '../screens/Payments/QRPaymentScreen';
 import GameEventsScreen from '../screens/Game/GameEventsScreen';
 import RewardsScreen from '../screens/Game/RewardsScreen';
+import QuizScreen from '../screens/Home/QuizScreen';
 // enableScreens(true); // Enable native screens for better performance
 //Game import
 // import GameEventDetailScreen from '../screens/Game/GameEventDetailScreen';
@@ -314,7 +315,25 @@ const AppNavigator = () => {
     ),
   })}
 />
+  <Stack.Screen
+          name="QuizScreen"
+          component={QuizScreen}
+           options={({ navigation }) => ({
+    headerShown: true,
+    title: 'Quiz',
+    headerStyle: { backgroundColor: '#fa7ca6' },
+    headerTintColor: '#fff',
+    headerTitleStyle: { fontWeight: 'bold' },
+    headerLeft: () => (
+      <HeaderBackButton
+        onPress={() => navigation.goBack()}
+        tintColor="#fff"
+      />
+    ),
+  })}
+        />
         </Stack.Navigator>
+      
       </NavigationContainer>
     </View>
   );

@@ -201,7 +201,7 @@ const CartScreen = ({ route, navigation }) => {
   const [error, setError] = useState("")
   const [notificationMessage, setNotificationMessage] = useState(route.params?.notificationMessage || "")
   const [notificationType, setNotificationType] = useState(route.params?.notificationType || "success")
-  const [quantityInputs, setQuantityInputs] = useState({})
+  const [quantityInputs, setQuantityInputs] = useState("")
 
   // Fetch user profile to get points
   const fetchUserProfile = useCallback(async () => {
@@ -304,6 +304,7 @@ const CartScreen = ({ route, navigation }) => {
               ...acc,
               [item.id]: item.quantity.toString(),
             }), {}),
+            
           )
         }, 0)
       } else {
@@ -416,7 +417,7 @@ const CartScreen = ({ route, navigation }) => {
               }
             }
           } catch (error) {
-            Alert.alert("Lỗi", `Có lỗi khi cập nhật số lượng: ${error.message}`)
+            // Alert.alert("Lỗi", `Có lỗi khi cập nhật số lượng: ${error.message}`)
             setQuantityInputs((prev) => ({ ...prev, [id]: cartItems.find((item) => item.id === id)?.quantity.toString() || "1" }))
           }
         }

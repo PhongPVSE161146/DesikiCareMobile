@@ -1,5 +1,5 @@
-import React, { useEffect, useState, useCallback } from 'react';
-import { View, FlatList, StyleSheet, TouchableOpacity, Text } from 'react-native';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
+import { View, FlatList, StyleSheet, TouchableOpacity, Text, Animated } from 'react-native';
 import ProductList from '../../components/ProductComponnets/ProductList';
 import FeatureButton from '../../components/HomeComponents/FeatureButton';
 import FeaturedBrandsCarousel from '../../components/HomeComponents/FeaturedBrandsCarousel';
@@ -9,6 +9,8 @@ import Notification from '../../components/NotiComponnets/Notification';
 import PromoCarousel from '../../components/HomeComponents/PromoCarousel';
 import { useSelector } from 'react-redux';
 import { useFocusEffect } from '@react-navigation/native';
+
+const AnimatedFlatList = Animated.createAnimatedComponent(FlatList);
 
 const features = [
   { title: 'Danh Mục', icon: <MaterialIcons name="menu" size={28} color="#555" /> },
@@ -20,10 +22,12 @@ const features = [
 const HomeScreen = ({ navigation, route }) => {
   const [notificationMessage, setNotificationMessage] = useState(route.params?.notification?.message || '');
   const [notificationType, setNotificationType] = useState(route.params?.notification?.type || 'success');
-  const [reloadTrigger, setReloadTrigger] = useState(0); // Trigger for reloading components
+  const [reloadTrigger, setReloadTrigger] = useState(0);
+  const [showScrollToTop, setShowScrollToTop] = useState(false);
   const user = useSelector((state) => state.auth.user);
+  const flatListRef = useRef(null);
+  const scrollY = useRef(new Animated.Value(0)).current;
 
-  // Handle notification auto-dismiss
   useEffect(() => {
     if (notificationMessage) {
       const timer = setTimeout(() => {
@@ -34,21 +38,18 @@ const HomeScreen = ({ navigation, route }) => {
     }
   }, [notificationMessage]);
 
-  // Reload function to trigger data refresh
   const reload = useCallback(() => {
-    setReloadTrigger((prev) => prev + 1); // Increment to trigger re-fetch in components
-    // Reset notifications from route params
+    setReloadTrigger((prev) => prev + 1);
     setNotificationMessage(route.params?.notification?.message || '');
     setNotificationType(route.params?.notification?.type || 'success');
   }, [route.params]);
 
-  // Auto-reload when screen is focused
   useFocusEffect(
     useCallback(() => {
       let isActive = true;
       const timer = setTimeout(() => {
         if (isActive) {
-          reload(); // Trigger reload on focus
+          reload();
         }
       }, 0);
       return () => {
@@ -57,6 +58,31 @@ const HomeScreen = ({ navigation, route }) => {
       };
     }, [reload])
   );
+
+  const handleScroll = Animated.event(
+    [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+    {
+      useNativeDriver: true,
+      listener: (event) => {
+        const offsetY = event.nativeEvent.contentOffset.y;
+        setShowScrollToTop(offsetY > 300);
+      },
+    }
+  );
+
+  const scrollToTop = () => {
+    flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
+  };
+
+ const handleQuizPress = () => {
+    if (!user) {
+      setNotificationMessage('Vui lòng đăng nhập để tham gia Quiz.');
+      setNotificationType('error');
+      navigation.navigate('Login');
+      return;
+    }
+    navigation.navigate('QuizScreen'); // Fixed: Navigate directly to QuizScreen
+  };
 
   const handlePress = (title) => {
     switch (title) {
@@ -106,17 +132,14 @@ const HomeScreen = ({ navigation, route }) => {
         ))}
       </View>
       <FeaturedBrandsCarousel style={styles.featuredBrands} reloadTrigger={reloadTrigger} />
-      <TouchableOpacity style={styles.refreshButton} onPress={reload}>
-        <MaterialIcons name="refresh" size={24} color="#fff" />
-        <Text style={styles.refreshButtonText}>Làm mới</Text>
-      </TouchableOpacity>
     </View>
   );
 
   return (
     <View style={styles.container}>
       <CustomHeader />
-      <FlatList
+      <AnimatedFlatList
+        ref={flatListRef}
         ListHeaderComponent={renderHeader}
         data={[]}
         renderItem={() => null}
@@ -125,7 +148,43 @@ const HomeScreen = ({ navigation, route }) => {
         ListFooterComponent={<ProductList navigation={navigation} reloadTrigger={reloadTrigger} />}
         initialNumToRender={10}
         maxToRenderPerBatch={10}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
       />
+      <Animated.View
+        style={[
+          styles.quizButton,
+          {
+            opacity: scrollY.interpolate({
+              inputRange: [0, 200],
+              outputRange: [1, 0.7],
+              extrapolate: 'clamp',
+            }),
+          },
+        ]}
+      >
+        <TouchableOpacity onPress={handleQuizPress}>
+          <MaterialIcons name="quiz" size={24} color="#fff" />
+        </TouchableOpacity>
+      </Animated.View>
+      {showScrollToTop && (
+        <Animated.View
+          style={[
+            styles.scrollToTopButton,
+            {
+              opacity: scrollY.interpolate({
+                inputRange: [300, 500],
+                outputRange: [0, 1],
+                extrapolate: 'clamp',
+              }),
+            },
+          ]}
+        >
+          <TouchableOpacity onPress={scrollToTop}>
+            <MaterialIcons name="arrow-upward" size={24} color="#fff" />
+          </TouchableOpacity>
+        </Animated.View>
+      )}
     </View>
   );
 };
@@ -170,27 +229,37 @@ const styles = StyleSheet.create({
     marginVertical: 8,
     zIndex: 5,
   },
-  refreshButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  quizButton: {
+    position: 'absolute',
+    right: 20,
+    bottom: 80,
+    backgroundColor: '#FF5722',
+    borderRadius: 25,
+    width: 50,
+    height: 50,
     justifyContent: 'center',
-    backgroundColor: '#E53935',
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    marginVertical: 8,
-    marginHorizontal: 8,
-    elevation: 2,
+    alignItems: 'center',
+    elevation: 5,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.3,
     shadowRadius: 4,
   },
-  refreshButtonText: {
-    color: '#fff',
-    fontWeight: 'bold',
-    fontSize: 14,
-    marginLeft: 8,
+  scrollToTopButton: {
+    position: 'absolute',
+    bottom: 20,
+    right: 20,
+    backgroundColor: '#E53935',
+    borderRadius: 25,
+    width: 50,
+    height: 50,
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
   },
 });
 

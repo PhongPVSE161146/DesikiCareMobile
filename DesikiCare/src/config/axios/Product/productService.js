@@ -6,7 +6,6 @@ const ProductService = {
   getProducts: async () => {
     try {
       const response = await axios.get(`${API_URL_LOGIN}/api/Product/products`, {
-        // params: { page },
         headers: {
           Accept: 'application/json',
         },
@@ -50,14 +49,34 @@ const ProductService = {
       const response = await axios.get(`${API_URL_LOGIN}/api/Product/products/${id}`, {
         headers: {
           Accept: 'application/json',
+          'Cache-Control': 'no-cache',
         },
+        params: { t: Date.now() }, // Cache-busting
       });
 
-      if (response.status === 200) {
-        if (response.data && response.data.product && response.data.product._id) {
-          return { success: true, data: response.data };
-        }
-        return { success: false, message: 'No product found or invalid data.' };
+      if (response.status === 200 && response.data?.product?._id) {
+        const productData = response.data;
+        const latestShipment = productData.shipmentProducts?.[0]?.shipmentProduct;
+
+        // Check stock and expiry
+        const isOutOfStock = latestShipment?.quantity === 0 || latestShipment?.availableStock === 0;
+        const isExpired = latestShipment?.expiryDate && new Date(latestShipment.expiryDate) < new Date();
+        const isAvailable = !productData.product.isDeactivated && !isOutOfStock && !isExpired;
+
+        return {
+          success: true,
+          data: {
+            ...productData,
+            isAvailable,
+            availabilityStatus: isAvailable
+              ? 'available'
+              : isExpired
+              ? 'expired'
+              : isOutOfStock
+              ? 'outOfStock'
+              : 'deactivated',
+          },
+        };
       }
       return { success: false, message: response.data.message || 'Failed to fetch product.' };
     } catch (error) {
@@ -71,9 +90,8 @@ const ProductService = {
   },
 
   // Get categories
- getCategories: async () => {
+  getCategories: async () => {
     try {
-      // console.log('Fetching categories from:', `${API_URL_LOGIN}/api/Product/categories`);
       const response = await axios.get(`${API_URL_LOGIN}/api/Product/categories`, {
         headers: {
           Accept: 'application/json',
@@ -81,25 +99,12 @@ const ProductService = {
         timeout: 10000,
       });
 
-      // console.log('getCategories Raw Response:', response.data);
-
       if (response.status === 200) {
         const categories = Array.isArray(response.data)
           ? response.data.filter(category => category && category._id && category.name)
           : [];
-        console.log('Filtered Categories:', categories);
         if (categories.length === 0) {
-          // console.warn('No valid categories found in response.');
-          // Fallback mock data for testing
-          // Uncomment for testing
-          // return {
-          //   success: true,
-          //   data: [
-          //     { _id: 1, name: 'Skincare' },
-          //     { _id: 2, name: 'Makeup' },
-          //     { _id: 3, name: 'Haircare' },
-          //   ],
-          // };
+          console.warn('No valid categories found in response.');
         }
         return { success: true, data: categories };
       }
@@ -119,7 +124,6 @@ const ProductService = {
       return { success: false, message };
     }
   },
-
 };
 
 export default ProductService;

@@ -9,74 +9,75 @@ import {
   Dimensions,
   Alert,
   ActivityIndicator,
-} from "react-native"
-import { useDispatch } from "react-redux"
-import { addToCart } from "../../redux/cartSlice"
-import ProductService from "../../config/axios/Product/productService"
-import orderService from "../../config/axios/Order/orderService"
-import profileService from "../../config/axios/Home/AccountProfile/profileService"
-import Notification from "../../components/NotiComponnets/Notification"
-import { CANCEL_URL, RETURN_URL } from "@env"
+} from 'react-native';
+import { useDispatch } from 'react-redux';
+import { addToCart } from '../../redux/cartSlice';
+import ProductService from '../../config/axios/Product/productService';
+import orderService from '../../config/axios/Order/orderService';
+import profileService from '../../config/axios/Home/AccountProfile/profileService';
+import Notification from '../../components/NotiComponnets/Notification';
+import { CANCEL_URL, RETURN_URL } from '@env';
 
-const screenWidth = Dimensions.get("window").width
+const screenWidth = Dimensions.get('window').width;
 
 const ProductDetailScreen = ({ route, navigation }) => {
-  const { productId } = route.params || {}
-  const dispatch = useDispatch()
+  const { productId } = route.params || {};
+  const dispatch = useDispatch();
 
-  const [productData, setProductData] = useState(null)
-  const [notificationMessage, setNotificationMessage] = useState("")
-  const [notificationType, setNotificationType] = useState("success")
-  const [isLoading, setIsLoading] = useState(true)
+  const [productData, setProductData] = useState(null);
+  const [notificationMessage, setNotificationMessage] = useState('');
+  const [notificationType, setNotificationType] = useState('success');
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const fetchProduct = async () => {
-      setIsLoading(true)
+      setIsLoading(true);
       try {
-        const result = await ProductService.getProductById(productId)
+        const result = await ProductService.getProductById(productId);
+        console.log('Product Data:', JSON.stringify(result.data, null, 2)); // Log product data
         if (result.success) {
-          setProductData(result.data)
+          setProductData(result.data);
         } else {
-          Alert.alert("Lỗi", result.message || "Không thể lấy thông tin sản phẩm.", [
-            { text: "OK", onPress: () => navigation.goBack() },
-          ])
+          Alert.alert('Lỗi', result.message || 'Không thể lấy thông tin sản phẩm.', [
+            { text: 'OK', onPress: () => navigation.goBack() },
+          ]);
         }
       } catch (error) {
-        console.error("Error fetching product:", error)
-        Alert.alert("Lỗi", "Có lỗi xảy ra khi lấy thông tin sản phẩm.")
+        console.error('Error fetching product:', error);
+        Alert.alert('Lỗi', 'Có lỗi xảy ra khi lấy thông tin sản phẩm.');
       } finally {
-        setIsLoading(false)
+        setIsLoading(false);
       }
-    }
+    };
 
     if (productId) {
-      fetchProduct()
+      fetchProduct();
     } else {
-      Alert.alert("Lỗi", "Không tìm thấy ID sản phẩm.")
-      setIsLoading(false)
+      Alert.alert('Lỗi', 'Không tìm thấy ID sản phẩm.');
+      setIsLoading(false);
     }
-  }, [productId, navigation])
+  }, [productId, navigation]);
 
   const getDefaultAddressId = async () => {
     try {
-      const addressResponse = await profileService.getDeliveryAddresses()
+      const addressResponse = await profileService.getDeliveryAddresses();
       if (addressResponse.success && addressResponse.data.length > 0) {
-        const defaultAddress = addressResponse.data.find((addr) => addr.isDefault) || addressResponse.data[0]
-        return defaultAddress._id
+        const defaultAddress = addressResponse.data.find((addr) => addr.isDefault) || addressResponse.data[0];
+        return defaultAddress._id;
       }
-      return null
+      return null;
     } catch (error) {
-      console.error("Error fetching default address:", error)
-      return null
+      console.error('Error fetching default address:', error);
+      return null;
     }
-  }
+  };
 
   if (isLoading) {
     return (
       <View style={styles.container}>
         <ActivityIndicator size="large" color="#E53935" />
       </View>
-    )
+    );
   }
 
   if (!productData || !productData.product) {
@@ -91,37 +92,44 @@ const ProductDetailScreen = ({ route, navigation }) => {
           <Text style={styles.backButtonText}>Quay lại</Text>
         </TouchableOpacity>
       </View>
-    )
+    );
   }
 
-  const { product, category, productSkinTypes, productSkinStatuses, shipmentProducts } = productData
-  const { name, description, salePrice, imageUrl, isDeactivated, volume, gameTicketReward } = product
+  const { product, category, productSkinTypes, productSkinStatuses, shipmentProducts, isAvailable, availabilityStatus } = productData;
+  const { name, description, salePrice, imageUrl, isDeactivated, volume, gameTicketReward } = product;
+  const latestShipment = shipmentProducts?.length > 0 ? shipmentProducts[0].shipmentProduct : null;
 
-  const categoryName = category?.name || "Không có danh mục"
-  const skinTypes = productSkinTypes?.map((type) => type.name).join(", ") || "Không có loại da"
-  const skinStatuses = productSkinStatuses?.map((status) => status.name).join(", ") || "Không có trạng thái da"
-  const latestShipment = shipmentProducts?.length > 0 ? shipmentProducts[0].shipmentProduct : null
+  const statusLabel = isAvailable
+    ? 'Đang được bán'
+    : availabilityStatus === 'expired'
+    ? 'Sản phẩm đã hết hạn'
+    : availabilityStatus === 'outOfStock'
+    ? 'Hết hàng'
+    : 'Sản phẩm đã ngừng kinh doanh';
 
   const formatDate = (dateString) => {
-    if (!dateString) return "N/A"
-    const date = new Date(dateString)
-    return date.toLocaleDateString("vi-VN", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-    })
-  }
+    if (!dateString) return 'N/A';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('vi-VN', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+    });
+  };
 
   const handleAddToCart = async () => {
-    if (isDeactivated) {
-      setNotificationMessage("")
-      Alert.alert("Lỗi", "Sản phẩm đã ngừng kinh doanh.")
-      return
+    if (!isAvailable) {
+      setNotificationMessage('');
+      Alert.alert('Lỗi', statusLabel);
+      return;
     }
 
     try {
-      const result = await orderService.addCartItem(product._id, 1)
-      if (result && (result.success || result.message === "Cart items added successfully")) {
+      console.log('addCartItem Input:', { productId: product._id, quantity: 1 });
+      const result = await orderService.addCartItem(product._id, 1);
+      console.log('addCartItem Response:', JSON.stringify(result, null, 2));
+
+      if (result && (result.success || result.message === 'Cart items added successfully')) {
         const productWithId = {
           id: product._id,
           title: name,
@@ -129,85 +137,98 @@ const ProductDetailScreen = ({ route, navigation }) => {
           quantity: 1,
           image: imageUrl,
           gameTicketReward,
-        }
+        };
 
-        if (typeof addToCart === "function") {
-          dispatch(addToCart(productWithId))
-          setNotificationMessage("")
+        if (typeof addToCart === 'function') {
+          dispatch(addToCart(productWithId));
+          setNotificationMessage('');
 
-          navigation.navigate("Main", {
-            screen: "Cart",
+          navigation.navigate('Main', {
+            screen: 'Cart',
             params: {
-              screen: "CartMain",
+              screen: 'CartMain',
               params: {
                 notificationMessage: `Đã thêm vào giỏ hàng! Nhận ${gameTicketReward || 0} vé thưởng.`,
-                notificationType: "success",
+                notificationType: 'success',
               },
             },
-          })
+          });
         } else {
-          console.error("addToCart is not a function:", addToCart)
-          Alert.alert("Lỗi", "Hành động thêm vào giỏ hàng không khả dụng. Vui lòng kiểm tra cấu hình Redux.")
+          console.error('addToCart is not a function:', addToCart);
+          Alert.alert('Lỗi', 'Hành động thêm vào giỏ hàng không khả dụng. Vui lòng kiểm tra cấu hình Redux.');
         }
       } else {
-        setNotificationMessage("")
-        if (result?.message === "No token found. Please log in.") {
-          Alert.alert("Lỗi", "Vui lòng đăng nhập để thêm sản phẩm.", [
-            { text: "OK", onPress: () => navigation.navigate("Login") },
-          ])
+        setNotificationMessage('');
+        if (result?.message === 'No token found. Please log in.') {
+          Alert.alert('Lỗi', 'Vui lòng đăng nhập để thêm sản phẩm.', [
+            { text: 'OK', onPress: () => navigation.navigate('Login') },
+          ]);
         } else {
-          Alert.alert("Lỗi", result?.message || "Không thể thêm sản phẩm vào giỏ hàng.")
+          Alert.alert('Lỗi', result?.message || 'Không thể thêm sản phẩm vào giỏ hàng.');
         }
       }
     } catch (error) {
-      console.error("Error adding to cart:", error)
-      setNotificationMessage("")
-      Alert.alert("Lỗi", "Có lỗi xảy ra khi thêm sản phẩm vào giỏ hàng: " + error.message)
+      console.error('Error adding to cart:', error);
+      setNotificationMessage('');
+      Alert.alert('Lỗi', `Có lỗi xảy ra khi thêm sản phẩm vào giỏ hàng: ${error.message}`);
     }
-  }
+  };
 
   const handleBuyNow = async () => {
-    if (isDeactivated) {
-      setNotificationMessage("")
-      Alert.alert("Lỗi", "Sản phẩm đã ngừng kinh doanh.")
-      return
+    if (!isAvailable) {
+      setNotificationMessage('');
+      Alert.alert('Lỗi', statusLabel);
+      return;
+    }
+
+    // Validate product data before proceeding
+    if (!product._id || !salePrice || salePrice <= 0) {
+      setNotificationMessage('');
+      Alert.alert('Lỗi', 'Thông tin sản phẩm không hợp lệ (ID hoặc giá bán).');
+      return;
     }
 
     try {
-      const addToCartResult = await orderService.addCartItem(product._id, 1)
+      console.log('addCartItem Input:', { productId: product._id, quantity: 1 });
+      const addToCartResult = await orderService.addCartItem(product._id, 1);
+      console.log('addCartItem Response:', JSON.stringify(addToCartResult, null, 2));
+
       if (!addToCartResult.success) {
-        setNotificationMessage("")
-        if (addToCartResult.message === "No token found. Please log in.") {
-          Alert.alert("Lỗi", "Vui lòng đăng nhập để mua sản phẩm.", [
-            { text: "OK", onPress: () => navigation.navigate("Login") },
-          ])
+        setNotificationMessage('');
+        if (addToCartResult.message === 'No token found. Please log in.') {
+          Alert.alert('Lỗi', 'Vui lòng đăng nhập để mua sản phẩm.', [
+            { text: 'OK', onPress: () => navigation.navigate('Login') },
+          ]);
         } else {
-          Alert.alert("Lỗi", addToCartResult.message || "Không thể thêm sản phẩm vào giỏ hàng.")
+          Alert.alert('Lỗi', addToCartResult.message || 'Không thể thêm sản phẩm vào giỏ hàng.');
         }
-        return
+        return;
       }
 
-      const deliveryAddressId = await getDefaultAddressId()
+      const deliveryAddressId = await getDefaultAddressId();
       if (!deliveryAddressId) {
-        setNotificationMessage("")
-        Alert.alert("Lỗi", "Vui lòng thiết lập địa chỉ giao hàng trước khi mua.", [
-          { text: "OK", onPress: () => navigation.navigate("DeliveryAddress") },
-        ])
-        return
+        setNotificationMessage('');
+        Alert.alert('Lỗi', 'Vui lòng thiết lập địa chỉ giao hàng trước khi mua.', [
+          { text: 'OK', onPress: () => navigation.navigate('DeliveryAddress') },
+        ]);
+        return;
       }
 
+      console.log('getPaymentLink Input:', {
+        orderData: { pointUsed: 0, deliveryAddressId },
+        paymentData: { cancelUrl: CANCEL_URL, returnUrl: RETURN_URL },
+      });
       const paymentResult = await orderService.getPaymentLink(
         {
           pointUsed: 0,
           deliveryAddressId: deliveryAddressId,
         },
         {
-          cancelUrl: CANCEL_URL || "https://your-app.com/cancel",
-          returnUrl: RETURN_URL || "https://your-app.com/success",
-        },
-      )
-
-      console.log("Payment result:", JSON.stringify(paymentResult, null, 2))
+          cancelUrl: CANCEL_URL || 'https://your-app.com/cancel',
+          returnUrl: RETURN_URL || 'https://your-app.com/success',
+        }
+      );
+      console.log('getPaymentLink Response:', JSON.stringify(paymentResult, null, 2));
 
       if (paymentResult.success) {
         const orderData = {
@@ -224,45 +245,51 @@ const ProductDetailScreen = ({ route, navigation }) => {
           discount: 0,
           total: salePrice,
           pointUsed: 0,
-          note: "",
-        }
+          note: '',
+        };
 
         const paymentData = {
           orderCode: paymentResult.data.orderCode || `ORDER${Date.now()}`,
           orderId: paymentResult.data.orderId || paymentResult.data.orderCode,
           amount: orderData.total,
-          currency: "VND",
-          paymentMethod: "bank",
-          description: "Chuyển khoản ngân hàng",
+          currency: 'VND',
+          paymentMethod: 'bank',
+          description: 'Chuyển khoản ngân hàng',
           transactionDateTime: new Date().toISOString(),
           qrCode: paymentResult.data.qrCode,
           paymentUrl: paymentResult.data.paymentUrl,
-        }
+        };
 
-        console.log("Navigating to QRPaymentScreen with (no shipping):", { paymentData, orderData })
+        console.log('Navigating to QRPaymentScreen with:', { paymentData, orderData });
 
-        navigation.navigate("QRPaymentScreen", {
+        navigation.navigate('QRPaymentScreen', {
           paymentData,
           orderData,
-        })
+        });
 
-        setNotificationMessage(`Đang chuyển tới trang thanh toán... Nhận ${gameTicketReward || 0} vé thưởng.`)
-        setNotificationType("success")
+        setNotificationMessage(`Đang chuyển tới trang thanh toán... Nhận ${gameTicketReward || 0} vé thưởng.`);
+        setNotificationType('success');
       } else {
-        setNotificationMessage("")
-        Alert.alert("Lỗi", paymentResult.message || "Không thể tạo link thanh toán.")
+        setNotificationMessage('');
+        Alert.alert('Lỗi', paymentResult.message || 'Không thể tạo link thanh toán.');
       }
     } catch (error) {
-      console.error("Buy now error:", error)
-      setNotificationMessage("")
-      Alert.alert("Lỗi", "Có lỗi xảy ra khi xử lý mua ngay: " + error.message)
+      console.error('Buy now error:', error);
+      setNotificationMessage('');
+      let errorMessage = 'Có lỗi xảy ra khi xử lý mua ngay.';
+      if (error.response?.status === 500) {
+        errorMessage = 'Lỗi server nội bộ. Vui lòng thử lại sau hoặc kiểm tra dữ liệu sản phẩm.';
+      } else if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      }
+      Alert.alert('Lỗi', errorMessage);
     }
-  }
+  };
 
   const imageSource =
-    imageUrl && imageUrl !== "string"
+    imageUrl && imageUrl !== 'string'
       ? { uri: imageUrl }
-      : { uri: "https://via.placeholder.com/150x200.png?text=No+Image" }
+      : { uri: 'https://via.placeholder.com/150x200.png?text=No+Image' };
 
   return (
     <View style={styles.container}>
@@ -271,8 +298,8 @@ const ProductDetailScreen = ({ route, navigation }) => {
         type={notificationType}
         autoDismiss={3000}
         onDismiss={() => {
-          setNotificationMessage("")
-          setNotificationType("success")
+          setNotificationMessage('');
+          setNotificationType('success');
         }}
       />
 
@@ -287,25 +314,23 @@ const ProductDetailScreen = ({ route, navigation }) => {
         </View>
 
         <View style={styles.detailsContainer}>
-          <Text style={[styles.brand, isDeactivated ? styles.deactivatedText : null]}>
-            {name || "Tên sản phẩm không có"}
+          <Text style={[styles.brand, !isAvailable ? styles.deactivatedText : null]}>
+            {name || 'Tên sản phẩm không có'}
           </Text>
 
-          <Text style={styles.category}>Danh mục: {categoryName}</Text>
+          <Text style={styles.category}>Danh mục: {category?.name || 'Không có danh mục'}</Text>
 
-          <Text style={[styles.price, isDeactivated ? styles.deactivatedText : null]}>
-            {(salePrice || 0).toLocaleString("vi-VN")} đ
+          <Text style={[styles.price, !isAvailable ? styles.deactivatedText : null]}>
+            {(salePrice || 0).toLocaleString('vi-VN')} đ
           </Text>
 
           <Text style={styles.freeShippingNotice}>🚚 Miễn phí giao hàng</Text>
 
-          {isDeactivated ? (
-            <Text style={styles.deactivatedLabel}>Sản phẩm đã ngừng kinh doanh</Text>
-          ) : (
-            <Text style={styles.activeLabel}>Đang được bán</Text>
-          )}
+          <Text style={isAvailable ? styles.activeLabel : styles.deactivatedLabel}>
+            {statusLabel}
+          </Text>
 
-          {!isDeactivated && (
+          {isAvailable && (
             <Text style={styles.rewardTickets}>
               🎟️ Nhận {gameTicketReward || 0} vé thưởng khi mua sản phẩm
             </Text>
@@ -313,18 +338,18 @@ const ProductDetailScreen = ({ route, navigation }) => {
 
           <View style={styles.descriptionContainer}>
             <Text style={styles.sectionTitle}>Mô tả sản phẩm</Text>
-            <Text style={styles.description}>{description || "Không có mô tả"}</Text>
+            <Text style={styles.description}>{description || 'Không có mô tả'}</Text>
           </View>
 
           <View style={styles.specificationContainer}>
             <Text style={styles.sectionTitle}>Thông tin chi tiết</Text>
-            <Text style={styles.specification}>• Thương hiệu: {name || "N/A"}</Text>
-            <Text style={styles.specification}>• Dung tích: {volume ? `${volume}ml` : "N/A"}</Text>
-            <Text style={styles.specification}>• Loại da: {skinTypes}</Text>
-            <Text style={styles.specification}>• Trạng thái da: {skinStatuses}</Text>
+            <Text style={styles.specification}>• Thương hiệu: {name || 'N/A'}</Text>
+            <Text style={styles.specification}>• Dung tích: {volume ? `${volume}ml` : 'N/A'}</Text>
+            <Text style={styles.specification}>• Loại da: {productSkinTypes?.map((type) => type.name).join(', ') || 'Không có loại da'}</Text>
+            <Text style={styles.specification}>• Trạng thái da: {productSkinStatuses?.map((status) => status.name).join(', ') || 'Không có trạng thái da'}</Text>
             <Text style={styles.specification}>• Giao hàng: Miễn phí toàn quốc</Text>
-            <Text style={styles.specification}>• Trạng thái: {isDeactivated ? "Ngừng kinh doanh" : "Đang bán"}</Text>
-            {!isDeactivated && (
+            <Text style={styles.specification}>• Trạng thái: {statusLabel}</Text>
+            {isAvailable && (
               <Text style={styles.specification}>• Vé thưởng: {gameTicketReward || 0} vé</Text>
             )}
             {latestShipment && (
@@ -332,25 +357,27 @@ const ProductDetailScreen = ({ route, navigation }) => {
                 <Text style={styles.specification}>
                   • Ngày sản xuất: {formatDate(latestShipment.manufacturingDate)}
                 </Text>
-                <Text style={styles.specification}>• Hạn sử dụng: {formatDate(latestShipment.expiryDate)}</Text>
+                <Text style={styles.specification}>
+                  • Hạn sử dụng: {formatDate(latestShipment.expiryDate)}
+                </Text>
               </>
             )}
           </View>
 
           <View style={styles.buttonContainer}>
             <TouchableOpacity
-              style={[styles.addToCartButton, isDeactivated ? styles.disabledButton : null]}
+              style={[styles.addToCartButton, !isAvailable ? styles.disabledButton : null]}
               onPress={handleAddToCart}
-              disabled={isDeactivated}
+              disabled={!isAvailable}
               accessibilityLabel="Thêm sản phẩm vào giỏ hàng"
             >
               <Text style={styles.buttonText}>Thêm vào giỏ hàng</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={[styles.buyNowButton, isDeactivated ? styles.disabledButton : null]}
+              style={[styles.buyNowButton, !isAvailable ? styles.disabledButton : null]}
               onPress={handleBuyNow}
-              disabled={isDeactivated}
+              disabled={!isAvailable}
               accessibilityLabel="Mua ngay sản phẩm"
             >
               <Text style={styles.buttonText}>Mua ngay</Text>
@@ -359,20 +386,20 @@ const ProductDetailScreen = ({ route, navigation }) => {
         </View>
       </ScrollView>
     </View>
-  )
-}
+  );
+};
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#f5f5f5",
+    backgroundColor: '#f5f5f5',
   },
   imageContainer: {
-    backgroundColor: "#fff",
+    backgroundColor: '#fff',
     padding: 20,
-    alignItems: "center",
+    alignItems: 'center',
     borderBottomWidth: 1,
-    borderBottomColor: "#eee",
+    borderBottomColor: '#eee',
   },
   detailImage: {
     width: screenWidth - 40,
@@ -381,52 +408,52 @@ const styles = StyleSheet.create({
   },
   detailsContainer: {
     padding: 20,
-    backgroundColor: "#fff",
+    backgroundColor: '#fff',
     marginTop: 10,
     marginBottom: 20,
   },
   brand: {
     fontSize: 20,
-    fontWeight: "bold",
-    color: "#333",
+    fontWeight: 'bold',
+    color: '#333',
     marginBottom: 5,
   },
   category: {
     fontSize: 14,
-    color: "#666",
+    color: '#666',
     marginBottom: 10,
   },
   price: {
     fontSize: 22,
-    fontWeight: "bold",
-    color: "#E53935",
+    fontWeight: 'bold',
+    color: '#E53935',
     marginBottom: 5,
   },
   freeShippingNotice: {
     fontSize: 14,
-    color: "#4CAF50",
-    fontWeight: "500",
+    color: '#4CAF50',
+    fontWeight: '500',
     marginBottom: 10,
   },
   deactivatedText: {
-    color: "#999",
+    color: '#999',
   },
   deactivatedLabel: {
     fontSize: 16,
-    color: "#E53935",
-    fontWeight: "bold",
+    color: '#E53935',
+    fontWeight: 'bold',
     marginBottom: 10,
   },
   activeLabel: {
     fontSize: 16,
-    color: "#4CAF50",
-    fontWeight: "bold",
+    color: '#4CAF50',
+    fontWeight: 'bold',
     marginBottom: 10,
   },
   rewardTickets: {
     fontSize: 14,
-    color: "#FFA500",
-    fontWeight: "500",
+    color: '#FFA500',
+    fontWeight: '500',
     marginBottom: 10,
   },
   descriptionContainer: {
@@ -434,13 +461,13 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 18,
-    fontWeight: "bold",
-    color: "#333",
+    fontWeight: 'bold',
+    color: '#333',
     marginBottom: 10,
   },
   description: {
     fontSize: 14,
-    color: "#555",
+    color: '#555',
     lineHeight: 22,
   },
   specificationContainer: {
@@ -448,51 +475,51 @@ const styles = StyleSheet.create({
   },
   specification: {
     fontSize: 14,
-    color: "#555",
+    color: '#555',
     lineHeight: 20,
   },
   buttonContainer: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: 20,
   },
   addToCartButton: {
-    backgroundColor: "#FFA500",
+    backgroundColor: '#FFA500',
     paddingVertical: 15,
     paddingHorizontal: 20,
     borderRadius: 8,
     flex: 1,
     marginRight: 10,
-    alignItems: "center",
+    alignItems: 'center',
   },
   buyNowButton: {
-    backgroundColor: "#E53935",
+    backgroundColor: '#E53935',
     paddingVertical: 15,
     paddingHorizontal: 20,
     borderRadius: 8,
     flex: 1,
-    alignItems: "center",
+    alignItems: 'center',
   },
   disabledButton: {
-    backgroundColor: "#ccc",
+    backgroundColor: '#ccc',
   },
   buttonText: {
-    color: "#fff",
+    color: '#fff',
     fontSize: 16,
-    fontWeight: "bold",
+    fontWeight: 'bold',
   },
   backButton: {
     paddingVertical: 15,
-    alignItems: "center",
+    alignItems: 'center',
     borderTopWidth: 1,
-    borderTopColor: "#eee",
+    borderTopColor: '#eee',
   },
   backButtonText: {
     fontSize: 16,
-    color: "#333",
-    fontWeight: "bold",
+    color: '#333',
+    fontWeight: 'bold',
   },
-})
+});
 
-export default ProductDetailScreen
+export default ProductDetailScreen;
