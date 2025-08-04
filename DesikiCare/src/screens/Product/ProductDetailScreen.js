@@ -29,41 +29,35 @@ const ProductDetailScreen = ({ route, navigation }) => {
   const [notificationType, setNotificationType] = useState('success');
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    const fetchProduct = async () => {
-      setIsLoading(true);
-      try {
-        const result = await ProductService.getProductById(productId);
-        console.log('Product Data:', JSON.stringify(result.data, null, 2)); // Log product data
-        if (result.success) {
-          const productWithStock = {
-            ...result.data,
-            product: {
-              ...result.data.product,
-              stock: typeof result.data.product.stock === 'number' ? result.data.product.stock : 0, // Ensure stock is a number
-            },
-          };
-          setProductData(productWithStock);
-        } else {
-          Alert.alert('Lỗi', result.message || 'Không thể lấy thông tin sản phẩm.', [
-            { text: 'OK', onPress: () => navigation.goBack() },
-          ]);
-        }
-      } catch (error) {
-        console.error('Error fetching product:', error);
-        Alert.alert('Lỗi', 'Có lỗi xảy ra khi lấy thông tin sản phẩm.');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    if (productId) {
-      fetchProduct();
-    } else {
+  const fetchProduct = useCallback(async () => {
+    if (!productId) {
       Alert.alert('Lỗi', 'Không tìm thấy ID sản phẩm.');
+      setIsLoading(false);
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const result = await ProductService.getProductById(productId);
+      console.log('Product Data:', JSON.stringify(result.data, null, 2));
+      if (result.success) {
+        setProductData(result.data);
+      } else {
+        Alert.alert('Lỗi', result.message || 'Không thể lấy thông tin sản phẩm.', [
+          { text: 'OK', onPress: () => navigation.goBack() },
+        ]);
+      }
+    } catch (error) {
+      console.error('Error fetching product:', error);
+      Alert.alert('Lỗi', 'Có lỗi xảy ra khi lấy thông tin sản phẩm.');
+    } finally {
       setIsLoading(false);
     }
   }, [productId, navigation]);
+
+  useEffect(() => {
+    fetchProduct();
+  }, [fetchProduct]);
 
   const getDefaultAddressId = async () => {
     try {
@@ -106,18 +100,18 @@ const ProductDetailScreen = ({ route, navigation }) => {
   const { name, description, salePrice, imageUrl, isDeactivated, volume, gameTicketReward, stock } = product;
   const latestShipment = shipmentProducts?.length > 0 ? shipmentProducts[0].shipmentProduct : null;
 
-  // Updated statusLabel logic to account for stock
-  const statusLabel = stock === 0
+  // Simplified statusLabel logic
+  const statusLabel = isDeactivated
+    ? 'Sản phẩm đã ngừng kinh doanh'
+    : stock === 0
     ? 'Hết hàng'
-    : isAvailable
-    ? 'Đang được bán'
-    : availabilityStatus === 'expired'
+    : latestShipment?.expiryDate && new Date(latestShipment.expiryDate) < new Date()
     ? 'Sản phẩm đã hết hạn'
-    : availabilityStatus === 'outOfStock'
-    ? 'Hết hàng'
-    : 'Sản phẩm đã ngừng kinh doanh';
+    : 'Đang được bán';
 
-  const isProductAvailable = isAvailable && stock > 0;
+  const isProductAvailable = !isDeactivated && stock > 0 && (!latestShipment?.expiryDate || new Date(latestShipment.expiryDate) >= new Date());
+
+  console.log('Product Status:', { stock, isDeactivated, isAvailable, availabilityStatus, statusLabel, isProductAvailable });
 
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
@@ -149,27 +143,23 @@ const ProductDetailScreen = ({ route, navigation }) => {
           quantity: 1,
           image: imageUrl,
           gameTicketReward,
-          stock, // Include stock in cart item
+          stock,
         };
 
-        if (typeof addToCart === 'function') {
-          dispatch(addToCart(productWithId));
-          setNotificationMessage('');
+        dispatch(addToCart(productWithId));
+        setNotificationMessage(`Đã thêm vào giỏ hàng! Nhận ${gameTicketReward || 0} vé thưởng.`);
+        setNotificationType('success');
 
-          navigation.navigate('Main', {
-            screen: 'Cart',
+        navigation.navigate('Main', {
+          screen: 'Cart',
+          params: {
+            screen: 'CartMain',
             params: {
-              screen: 'CartMain',
-              params: {
-                notificationMessage: `Đã thêm vào giỏ hàng! Nhận ${gameTicketReward || 0} vé thưởng.`,
-                notificationType: 'success',
-              },
+              notificationMessage: `Đã thêm vào giỏ hàng! Nhận ${gameTicketReward || 0} vé thưởng.`,
+              notificationType: 'success',
             },
-          });
-        } else {
-          console.error('addToCart is not a function:', addToCart);
-          Alert.alert('Lỗi', 'Hành động thêm vào giỏ hàng không khả dụng. Vui lòng kiểm tra cấu hình Redux.');
-        }
+          },
+        });
       } else {
         setNotificationMessage('');
         if (result?.message === 'No token found. Please log in.') {
@@ -194,7 +184,6 @@ const ProductDetailScreen = ({ route, navigation }) => {
       return;
     }
 
-    // Validate product data before proceeding
     if (!product._id || !salePrice || salePrice <= 0) {
       setNotificationMessage('');
       Alert.alert('Lỗi', 'Thông tin sản phẩm không hợp lệ (ID hoặc giá bán).');
@@ -252,7 +241,7 @@ const ProductDetailScreen = ({ route, navigation }) => {
               quantity: 1,
               price: salePrice,
               gameTicketReward,
-              stock, // Include stock in order data
+              stock,
             },
           ],
           subtotal: salePrice,

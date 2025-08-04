@@ -1,4 +1,4 @@
-import { useCallback, useState, useEffect } from "react"
+import React, { useCallback, useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -10,25 +10,23 @@ import {
   Alert,
   Switch,
   TextInput,
-} from "react-native"
-import { useSelector, useDispatch } from "react-redux"
-import { removeFromCart, updateCartItemQuantity, applyPoints, setCartItems } from "../../redux/cartSlice"
-import orderService from "../../config/axios/Order/orderService"
-import profileService from "../../config/axios/Home/AccountProfile/profileService"
-import { useFocusEffect } from "@react-navigation/native"
-import Notification from "../../components/NotiComponnets/Notification"
+} from "react-native";
+import { useSelector, useDispatch } from "react-redux";
+import { removeFromCart, updateCartItemQuantity, applyPoints, setCartItems } from "../../redux/cartSlice";
+import orderService from "../../config/axios/Order/orderService";
+import profileService from "../../config/axios/Home/AccountProfile/profileService";
+import ProductService from "../../config/axios/Product/productService";
+import { useFocusEffect } from "@react-navigation/native";
+import Notification from "../../components/NotiComponnets/Notification";
 
-// Replace with your actual API base URL for images
-const API_BASE_URL = "https://wdp301-desikicare.onrender.com"
+const API_BASE_URL = "https://wdp301-desikicare.onrender.com";
 
-// Multiple fallback placeholder images
 const PLACEHOLDER_IMAGES = [
   "https://placehold.co/100x100/E0E0E0/666666?text=No+Image",
   "https://picsum.photos/100/100?grayscale&blur=1",
   "https://dummyimage.com/100x100/E0E0E0/666666&text=No+Image",
-]
+];
 
-// Danh sách danh mục cố định
 const predefinedCategories = [
   { _id: 0, name: "Tất cả sản phẩm" },
   { _id: 1, name: "Sữa rửa mặt" },
@@ -38,15 +36,13 @@ const predefinedCategories = [
   { _id: 5, name: "Kem chống nắng" },
   { _id: 6, name: "Tẩy tế bào chết" },
   { _id: 7, name: "Mặt nạ" },
-]
+];
 
-// Maximum quantity per item in cart
-const MAX_QUANTITY_PER_ITEM = 20
+const MAX_QUANTITY_PER_ITEM = 20;
 
-// Function to generate image URL from product ID
 const generateImageUrlFromId = (productId) => {
   if (!productId || typeof productId !== "string") {
-    return null
+    return null;
   }
   const possiblePaths = [
     `${API_BASE_URL}/public/images/products/${productId}/main.jpg`,
@@ -54,77 +50,76 @@ const generateImageUrlFromId = (productId) => {
     `${API_BASE_URL}/public/images/products/${productId}/product.jpg`,
     `${API_BASE_URL}/public/images/products/${productId}/thumb.jpg`,
     `${API_BASE_URL}/images/products/${productId}/main.jpg`,
-    `${API_BASE_URL}/uploads/products/${productId}/main.jpg`,
-  ]
-  return possiblePaths
-}
+    `${API_BASE_URL}/Uploads/products/${productId}/main.jpg`,
+  ];
+  return possiblePaths;
+};
 
-// Image component with robust error handling and fallbacks
 const ProductImage = ({ imageUrl, title, style, productId }) => {
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(false)
-  const [currentImageUrl, setCurrentImageUrl] = useState("")
-  const [fallbackIndex, setFallbackIndex] = useState(0)
-  const [showPlaceholder, setShowPlaceholder] = useState(false)
-  const [imageUrlsToTry, setImageUrlsToTry] = useState("")
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+  const [currentImageUrl, setCurrentImageUrl] = useState("");
+  const [fallbackIndex, setFallbackIndex] = useState(0);
+  const [showPlaceholder, setShowPlaceholder] = useState(false);
+  const [imageUrlsToTry, setImageUrlsToTry] = useState([]);
 
   useEffect(() => {
     const processImageUrl = () => {
-      setLoading(true)
-      setError(false)
-      setShowPlaceholder(false)
-      setFallbackIndex(0)
+      setLoading(true);
+      setError(false);
+      setShowPlaceholder(false);
+      setFallbackIndex(0);
 
       console.log(`🖼️ Processing image for ${title}:`, {
         imageUrl,
         productId,
         type: typeof imageUrl,
-      })
+      });
 
-      const urlsToTry = []
+      const urlsToTry = [];
 
       if (imageUrl && typeof imageUrl === "string" && imageUrl.trim()) {
-        let processedUrl = imageUrl.trim()
+        let processedUrl = imageUrl.trim();
         if (processedUrl.startsWith("http://") || processedUrl.startsWith("https://")) {
-          urlsToTry.push(processedUrl)
+          urlsToTry.push(processedUrl);
         } else {
           if (processedUrl.startsWith("/")) {
-            processedUrl = processedUrl.substring(1)
+            processedUrl = processedUrl.substring(1);
           }
-          urlsToTry.push(`${API_BASE_URL}/${processedUrl}`)
+          urlsToTry.push(`${API_BASE_URL}/${processedUrl}`);
         }
       }
 
-      if ((!imageUrl || imageUrl === null) && productId) {
-        const generatedUrls = generateImageUrlFromId(productId)
+      if (productId) {
+        const generatedUrls = generateImageUrlFromId(productId);
         if (generatedUrls) {
-          urlsToTry.push(...generatedUrls)
+          urlsToTry.push(...generatedUrls);
         }
       }
 
-      urlsToTry.push(...PLACEHOLDER_IMAGES)
+      urlsToTry.push(...PLACEHOLDER_IMAGES);
 
-      setImageUrlsToTry(urlsToTry)
+      setImageUrlsToTry(urlsToTry);
 
       if (urlsToTry.length > 0) {
-        setCurrentImageUrl(urlsToTry[0])
+        setCurrentImageUrl(urlsToTry[0]);
       } else {
-        setShowPlaceholder(true)
-        setLoading(false)
+        setShowPlaceholder(true);
+        setLoading(false);
       }
-    }
+    };
 
-    processImageUrl()
-  }, [imageUrl, title, productId])
+    processImageUrl();
+  }, [imageUrl, title, productId]);
 
   const handleLoadStart = () => {
-    setLoading(true)
-    setError(false)
-  }
+    setLoading(true);
+    setError(false);
+  };
 
   const handleLoadEnd = () => {
-    setLoading(false)
-  }
+    setLoading(false);
+  };
 
   const handleError = (e) => {
     console.error(`❌ Failed to load image for ${title}:`, {
@@ -133,20 +128,20 @@ const ProductImage = ({ imageUrl, title, style, productId }) => {
       error: e.nativeEvent?.error || "Unknown error",
       fallbackIndex,
       totalUrls: imageUrlsToTry.length,
-    })
+    });
 
-    setLoading(false)
+    setLoading(false);
 
-    const nextIndex = fallbackIndex + 1
+    const nextIndex = fallbackIndex + 1;
     if (nextIndex < imageUrlsToTry.length) {
-      setCurrentImageUrl(imageUrlsToTry[nextIndex])
-      setFallbackIndex(nextIndex)
-      setError(false)
+      setCurrentImageUrl(imageUrlsToTry[nextIndex]);
+      setFallbackIndex(nextIndex);
+      setError(false);
     } else {
-      setError(true)
-      setShowPlaceholder(true)
+      setError(true);
+      setShowPlaceholder(true);
     }
-  }
+  };
 
   const renderCustomPlaceholder = () => (
     <View style={[style, styles.customPlaceholder]}>
@@ -157,10 +152,10 @@ const ProductImage = ({ imageUrl, title, style, productId }) => {
         Không có ảnh
       </Text>
     </View>
-  )
+  );
 
   if (showPlaceholder) {
-    return renderCustomPlaceholder()
+    return renderCustomPlaceholder();
   }
 
   return (
@@ -190,169 +185,162 @@ const ProductImage = ({ imageUrl, title, style, productId }) => {
         </View>
       )}
     </View>
-  )
-}
+  );
+};
 
 const CartScreen = ({ route, navigation }) => {
-  const cartItems = useSelector((state) => state.cart.items) || []
-  const pointsApplied = useSelector((state) => state.cart.points) || 0
-  const dispatch = useDispatch()
+  const cartItems = useSelector((state) => state.cart.items) || [];
+  const pointsApplied = useSelector((state) => state.cart.points) || 0;
+  const dispatch = useDispatch("");
 
-  const [userPoints, setUserPoints] = useState(0)
-  const [usePoints, setUsePoints] = useState(false)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState("")
-  const [notificationMessage, setNotificationMessage] = useState(route.params?.notificationMessage || "")
-  const [notificationType, setNotificationType] = useState(route.params?.notificationType || "success")
-  const [quantityInputs, setQuantityInputs] = useState({})
+  const [userPoints, setUserPoints] = useState(0);
+  const [usePoints, setUsePoints] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [notificationMessage, setNotificationMessage] = useState(route.params?.notificationMessage || "");
+  const [notificationType, setNotificationType] = useState(route.params?.notificationType || "success");
+  const [quantityInputs, setQuantityInputs] = useState("");
 
-  // Fetch user profile to get points
   const fetchUserProfile = useCallback(async () => {
     try {
-      const result = await profileService.getProfile()
+      const result = await profileService.getProfile();
       if (result.success && result.data?.account?.points != null) {
-        setUserPoints(result.data.account.points)
+        setUserPoints(result.data.account.points);
       } else {
-        setError(result.message || "Không thể tải thông tin tài khoản.")
+        setError(result.message || "Không thể tải thông tin tài khoản.");
       }
     } catch (e) {
-      setError(e.response?.data?.message || e.message || "Lỗi kết nối khi tải thông tin tài khoản.")
+      setError(e.response?.data?.message || e.message || "Lỗi kết nối khi tải thông tin tài khoản.");
     }
-  }, [])
+  }, []);
 
-  // Handle notification auto-dismiss
   useEffect(() => {
     if (notificationMessage) {
       const timer = setTimeout(() => {
-        setNotificationMessage("")
-        setNotificationType("success")
-      }, 3000)
-      return () => clearTimeout(timer)
+        setNotificationMessage("");
+        setNotificationType("success");
+      }, 3000);
+      return () => clearTimeout(timer);
     }
-  }, [notificationMessage])
+  }, [notificationMessage]);
 
-  // Enhanced image URL processing function
   const processImageUrl = (imageUrl) => {
     if (!imageUrl || typeof imageUrl !== "string") {
-      return null
+      return null;
     }
 
-    const trimmedUrl = imageUrl.trim()
+    const trimmedUrl = imageUrl.trim();
 
     if (trimmedUrl.startsWith("http://") || trimmedUrl.startsWith("https://")) {
-      return trimmedUrl
+      return trimmedUrl;
     }
 
-    const cleanUrl = trimmedUrl.startsWith("/") ? trimmedUrl.substring(1) : trimmedUrl
-    return `${API_BASE_URL}/${cleanUrl}`
-  }
+    const cleanUrl = trimmedUrl.startsWith("/") ? trimmedUrl.substring(1) : trimmedUrl;
+    return `${API_BASE_URL}/${cleanUrl}`;
+  };
 
   const fetchCart = useCallback(async () => {
-    setLoading(true)
-    setError("")
+    setLoading(true);
+    setError("");
     try {
-      const result = await orderService.getCart()
-      console.log("🛒 Raw API response:", JSON.stringify(result, null, 2))
+      const result = await orderService.getCart();
+      console.log("🛒 Raw API response:", JSON.stringify(result, null, 2));
 
-      let cartItems = []
+      let cartItems = [];
 
       if (result.success) {
         if (Array.isArray(result.data?.cartItems)) {
-          cartItems = result.data.cartItems.map(({ cartItem, product }) => ({
-            _id: cartItem._id,
-            quantity: cartItem.quantity,
-            product: {
-              _id: product._id,
-              name: product.name,
-              salePrice: product.salePrice,
-              imageUrl: product.imageUrl,
-              categoryId: product.categoryId,
-              stock: typeof product.stock === "number" ? product.stock : 0, // Ensure stock is a number
-            },
-          }))
+          cartItems = result.data.cartItems;
         } else if (Array.isArray(result.data?.items)) {
-          cartItems = result.data.items.map(item => ({
-            ...item,
-            product: {
-              ...item.product,
-              stock: typeof item.product?.stock === "number" ? item.product.stock : 0, // Ensure stock is a number
-            },
-          }))
+          cartItems = result.data.items;
         } else if (Array.isArray(result.data?.cart?.items)) {
-          cartItems = result.data.cart.items.map(item => ({
-            ...item,
-            product: {
-              ...item.product,
-              stock: typeof item.product?.stock === "number" ? item.product.stock : 0, // Ensure stock is a number
-            },
-          }))
+          cartItems = result.data.cart.items;
         } else {
-          setError("Dữ liệu giỏ hàng không đúng định dạng.")
-          return
+          setError("Dữ liệu giỏ hàng không đúng định dạng.");
+          return;
         }
 
-        const mappedItems = cartItems.map((item) => {
-          const processedImageUrl = processImageUrl(item.product?.imageUrl)
-          console.log(`🖼️ Image processing for ${item.product?.name}:`, {
-            productId: item.product?._id,
-            original: item.product?.imageUrl,
-            processed: processedImageUrl,
+        const mappedItems = await Promise.all(
+          cartItems.map(async (item) => {
+            const product = item.product;
+            let stock = typeof product?.stock === "number" && product.stock >= 0 ? product.stock : null;
+
+            if (stock === null || stock === undefined) {
+              try {
+                const productResult = await ProductService.getProductById(product._id);
+                console.log(`Fetched product for ${product._id}:`, JSON.stringify(productResult.data, null, 2));
+                if (productResult.success) {
+                  stock = productResult.data.product.stock || 0;
+                } else {
+                  console.warn(`Failed to fetch stock for product ${product._id}:`, productResult.message);
+                  stock = 0;
+                }
+              } catch (error) {
+                console.error(`Error fetching stock for product ${product._id}:`, error);
+                stock = 0;
+              }
+            }
+
+            const processedImageUrl = processImageUrl(product?.imageUrl);
+            console.log(`🖼️ Image processing for ${product?.name}:`, {
+              productId: product?._id,
+              original: product?.imageUrl,
+              processed: processedImageUrl,
+              stock,
+            });
+
+            return {
+              id: item.cartItem._id && typeof item.cartItem._id === "string" ? item.cartItem._id : `temp-${Math.random().toString(36).substr(2, 9)}`,
+              productId: product?._id,
+              title: product?.name && typeof product.name === "string" ? product.name : "Sản phẩm không tên",
+              price: typeof product?.salePrice === "number" ? product.salePrice : 0,
+              quantity:
+                typeof item.cartItem.quantity === "number" && item.cartItem.quantity > 0
+                  ? Math.min(item.cartItem.quantity, MAX_QUANTITY_PER_ITEM, stock || MAX_QUANTITY_PER_ITEM)
+                  : 1,
+              image: processedImageUrl,
+              originalImageUrl: product?.imageUrl,
+              categoryId: typeof product?.categoryId === "number" ? product.categoryId.toString() : "0",
+              stock,
+            };
           })
+        );
 
-          return {
-            id: item._id && typeof item._id === "string" ? item._id : `temp-${Math.random().toString(36).substr(2, 9)}`,
-            productId: item.product?._id,
-            title:
-              item.product?.name && typeof item.product.name === "string" ? item.product.name : "Sản phẩm không tên",
-            price: typeof item.product?.salePrice === "number" ? item.product.salePrice : 0,
-            quantity: typeof item.quantity === "number" && item.quantity > 0 
-              ? Math.min(item.quantity, MAX_QUANTITY_PER_ITEM, item.product?.stock || MAX_QUANTITY_PER_ITEM) 
-              : 1,
-            image: processedImageUrl,
-            originalImageUrl: item.product?.imageUrl,
-            categoryId: typeof item.product?.categoryId === "number" ? item.product.categoryId.toString() : "0",
-            stock: typeof item.product?.stock === "number" ? item.product.stock : 0, // Ensure stock is a number
-          }
-        })
-
-        // Defer state updates to avoid useInsertionEffect conflicts
         setTimeout(() => {
-          dispatch(setCartItems(mappedItems))
+          dispatch(setCartItems(mappedItems));
           setQuantityInputs(
             mappedItems.reduce((acc, item) => ({
               ...acc,
               [item.id]: item.quantity.toString(),
-            }), {}),
-          )
-        }, 0)
+            }), {})
+          );
+        }, 0);
       } else {
-        setError(result.message || "Không thể tải giỏ hàng.")
+        setError(result.message || "Không thể tải giỏ hàng.");
       }
     } catch (e) {
-      setError(e.response?.data?.message || e.message || "Lỗi kết nối khi tải giỏ hàng.")
+      setError(e.response?.data?.message || e.message || "Lỗi kết nối khi tải giỏ hàng.");
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }, [dispatch])
+  }, [dispatch]);
 
   useFocusEffect(
     useCallback(() => {
-      // Defer fetch to avoid rendering phase conflicts
       const timer = setTimeout(() => {
-        fetchCart()
-        // Defer fetchUserProfile to avoid conflicts
+        fetchCart();
         setTimeout(() => {
-          fetchUserProfile()
-        }, 100)
-      }, 0)
-      return () => clearTimeout(timer)
-    }, [fetchCart, fetchUserProfile]),
-  )
+          fetchUserProfile();
+        }, 100);
+      }, 0);
+      return () => clearTimeout(timer);
+    }, [fetchCart, fetchUserProfile])
+  );
 
   const handleRemoveItem = async (cartItemId) => {
     if (cartItemId.startsWith("temp-")) {
-      Alert.alert("Lỗi", "Không thể xóa sản phẩm với ID tạm thời.")
-      return
+      Alert.alert("Lỗi", "Không thể xóa sản phẩm với ID tạm thời.");
+      return;
     }
 
     Alert.alert("Xóa sản phẩm", "Bạn có chắc muốn xóa sản phẩm này khỏi giỏ hàng?", [
@@ -362,177 +350,197 @@ const CartScreen = ({ route, navigation }) => {
         style: "destructive",
         onPress: async () => {
           try {
-            const result = await orderService.deleteCartItem(cartItemId)
+            const result = await orderService.deleteCartItem(cartItemId);
             if (result.success) {
-              // Defer state updates to avoid useInsertionEffect conflicts
               setTimeout(() => {
-                dispatch(removeFromCart(cartItemId))
-                setNotificationMessage("Sản phẩm đã được xóa khỏi giỏ hàng")
-                setNotificationType("success")
+                dispatch(removeFromCart(cartItemId));
+                setNotificationMessage("Sản phẩm đã được xóa khỏi giỏ hàng");
+                setNotificationType("success");
                 setQuantityInputs((prev) => {
-                  const newInputs = { ...prev }
-                  delete newInputs[cartItemId]
-                  return newInputs
-                })
-              }, 0)
+                  const newInputs = { ...prev };
+                  delete newInputs[cartItemId];
+                  return newInputs;
+                });
+              }, 0);
             } else {
               if (result.message === "No token found. Please log in.") {
-                Alert.alert("Lỗi", "Vui lòng đăng nhập.", [{ text: "OK", onPress: () => navigation.navigate("Login") }])
+                Alert.alert("Lỗi", "Vui lòng đăng nhập.", [{ text: "OK", onPress: () => navigation.navigate("Login") }]);
               } else {
-                Alert.alert("Lỗi", result.message || "Không thể xóa sản phẩm.")
+                Alert.alert("Lỗi", result.message || "Không thể xóa sản phẩm.");
               }
             }
           } catch (error) {
-            Alert.alert("Lỗi", "Có lỗi xảy ra khi xóa sản phẩm. Vui lòng thử lại.")
+            Alert.alert("Lỗi", "Có lỗi xảy ra khi xóa sản phẩm. Vui lòng thử lại.");
           }
         },
       },
-    ])
-  }
+    ]);
+  };
 
   const handleQuantityChange = useCallback(
     async (id, newQuantity) => {
       if (id.startsWith("temp-")) {
-        Alert.alert("Lỗi", "Không thể cập nhật số lượng cho sản phẩm với ID tạm thời.")
-        return
+        Alert.alert("Lỗi", "Không thể cập nhật số lượng cho sản phẩm với ID tạm thời.");
+        return;
       }
 
-      const item = cartItems.find((item) => item.id === id)
-      const maxQuantity = Math.min(MAX_QUANTITY_PER_ITEM, item?.stock || MAX_QUANTITY_PER_ITEM)
-      const quantity = Math.min(maxQuantity, Math.max(1, parseInt(newQuantity, 10) || 1))
+      const item = cartItems.find((item) => item.id === id);
+      const maxQuantity = Math.min(MAX_QUANTITY_PER_ITEM, item?.stock || MAX_QUANTITY_PER_ITEM);
+      const quantity = Math.min(maxQuantity, Math.max(1, parseInt(newQuantity, 10) || 1));
 
       if (isNaN(quantity)) {
-        Alert.alert("Lỗi", "Vui lòng nhập số lượng hợp lệ.")
-        setQuantityInputs((prev) => ({ ...prev, [id]: "1" }))
-        return
+        Alert.alert("Lỗi", "Vui lòng nhập số lượng hợp lệ.");
+        setQuantityInputs((prev) => ({ ...prev, [id]: "1" }));
+        return;
       }
 
       if (quantity > item?.stock) {
-        Alert.alert("Lỗi", `Sản phẩm chỉ còn ${item.stock} trong kho.`)
-        setQuantityInputs((prev) => ({ ...prev, [id]: item.stock.toString() }))
-        return
+        Alert.alert("Lỗi", `Sản phẩm chỉ còn ${item.stock} trong kho.`);
+        setQuantityInputs((prev) => ({ ...prev, [id]: item.stock.toString() }));
+        return;
       }
 
-      // Defer update to avoid useInsertionEffect conflicts
       setTimeout(() => {
         const updateQuantity = async () => {
           try {
-            console.log("🔄 Updating cart item:", { id, quantity })
-            const result = await orderService.updateCartItemQuantity(id, quantity)
+            console.log("🔄 Updating cart item:", { id, quantity });
+            const result = await orderService.updateCartItemQuantity(id, quantity);
             if (result.success) {
-              dispatch(updateCartItemQuantity({ id, quantity }))
-              setNotificationMessage(`Đã cập nhật số lượng thành ${quantity}`)
-              setNotificationType("success")
-              setQuantityInputs((prev) => ({ ...prev, [id]: quantity.toString() }))
+              dispatch(updateCartItemQuantity({ id, quantity }));
+              setNotificationMessage(`Đã cập nhật số lượng thành ${quantity}`);
+              setNotificationType("success");
+              setQuantityInputs((prev) => ({ ...prev, [id]: quantity.toString() }));
               if (usePoints) {
-                const subtotal = cartItems.reduce((sum, item) => sum + (item.price || 0) * (item.quantity || 1), 0)
-                const maxPoints = Math.min(userPoints, subtotal, 10000)
-                if (typeof applyPoints === "function") {
-                  dispatch(applyPoints(maxPoints))
-                } else {
-                  Alert.alert("Lỗi", "Không thể áp dụng điểm do lỗi hệ thống.")
+                const subtotal = cartItems.reduce((sum, item) => sum + (item.price || 0) * (item.quantity || 1), 0);
+                const maxPoints = subtotal > 20000 ? Math.min(userPoints, subtotal, 10000) : 0;
+                dispatch(applyPoints(maxPoints));
+                if (subtotal <= 20000) {
+                  setUsePoints(false);
+                  setNotificationMessage("Đơn hàng phải trên 20,000 đ để sử dụng điểm.");
+                  setNotificationType("error");
                 }
               }
             } else {
               if (result.message === "No token found. Please log in.") {
                 Alert.alert("Lỗi", "Vui lòng đăng nhập.", [
                   { text: "OK", onPress: () => navigation.navigate("Login") },
-                ])
+                ]);
               } else {
-                Alert.alert("Lỗi", result.message || "Không thể cập nhật số lượng.")
-                setQuantityInputs((prev) => ({ ...prev, [id]: cartItems.find((item) => item.id === id)?.quantity.toString() || "1" }))
+                Alert.alert("Lỗi", result.message || "Không thể cập nhật số lượng.");
+                setQuantityInputs((prev) => ({
+                  ...prev,
+                  [id]: cartItems.find((item) => item.id === id)?.quantity.toString() || "1",
+                }));
               }
             }
           } catch (error) {
-            Alert.alert("Lỗi", `Có lỗi khi cập nhật số lượng: ${error.message}`)
-            setQuantityInputs((prev) => ({ ...prev, [id]: cartItems.find((item) => item.id === id)?.quantity.toString() || "1" }))
+            Alert.alert("Lỗi", `Có lỗi khi cập nhật số lượng: ${error.message}`);
+            setQuantityInputs((prev) => ({
+              ...prev,
+              [id]: cartItems.find((item) => item.id === id)?.quantity.toString() || "1",
+            }));
           }
-        }
-        updateQuantity()
-      }, 0)
+        };
+        updateQuantity();
+      }, 0);
     },
-    [cartItems, dispatch, usePoints, userPoints, navigation],
-  )
+    [cartItems, dispatch, usePoints, userPoints, navigation]
+  );
 
-  // Tách riêng các handler để tránh cập nhật state trong render
-  const handleDecreaseQuantity = useCallback((item) => {
-    const newQuantity = (item.quantity || 1) - 1
-    if (newQuantity >= 1) {
-      setQuantityInputs((prev) => ({ ...prev, [item.id]: newQuantity.toString() }))
-      handleQuantityChange(item.id, newQuantity)
-    }
-  }, [handleQuantityChange])
+  const handleDecreaseQuantity = useCallback(
+    (item) => {
+      const newQuantity = (item.quantity || 1) - 1;
+      if (newQuantity >= 1) {
+        setQuantityInputs((prev) => ({ ...prev, [item.id]: newQuantity.toString() }));
+        handleQuantityChange(item.id, newQuantity);
+      }
+    },
+    [handleQuantityChange]
+  );
 
-  const handleIncreaseQuantity = useCallback((item) => {
-    const maxQuantity = Math.min(MAX_QUANTITY_PER_ITEM, item.stock || MAX_QUANTITY_PER_ITEM)
-    const newQuantity = (item.quantity || 1) + 1
-    if (newQuantity <= maxQuantity) {
-      setQuantityInputs((prev) => ({ ...prev, [item.id]: newQuantity.toString() }))
-      handleQuantityChange(item.id, newQuantity)
-    } else {
-      Alert.alert("Lỗi", `Không thể thêm quá ${maxQuantity} sản phẩm (giới hạn kho: ${item.stock}, tối đa: ${MAX_QUANTITY_PER_ITEM}).`)
-    }
-  }, [handleQuantityChange])
+  const handleIncreaseQuantity = useCallback(
+    (item) => {
+      const maxQuantity = Math.min(MAX_QUANTITY_PER_ITEM, item.stock || MAX_QUANTITY_PER_ITEM);
+      const newQuantity = (item.quantity || 1) + 1;
+      if (newQuantity <= maxQuantity) {
+        setQuantityInputs((prev) => ({ ...prev, [item.id]: newQuantity.toString() }));
+        handleQuantityChange(item.id, newQuantity);
+      } else {
+        Alert.alert("Lỗi", `Không thể thêm quá ${maxQuantity} sản phẩm (giới hạn kho: ${item.stock}, tối đa: ${MAX_QUANTITY_PER_ITEM}).`);
+      }
+    },
+    [handleQuantityChange]
+  );
 
-  const handleQuantityInputChange = useCallback((itemId, text) => {
-    setQuantityInputs((prev) => ({ ...prev, [itemId]: text }))
-  }, [])
+  const handleQuantityInputChange = useCallback(
+    (itemId, text) => {
+      setQuantityInputs((prev) => ({ ...prev, [itemId]: text }));
+    },
+    []
+  );
 
-  const handleQuantityInputBlur = useCallback((itemId) => {
-    const currentValue = quantityInputs[itemId] || "1"
-    handleQuantityChange(itemId, currentValue)
-  }, [quantityInputs, handleQuantityChange])
+  const handleQuantityInputBlur = useCallback(
+    (itemId) => {
+      const currentValue = quantityInputs[itemId] || "1";
+      handleQuantityChange(itemId, currentValue);
+    },
+    [quantityInputs, handleQuantityChange]
+  );
 
-  const handleToggleUsePoints = useCallback((value) => {
-    setUsePoints(value)
-    
-    // Defer state updates to avoid useInsertionEffect conflicts
+ const handleToggleUsePoints = useCallback(
+  (value) => {
+    setUsePoints(value);
     setTimeout(() => {
       if (!value) {
-        if (typeof applyPoints === "function") {
-          dispatch(applyPoints(0))
-          setNotificationMessage("Đã hủy sử dụng điểm")
-          setNotificationType("success")
-        } else {
-          Alert.alert("Lỗi", "Không thể hủy sử dụng điểm do lỗi hệ thống.")
-        }
-        return
+        dispatch(applyPoints(0)); // Đặt lại pointsApplied về 0 khi tắt sử dụng điểm
+        setNotificationMessage("Đã hủy sử dụng điểm");
+        setNotificationType("success");
+        return;
       }
 
-      const subtotal = cartItems.reduce((sum, item) => sum + (item.price || 0) * (item.quantity || 1), 0)
-      const maxPoints = Math.min(userPoints, subtotal, 10000)
+      const subtotal = cartItems.reduce((sum, item) => sum + (item.price || 0) * (item.quantity || 1), 0);
 
-      if (maxPoints <= 0) {
-        Alert.alert("Lỗi", "Không có điểm nào để sử dụng hoặc tổng đơn hàng không đủ.")
-        setUsePoints(false)
-        return
+      if (subtotal <= 10000) {
+        Alert.alert("Lỗi", "Đơn hàng phải trên 20,000 đ để sử dụng điểm.");
+        setUsePoints(false);
+        dispatch(applyPoints(0));
+        setNotificationMessage("Đơn hàng phải trên 20,000 đ để sử dụng điểm.");
+        setNotificationType("error");
+        return;
       }
 
-      if (typeof applyPoints === "function") {
-        dispatch(applyPoints(maxPoints))
-        setNotificationMessage(`Đã áp dụng ${maxPoints.toLocaleString("vi-VN")} điểm (giảm ${maxPoints.toLocaleString("vi-VN")} đ)`)
-        setNotificationType("success")
-      } else {
-        Alert.alert("Lỗi", "Không thể áp dụng điểm do lỗi hệ thống.")
-        setUsePoints(false)
+      if (userPoints <= 0) {
+        Alert.alert("Lỗi", "Bạn không có điểm để sử dụng.");
+        setUsePoints(false);
+        dispatch(applyPoints(0));
+        setNotificationMessage("Bạn không có điểm để sử dụng.");
+        setNotificationType("error");
+        return;
       }
-    }, 0)
-  }, [cartItems, userPoints, dispatch])
 
-  const calculateTotal = () => {
-    const subtotal = cartItems.reduce((sum, item) => sum + (item.price || 0) * (item.quantity || 1), 0)
-    const discount = pointsApplied * 1
-    return {
-      subtotal,
-      discount,
-      total: Math.max(0, subtotal - discount),
-    }
-  }
+      const maxPoints = Math.min(userPoints, subtotal, 10000);
+      dispatch(applyPoints(maxPoints));
+      setNotificationMessage(`Đã áp dụng ${maxPoints.toLocaleString("vi-VN")} điểm (giảm ${maxPoints.toLocaleString("vi-VN")} đ)`);
+      setNotificationType("success");
+    }, 0);
+  },
+  [cartItems, userPoints, dispatch]
+);
+
+const calculateTotal = () => {
+  const subtotal = cartItems.reduce((sum, item) => sum + (item.price || 0) * (item.quantity || 1), 0);
+  const discount = usePoints ? pointsApplied * 1 : 0; // Chỉ áp dụng giảm giá nếu usePoints = true
+  return {
+    subtotal,
+    discount,
+    total: Math.max(0, subtotal - discount),
+  };
+};
 
   const getCategoryName = (categoryId) => {
-    const category = predefinedCategories.find((cat) => cat._id === Number.parseInt(categoryId, 10))
-    return category ? category.name : `Category ${categoryId}`
-  }
+    const category = predefinedCategories.find((cat) => cat._id === Number.parseInt(categoryId, 10));
+    return category ? category.name : `Category ${categoryId}`;
+  };
 
   if (loading) {
     return (
@@ -540,7 +548,7 @@ const CartScreen = ({ route, navigation }) => {
         <ActivityIndicator size="large" color="#E53935" />
         <Text style={styles.text}>Đang tải giỏ hàng...</Text>
       </View>
-    )
+    );
   }
 
   if (error && error !== "No token found. Please log in.") {
@@ -551,7 +559,7 @@ const CartScreen = ({ route, navigation }) => {
           <Text style={styles.buttonText}>Thử lại</Text>
         </TouchableOpacity>
       </View>
-    )
+    );
   }
 
   if (error === "No token found. Please log in." || cartItems.length === 0) {
@@ -574,14 +582,14 @@ const CartScreen = ({ route, navigation }) => {
           </Text>
         </TouchableOpacity>
       </View>
-    )
+    );
   }
 
-  const { subtotal, discount, total } = calculateTotal()
+  const { subtotal, discount, total } = calculateTotal();
 
   const renderCartItem = ({ item }) => {
-    const maxQuantity = Math.min(MAX_QUANTITY_PER_ITEM, item.stock || MAX_QUANTITY_PER_ITEM)
-    const stockDisplay = typeof item.stock === "number" ? item.stock.toLocaleString("vi-VN") : "0"
+    const maxQuantity = Math.min(MAX_QUANTITY_PER_ITEM, item.stock || MAX_QUANTITY_PER_ITEM);
+    const stockDisplay = item.stock >= 0 ? item.stock.toLocaleString("vi-VN") : "Không xác định";
     return (
       <View style={styles.cartItem}>
         <ProductImage imageUrl={item.image} title={item.title} style={styles.cartItemImage} productId={item.productId} />
@@ -590,7 +598,9 @@ const CartScreen = ({ route, navigation }) => {
             {item.title}
           </Text>
           <Text style={styles.cartItemCategory}>Danh mục: {getCategoryName(item.categoryId)}</Text>
-          <Text style={styles.cartItemStock}>Còn: {stockDisplay} sản phẩm</Text>
+          <Text style={[styles.cartItemStock, item.stock <= 0 && styles.deactivatedText]}>
+            Còn: {stockDisplay} sản phẩm
+          </Text>
           <Text style={styles.cartItemPrice}>{(item.price * (item.quantity || 1)).toLocaleString("vi-VN")} đ</Text>
           <View style={styles.quantityContainer}>
             <TouchableOpacity
@@ -623,8 +633,8 @@ const CartScreen = ({ route, navigation }) => {
           <Text style={styles.removeButtonText}>✕</Text>
         </TouchableOpacity>
       </View>
-    )
-  }
+    );
+  };
 
   return (
     <View style={styles.container}>
@@ -633,8 +643,8 @@ const CartScreen = ({ route, navigation }) => {
         type={notificationType}
         autoDismiss={3000}
         onDismiss={() => {
-          setNotificationMessage("")
-          setNotificationType("success")
+          setNotificationMessage("");
+          setNotificationType("success");
         }}
       />
       <FlatList
@@ -663,34 +673,34 @@ const CartScreen = ({ route, navigation }) => {
           </Text>
         )}
       </View>
-      <View style={styles.totalContainer}>
-        <View style={styles.totalRow}>
-          <Text style={styles.totalLabel}>Tạm tính:</Text>
-          <Text style={styles.totalValue}>{subtotal.toLocaleString("vi-VN")} đ</Text>
-        </View>
-        {discount > 0 && (
-          <View style={styles.totalRow}>
-            <Text style={styles.discountLabel}>Giảm giá ({pointsApplied.toLocaleString("vi-VN")} điểm):</Text>
-            <Text style={styles.discountValue}>-{discount.toLocaleString("vi-VN")} đ</Text>
-          </View>
-        )}
-        <View style={[styles.totalRow, styles.totalFinalRow]}>
-          <Text style={styles.totalFinalLabel}>Tổng cộng:</Text>
-          <Text style={styles.totalFinalValue}>{total.toLocaleString("vi-VN")} đ</Text>
-        </View>
-      </View>
+     <View style={styles.totalContainer}>
+  <View style={styles.totalRow}>
+    <Text style={styles.totalLabel}>Tạm tính:</Text>
+    <Text style={styles.totalValue}>{subtotal.toLocaleString("vi-VN")} đ</Text>
+  </View>
+  {usePoints && discount > 0 && (
+    <View style={styles.totalRow}>
+      <Text style={styles.discountLabel}>Giảm giá ({pointsApplied.toLocaleString("vi-VN")} điểm):</Text>
+      <Text style={styles.discountValue}>-{discount.toLocaleString("vi-VN")} đ</Text>
+    </View>
+  )}
+  <View style={[styles.totalRow, styles.totalFinalRow]}>
+    <Text style={styles.totalFinalLabel}>Tổng cộng:</Text>
+    <Text style={styles.totalFinalValue}>{total.toLocaleString("vi-VN")} đ</Text>
+  </View>
+</View>
       <TouchableOpacity
         style={styles.checkoutButton}
         onPress={() => {
-          console.log("🚀 Navigating to Payment with cartItems:", JSON.stringify({ cartItems, pointsApplied }, null, 2))
-          navigation.navigate("Payment", { cartItems, pointsApplied })
+          console.log("🚀 Navigating to Payment with cartItems:", JSON.stringify({ cartItems, pointsApplied }, null, 2));
+          navigation.navigate("Payment", { cartItems, pointsApplied });
         }}
       >
         <Text style={styles.checkoutButtonText}>Tiến hành đặt hàng ({cartItems.length})</Text>
       </TouchableOpacity>
     </View>
-  )
-}
+  );
+};
 
 const styles = StyleSheet.create({
   container: {
@@ -831,6 +841,9 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: "#666",
     marginBottom: 6,
+  },
+  deactivatedText: {
+    color: "#999",
   },
   cartItemPrice: {
     fontSize: 16,
@@ -990,6 +1003,6 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     fontSize: 16,
   },
-})
+});
 
-export default CartScreen
+export default CartScreen;

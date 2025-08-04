@@ -14,6 +14,7 @@ import { Formik } from "formik";
 import * as Yup from "yup";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { v4 as uuidv4 } from "uuid";
+import { useSelector } from "react-redux";
 import AddressHandler from "../../components/PaymentComponents/AddressHandler";
 import PaymentMethods from "../../components/PaymentComponents/PaymentMethods";
 import OrderSummary from "../../components/PaymentComponents/OrderSummary";
@@ -30,11 +31,17 @@ const validationSchema = Yup.object().shape({
 });
 
 const Payment = ({ route, navigation }) => {
-  const { cartItems: passedCartItems } = route.params || {};
+  const { cartItems: passedCartItems, pointsApplied: passedPointsApplied } = route.params || {};
   const [isLoading, setIsLoading] = useState(false);
   const [notification, setNotification] = useState({ message: "", type: "" });
   const [addresses, setAddresses] = useState([]);
   const [isOrderCreated, setIsOrderCreated] = useState(false);
+  const [cartItems, setCartItems] = useState([]);
+  const [userPoints, setUserPoints] = useState(0);
+  
+  // Get pointsApplied from Redux or route.params
+  const reduxPointsApplied = useSelector((state) => state.cart.points) || 0;
+  const pointsApplied = passedPointsApplied !== undefined ? Number(passedPointsApplied) : Number(reduxPointsApplied);
 
   const generateOrderId = () => {
     try {
@@ -46,7 +53,6 @@ const Payment = ({ route, navigation }) => {
 
   const [orderId] = useState(generateOrderId());
   const formikRef = useRef(null);
-  const cartItems = passedCartItems?.length > 0 ? passedCartItems : [];
 
   const isValidObjectId = (id) => /^[0-9a-fA-F]{24}$/.test(id);
 
@@ -111,17 +117,15 @@ const Payment = ({ route, navigation }) => {
       }
     });
 
-    if (errors.length > 0) {
-      return { valid: false, errors };
-    }
-
-    return { valid: true, errors: [] };
+    return { valid: errors.length === 0, errors };
   };
 
   useEffect(() => {
-    const loadUserInfo = async () => {
+    const loadUserInfoAndCart = async () => {
       try {
         setIsLoading(true);
+
+        // Fetch user info
         const userInfo = await AsyncStorage.getItem("userInfo");
         let parsedUserInfo = userInfo ? JSON.parse(userInfo) : null;
 
@@ -136,11 +140,13 @@ const Payment = ({ route, navigation }) => {
               accountId: profileResponse.data.account._id,
               fullName: profileResponse.data.account.fullName,
               phone: profileResponse.data.account.phoneNumber,
+              points: profileResponse.data.account.points || 0,
             };
             await AsyncStorage.setItem(
               "userInfo",
               JSON.stringify(parsedUserInfo)
             );
+            setUserPoints(parsedUserInfo.points);
           } else {
             setNotification({
               message:
@@ -150,6 +156,8 @@ const Payment = ({ route, navigation }) => {
             });
             return;
           }
+        } else {
+          setUserPoints(parsedUserInfo.points || 0);
         }
 
         if (!isValidObjectId(parsedUserInfo.accountId)) {
@@ -168,6 +176,7 @@ const Payment = ({ route, navigation }) => {
           });
         }
 
+        // Fetch addresses
         const addressResponse = await profileService.getDeliveryAddresses();
         if (addressResponse.success) {
           const validAddresses = addressResponse.data.filter((addr) =>
@@ -185,9 +194,30 @@ const Payment = ({ route, navigation }) => {
             type: "error",
           });
         }
+
+        // Fetch cart
+        const cartResponse = await orderService.getCart();
+        if (cartResponse.success && cartResponse.data?.cartItems) {
+          const mappedItems = cartResponse.data.cartItems.map((item) => ({
+            id: item.cartItem._id,
+            productId: item.cartItem.productId,
+            title: item.product.name || "Sản phẩm không tên",
+            price: item.product.salePrice || 0,
+            quantity: item.cartItem.quantity || 1,
+            image: item.product.imageUrl || "",
+            stock: item.product.stock || 0,
+          }));
+          setCartItems(mappedItems);
+        } else {
+          setNotification({
+            message: cartResponse.message || "Không thể tải giỏ hàng.",
+            type: "error",
+          });
+          setCartItems([]);
+        }
       } catch (error) {
         setNotification({
-          message: "Lỗi hệ thống. Vui lòng thử lại.",
+          message: `Lỗi hệ thống: ${error.message}`,
           type: "error",
         });
       } finally {
@@ -195,7 +225,7 @@ const Payment = ({ route, navigation }) => {
       }
     };
 
-    loadUserInfo();
+    loadUserInfoAndCart();
   }, []);
 
   const processPayment = async (values) => {
@@ -243,10 +273,9 @@ const Payment = ({ route, navigation }) => {
 
       for (let i = 0; i < cartItems.length; i++) {
         const item = cartItems[i];
-        const itemName =
-          item.name || item.title || item.productName || `Sản phẩm #${i + 1}`;
-        const productId = item._id || item.id;
-        const productPrice = item.salePrice || item.price;
+        const itemName = item.title || `Sản phẩm #${i + 1}`;
+        const productId = item.productId || item.id;
+        const productPrice = item.price;
 
         if (!productId || !isValidObjectId(productId)) {
           setNotification({
@@ -258,9 +287,17 @@ const Payment = ({ route, navigation }) => {
           return;
         }
 
-        if (!productPrice || typeof productPrice !== "number") {
+        if (!productPrice || typeof productPrice !== "number" || productPrice <= 0) {
           setNotification({
             message: `Giá sản phẩm không hợp lệ: ${itemName} (Giá: ${productPrice})`,
+            type: "error",
+          });
+          return;
+        }
+
+        if (!item.quantity || item.quantity <= 0 || item.quantity > (item.stock || 1000)) {
+          setNotification({
+            message: `Số lượng không hợp lệ: ${itemName} (Số lượng: ${item.quantity}, Tồn kho: ${item.stock || "không xác định"})`,
             type: "error",
           });
           return;
@@ -268,29 +305,28 @@ const Payment = ({ route, navigation }) => {
       }
 
       const subtotal = cartItems.reduce((total, item) => {
-        const price = item.salePrice || item.price || 0;
+        const price = item.price || 0;
         const quantity = item.quantity || 1;
         return total + price * quantity;
       }, 0);
-      const totalAmount = subtotal;
+
+      // Validate points
+      const validPointsApplied = subtotal > 20000 ? Math.min(pointsApplied, userPoints, 10000) : 0;
+      const discount = validPointsApplied;
+      const totalAmount = Math.max(0, subtotal - discount);
 
       const orderPayload = {
         order: {
           newOrderId: String(orderId),
           userId: String(parsedUserInfo.accountId),
           deliveryAddressId: String(values.addressId),
-          cartItems: cartItems.map((item) => {
-            const productId = item._id || item.id;
-            const price = item.salePrice || item.price;
-            const quantity = item.quantity || 1;
-            return {
-              productId: String(productId),
-              quantity: Number(quantity),
-              price: Number(price),
-            };
-          }),
+          cartItems: cartItems.map((item) => ({
+            productId: String(item.productId || item.id),
+            quantity: Number(item.quantity || 1),
+            price: Number(item.price || 0),
+          })),
           subtotal: Number(subtotal),
-          discount: Number(0),
+          discount: Number(discount),
           shippingFee: Number(0),
           total: Number(totalAmount),
           paymentMethod: String(values.paymentMethod),
@@ -298,16 +334,14 @@ const Payment = ({ route, navigation }) => {
             values.paymentMethod === "cod" ? "Pending" : "Paid"
           ),
           note: String(values.note || ""),
-          pointUsed: Number(0),
+          pointUsed: Number(validPointsApplied),
         },
       };
 
       const validation = validateOrderPayload(orderPayload);
       if (!validation.valid) {
         setNotification({
-          message: `Dữ liệu đơn hàng không hợp lệ: ${validation.errors.join(
-            ", "
-          )}`,
+          message: `Dữ liệu đơn hàng không hợp lệ: ${validation.errors.join(", ")}`,
           type: "error",
         });
         return;
@@ -326,27 +360,33 @@ const Payment = ({ route, navigation }) => {
           returnUrl: "",
           cancelUrl: "",
         };
-        paymentResponse = await orderService.getPaymentLinkForOrder(
+        const paymentResponse = await orderService.getPaymentLinkForOrder(
           orderResponse.data.newOrderId,
           metaData
         );
-        if (paymentResponse) {
+        if (paymentResponse.success) {
           paymentLink = paymentResponse.data.paymentLink;
+        } else {
+          setNotification({
+            message: paymentResponse.message || "Không thể tạo link thanh toán.",
+            type: "error",
+          });
+          return;
         }
       }
 
       const orderData = {
         cartItems: cartItems.map((item) => ({
-          productId: item._id || item.id,
-          title: item.name || item.title || item.productName || "Sản phẩm",
+          productId: item.productId || item.id,
+          title: item.title || "Sản phẩm",
           quantity: item.quantity || 1,
-          price: item.salePrice || item.price,
+          price: item.price || 0,
         })),
         subtotal,
-        discount: 0,
+        discount,
         shippingFee: 0,
         total: totalAmount,
-        pointUsed: 0,
+        pointUsed: validPointsApplied,
         note: values.note || "",
       };
 
@@ -383,6 +423,7 @@ const Payment = ({ route, navigation }) => {
       const confirmResponse = await orderService.confirmPayment(paymentPayload);
 
       if (confirmResponse.success) {
+        setIsOrderCreated(true);
         navigation.navigate("ConfirmPaymentScreen", {
           paymentData: { ...confirmResponse.data, orderData },
         });
@@ -510,6 +551,8 @@ const Payment = ({ route, navigation }) => {
               isLoading={isLoading}
               addressId={values.addressId}
               paymentMethod={values.paymentMethod}
+              pointsApplied={pointsApplied}
+              userPoints={userPoints}
             />
           </View>
         )}

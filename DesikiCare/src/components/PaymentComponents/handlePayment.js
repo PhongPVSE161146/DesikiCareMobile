@@ -128,7 +128,7 @@ const handlePayment = async (cartItems, orderId, navigation, setNotification, ad
         paymentMethod: values.paymentMethod,
         paymentStatus: values.paymentMethod === "cod" ? "Pending" : "Paid",
         note: values.note || "",
-        pointUsed: 0,
+        pointUsed: "",
       },
     };
 

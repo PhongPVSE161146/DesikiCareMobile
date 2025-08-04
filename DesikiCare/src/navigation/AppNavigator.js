@@ -39,6 +39,7 @@ import MatchPairGame from '../screens/Game/MatchPairGame';
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
 
+
 function HomeStack() {
   return (
     <Stack.Navigator>
@@ -103,6 +104,37 @@ function MiniGame() {
   );
 }
 
+// Data loading functions (replace with your actual data fetching logic)
+const loadHomeData = async () => {
+  console.log('Loading Home data...');
+  // Example: const response = await fetch('https://api.example.com/home');
+  // Update state or context with fetched data
+};
+
+const loadCategoryData = async () => {
+  console.log('Loading Category data...');
+  // Example: const response = await fetch('https://api.example.com/categories');
+  // Update state or context
+};
+
+const loadCartData = async () => {
+  console.log('Loading Cart data...');
+  // Example: const response = await fetch('https://api.example.com/cart');
+  // Update state or context
+};
+
+const loadPaidOrderHistoryData = async () => {
+  console.log('Loading Paid Order History data...');
+  // Example: const response = await fetch('https://api.example.com/order-history');
+  // Update state or context
+};
+
+const loadAccountData = async () => {
+  console.log('Loading Account data...');
+  // Example: const response = await fetch('https://api.example.com/account');
+  // Update state or context
+};
+
 function MainTabs() {
   return (
     <Tab.Navigator
@@ -114,13 +146,13 @@ function MainTabs() {
           borderTopWidth: 0,
           paddingBottom: 10,
           paddingTop: 5,
-          elevation: 0, // Remove default elevation
-          shadowOpacity: 0, // Remove default shadow
+          elevation: 0,
+          shadowOpacity: 0,
         },
-        tabBarShowLabel: true, // Enable tab labels
+        tabBarShowLabel: true,
         tabBarLabelStyle: {
-          fontSize: 12, // Customize label font size
-          marginBottom: 5, // Adjust label position
+          fontSize: 12,
+          marginBottom: 5,
         },
         tabBarIcon: ({ focused, color, size }) => {
           let iconName;
@@ -150,19 +182,19 @@ function MainTabs() {
               <View
                 style={{
                   backgroundColor: '#ffe6ec',
-                  padding: 2, // Tighter padding for bubble
-                  borderRadius: 20, // Smaller radius for bubble
+                  padding: 2,
+                  borderRadius: 20,
                   alignItems: 'center',
                   justifyContent: 'center',
                   ...Platform.select({
                     ios: {
                       shadowColor: '#000',
                       shadowOffset: { width: 0, height: 2 },
-                      shadowOpacity: 0.2, // Softer shadow
+                      shadowOpacity: 0.2,
                       shadowRadius: 4,
                     },
                     android: {
-                      elevation: 3, // Lower elevation for performance
+                      elevation: 3,
                     },
                   }),
                 }}
@@ -178,8 +210,26 @@ function MainTabs() {
         tabBarInactiveTintColor: 'gray',
       })}
     >
-      <Tab.Screen name="Home" component={HomeStack} options={{ title: 'Trang chủ' }} />
-      <Tab.Screen name="Category" component={CategoryScreen} options={{ title: 'Danh mục' }} />
+      <Tab.Screen
+        name="Home"
+        component={HomeStack}
+        options={{ title: 'Trang chủ' }}
+        listeners={{
+          tabPress: () => {
+            loadHomeData();
+          },
+        }}
+      />
+      <Tab.Screen
+        name="Category"
+        component={CategoryScreen}
+        options={{ title: 'Danh mục' }}
+        listeners={{
+          tabPress: () => {
+            loadCategoryData();
+          },
+        }}
+      />
       <Tab.Screen
         name="Cart"
         component={CartStack}
@@ -191,20 +241,39 @@ function MainTabs() {
           },
           headerTintColor: '#fff',
         }}
+        listeners={{
+          tabPress: () => {
+            loadCartData();
+          },
+        }}
       />
       <Tab.Screen
-  name="PaidOrderHistory"
-  component={OrderHistory}
-  options={{
-    title: 'Đơn Hàng',
-    headerShown: true,
-    headerStyle: {
-      backgroundColor: 'red',
-    },
-    headerTintColor: '#fff',
-  }}
-/>
-      <Tab.Screen name="Account" component={AccountScreen} options={{ title: 'Tài khoản' }} />
+        name="PaidOrderHistory"
+        component={OrderHistory}
+        options={{
+          title: 'Đơn Hàng',
+          headerShown: true,
+          headerStyle: {
+            backgroundColor: 'red',
+          },
+          headerTintColor: '#fff',
+        }}
+        listeners={{
+          tabPress: () => {
+            loadPaidOrderHistoryData();
+          },
+        }}
+      />
+      <Tab.Screen
+        name="Account"
+        component={AccountScreen}
+        options={{ title: 'Tài khoản' }}
+        listeners={{
+          tabPress: () => {
+            loadAccountData();
+          },
+        }}
+      />
     </Tab.Navigator>
   );
 }

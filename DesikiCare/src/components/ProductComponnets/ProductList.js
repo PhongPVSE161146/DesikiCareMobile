@@ -19,14 +19,16 @@ const screenWidth = Dimensions.get('window').width;
 const ProductCard = ({ product, onPress }) => {
   const { _id, name, description, volume, salePrice, imageUrl, isDeactivated, stock } = product;
 
-  console.log('Rendering ProductCard:', { _id, name, salePrice, imageUrl, stock });
+  console.log('Rendering ProductCard:', { _id, name, salePrice, imageUrl, stock, isDeactivated });
+
+  const isOutOfStock = stock === 0 || isDeactivated;
 
   return (
     <TouchableOpacity
       onPress={onPress}
       activeOpacity={0.8}
-      style={[styles.card, isDeactivated || stock === 0 ? styles.deactivatedCard : null]}
-      disabled={isDeactivated || stock === 0}
+      style={[styles.card, isOutOfStock ? styles.deactivatedCard : null]}
+      disabled={isOutOfStock}
     >
       <View style={styles.imageContainer}>
         <Image
@@ -37,32 +39,34 @@ const ProductCard = ({ product, onPress }) => {
           resizeMode="contain"
           onError={() => console.log('Error loading image:', imageUrl)}
         />
-        {(isDeactivated || stock === 0) && (
+        {isOutOfStock && (
           <View style={styles.deactivatedBadge}>
-            <Text style={styles.deactivatedBadgeText}>Hết hàng</Text>
+            <Text style={styles.deactivatedBadgeText}>
+              {isDeactivated ? 'Ngừng kinh doanh' : 'Hết hàng'}
+            </Text>
           </View>
         )}
       </View>
-      <Text style={[styles.brand, (isDeactivated || stock === 0) ? styles.deactivatedText : null]}>
+      <Text style={[styles.brand, isOutOfStock ? styles.deactivatedText : null]}>
         {name || 'Không có tên'}
       </Text>
       <Text
         numberOfLines={2}
-        style={[styles.title, (isDeactivated || stock === 0) ? styles.deactivatedText : null]}
+        style={[styles.title, isOutOfStock ? styles.deactivatedText : null]}
       >
         {description || 'Không có mô tả'}
       </Text>
-      <Text style={[styles.price, (isDeactivated || stock === 0) ? styles.deactivatedText : null]}>
-        {(salePrice > 0 ? salePrice : 'Liên hệ').toLocaleString('vi-VN')} đ
+      <Text style={[styles.price, isOutOfStock ? styles.deactivatedText : null]}>
+        {(salePrice > 0 ? salePrice.toLocaleString('vi-VN') : 'Liên hệ')} đ
       </Text>
       {volume > 0 && (
         <Text style={styles.volume}>Dung tích: {volume} ml</Text>
       )}
-      {typeof stock === 'number' && (
-        <Text style={[styles.stock, (isDeactivated || stock === 0) ? styles.deactivatedText : null]}>
+      {/* {typeof stock === 'number' && (
+        <Text style={[styles.stock, isOutOfStock ? styles.deactivatedText : null]}>
           Tồn kho: {stock.toLocaleString('vi-VN')} sản phẩm
         </Text>
-      )}
+      )} */}
     </TouchableOpacity>
   );
 };
@@ -92,11 +96,7 @@ export default function ProductList({ navigation }) {
           console.log('No more products to load');
         } else {
           const validProducts = newProducts
-            .filter((product) => product && product._id && product.name)
-            .map((product) => ({
-              ...product,
-              stock: typeof product.stock === 'number' ? product.stock : 0, // Ensure stock is a number
-            }))
+            .filter((product) => product && product._id && product.name && typeof product.stock === 'number')
             .filter(
               (product, index, self) =>
                 self.findIndex((p) => p._id === product._id) === index &&
@@ -104,17 +104,19 @@ export default function ProductList({ navigation }) {
             );
           console.log('Valid Products:', validProducts);
           if (validProducts.length > 0) {
-            setProducts((prev) =>
-              pageNum === 1 ? validProducts : [...prev, ...validProducts]
-            );
+            setProducts((prev) => {
+              const updatedProducts = pageNum === 1 ? validProducts : [...prev, ...validProducts];
+              console.log('Updated Products State:', updatedProducts); // Debug log
+              return updatedProducts;
+            });
             setPage(pageNum);
           } else {
-            setHasMore(false); // No new valid products, stop loading
+            setHasMore(false);
             console.log('No new valid products, stopping pagination');
           }
         }
       } else {
-        setHasMore(false); // Stop loading on API failure
+        setHasMore(false);
         Alert.alert(
           'Lỗi',
           result.message || 'Không thể lấy danh sách sản phẩm. Vui lòng kiểm tra kết nối hoặc thử lại sau.'
@@ -122,7 +124,7 @@ export default function ProductList({ navigation }) {
       }
     } catch (error) {
       console.error('Fetch products error:', error.message);
-      setHasMore(false); // Stop loading on error
+      setHasMore(false);
       Alert.alert(
         'Lỗi',
         'Có lỗi xảy ra khi lấy danh sách sản phẩm. Vui lòng kiểm tra kết nối hoặc server API.'
@@ -173,6 +175,11 @@ export default function ProductList({ navigation }) {
         contentContainerStyle={{ paddingVertical: 10, paddingHorizontal: 5 }}
         renderItem={renderProduct}
         ListFooterComponent={renderFooter}
+        ListEmptyComponent={() => (
+          <View style={styles.emptyContainer}>
+            <Text style={styles.emptyText}>Không có sản phẩm nào.</Text>
+          </View>
+        )}
         onEndReached={loadMoreProducts}
         onEndReachedThreshold={0.2}
       />
@@ -265,5 +272,15 @@ const styles = StyleSheet.create({
   loader: {
     paddingVertical: 20,
     alignItems: 'center',
+  },
+  emptyContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 20,
+  },
+  emptyText: {
+    fontSize: 16,
+    color: '#666',
   },
 });

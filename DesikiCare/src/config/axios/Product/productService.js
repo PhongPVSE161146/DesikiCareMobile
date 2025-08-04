@@ -3,13 +3,15 @@ import { API_URL_LOGIN } from '@env';
 
 const ProductService = {
   // Get list of products
-  getProducts: async () => {
+  getProducts: async (pageNum = 1) => {
     try {
-      const response = await axios.get(`${API_URL_LOGIN}/api/Product/products`, {
+      const response = await axios.get(`${API_URL_LOGIN}/api/Product/products?page=${pageNum}`, {
         headers: {
           Accept: 'application/json',
         },
       });
+
+      console.log('API Response:', JSON.stringify(response.data, null, 2)); // Debug log
 
       if (typeof response.data === 'string' && response.data.includes('<!DOCTYPE html')) {
         return {
@@ -22,10 +24,27 @@ const ProductService = {
         let products = [];
         if (response.data.products && Array.isArray(response.data.products)) {
           products = response.data.products
-            .map(item => item.product)
+            .map(item => {
+              const product = item.product;
+              // Calculate stock from the latest non-deactivated shipment
+              const latestShipment = item.shipmentProducts?.find(sp => !sp.shipmentProduct.isDeactivated)?.shipmentProduct;
+              const stock = latestShipment
+                ? latestShipment.importQuantity - latestShipment.saleQuantity
+                : 0;
+
+              return {
+                ...product,
+                stock: typeof stock === 'number' && stock >= 0 ? stock : 0,
+              };
+            })
             .filter(product => product && product._id && product.name);
         } else if (Array.isArray(response.data)) {
-          products = response.data.filter(product => product && product._id && product.name);
+          products = response.data
+            .map(product => ({
+              ...product,
+              stock: typeof product.stock === 'number' ? product.stock : 0,
+            }))
+            .filter(product => product && product._id && product.name);
         } else {
           return { success: false, message: 'No products found or invalid data structure.' };
         }
@@ -34,6 +53,11 @@ const ProductService = {
 
       return { success: false, message: response.data.message || 'Failed to fetch products.' };
     } catch (error) {
+      console.error('getProducts Error:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+      });
       const message = error.response?.status === 404
         ? 'No products found.'
         : error.response?.status === 401
@@ -44,7 +68,7 @@ const ProductService = {
   },
 
   // Get product by ID
-  getProductById: async (id) => {
+ getProductById: async (id) => {
     try {
       const response = await axios.get(`${API_URL_LOGIN}/api/Product/products/${id}`, {
         headers: {
@@ -54,32 +78,44 @@ const ProductService = {
         params: { t: Date.now() }, // Cache-busting
       });
 
+      console.log('getProductById Response:', JSON.stringify(response.data, null, 2)); // Debug log
+
       if (response.status === 200 && response.data?.product?._id) {
         const productData = response.data;
-        const latestShipment = productData.shipmentProducts?.[0]?.shipmentProduct;
-
-        // Check stock and expiry
-        const isOutOfStock = latestShipment?.quantity === 0 || latestShipment?.availableStock === 0;
+        const latestShipment = productData.shipmentProducts?.find(sp => !sp.shipmentProduct.isDeactivated)?.shipmentProduct;
+        const stock = latestShipment
+          ? latestShipment.importQuantity - latestShipment.saleQuantity
+          : 0;
+        const isOutOfStock = stock === 0;
         const isExpired = latestShipment?.expiryDate && new Date(latestShipment.expiryDate) < new Date();
         const isAvailable = !productData.product.isDeactivated && !isOutOfStock && !isExpired;
 
-        return {
-          success: true,
-          data: {
-            ...productData,
-            isAvailable,
-            availabilityStatus: isAvailable
-              ? 'available'
-              : isExpired
-              ? 'expired'
-              : isOutOfStock
-              ? 'outOfStock'
-              : 'deactivated',
+        const updatedProductData = {
+          ...productData,
+          product: {
+            ...productData.product,
+            stock: typeof stock === 'number' && stock >= 0 ? stock : 0,
           },
+          isAvailable,
+          availabilityStatus: isAvailable
+            ? 'available'
+            : isExpired
+            ? 'expired'
+            : isOutOfStock
+            ? 'outOfStock'
+            : 'deactivated',
         };
+
+        console.log('Processed Product Data:', JSON.stringify(updatedProductData, null, 2)); // Debug log
+        return { success: true, data: updatedProductData };
       }
       return { success: false, message: response.data.message || 'Failed to fetch product.' };
     } catch (error) {
+      console.error('getProductById Error:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+      });
       const message = error.response?.status === 404
         ? 'Product not found.'
         : error.response?.status === 401
