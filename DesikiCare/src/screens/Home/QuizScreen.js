@@ -28,14 +28,15 @@ const QuizScreen = () => {
       setLoading(true);
       try {
         const result = await quizService.getQuizQuestions();
-        if (result.success) {
+        if (result.success && Array.isArray(result.data)) {
           setQuizQuestions(result.data);
           setError(null);
         } else {
-          setError(result.message);
+          setError(result.message || 'Không thể tải câu hỏi.');
         }
       } catch (err) {
         setError('Lỗi không xác định. Vui lòng thử lại.');
+        console.error('Error fetching quiz:', err);
       } finally {
         setLoading(false);
         Animated.timing(fadeAnim, {
@@ -54,8 +55,7 @@ const QuizScreen = () => {
       ...prev,
       [questionId]: optionId,
     }));
-    setError(null); // Clear error when an option is selected
-    // Move to next question if not the last one
+    setError(null);
     if (currentQuestionIndex < quizQuestions.length - 1) {
       setTimeout(() => {
         setCurrentQuestionIndex(currentQuestionIndex + 1);
@@ -99,14 +99,15 @@ const QuizScreen = () => {
     setSubmitting(true);
     try {
       const result = await quizService.submitQuizResult(quizOptionIds);
-      if (result.success) {
+      if (result.success && result.data) {
         setResults(result.data);
         setError(null);
       } else {
-        setError(result.message);
+        setError(result.message || 'Không thể gửi kết quả.');
       }
     } catch (err) {
       setError('Lỗi gửi kết quả. Vui lòng thử lại.');
+      console.error('Error submitting quiz:', err);
     } finally {
       setSubmitting(false);
     }
@@ -147,13 +148,19 @@ const QuizScreen = () => {
   };
 
   const handleProductPress = (product) => {
-    // Navigate to ProductDetailScreen with product data
-    navigation.navigate('ProductDetailScreen', { product: product.product });
+    // Truyền productId thay vì toàn bộ object product
+    navigation.navigate('ProductDetail', { productId: product.product._id });
   };
 
   const renderQuestion = () => {
     const item = quizQuestions[currentQuestionIndex];
-    if (!item) return null;
+    if (!item || !item.quizQuestion || !item.quizOptions) {
+      return (
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>Dữ liệu câu hỏi không hợp lệ.</Text>
+        </View>
+      );
+    }
     return (
       <Animated.View style={[styles.questionContainer, { opacity: fadeAnim }]}>
         <Text style={styles.questionText}>
@@ -164,7 +171,8 @@ const QuizScreen = () => {
             key={optIndex}
             style={[
               styles.optionButton,
-              selectedOptions[item.quizQuestion._id] === option.quizOption._id && styles.selectedOption,
+              selectedOptions[item.quizQuestion._id] === option.quizOption._id &&
+                styles.selectedOption,
               !selectedOptions[item.quizQuestion._id] && error && styles.unansweredOption,
             ]}
             onPress={() => handleOptionSelect(item.quizQuestion._id, option.quizOption._id)}
@@ -176,32 +184,59 @@ const QuizScreen = () => {
     );
   };
 
-  const renderResults = () => (
-    <ScrollView style={styles.resultsContainer}>
-      <Text style={styles.resultsTitle}>Kết quả Quiz</Text>
-      <Text style={styles.resultsSection}>Loại da:</Text>
-      {results.skinTypes.map((type, index) => (
-        <Text key={index} style={styles.resultItem}>- {type.name}</Text>
-      ))}
-      <Text style={styles.resultsSection}>Tình trạng da:</Text>
-      {results.skinStatuses.map((status, index) => (
-        <Text key={index} style={styles.resultItem}>- {status.name}</Text>
-      ))}
-      <Text style={styles.resultsSection}>Sản phẩm đề xuất:</Text>
-      {results.recommendedProducts.map((product, index) => (
-        <TouchableOpacity
-          key={index}
-          style={styles.productContainer}
-          onPress={() => handleProductPress(product)}
-        >
-          <Text style={styles.productName}>{product.product.name}</Text>
-          <Text style={styles.productDetail}>Danh mục: {product.category.name}</Text>
-          <Text style={styles.productDetail}>Giá: {product.product.salePrice} VNĐ</Text>
-          <Text style={styles.productDetail}>Mô tả: {product.product.description}</Text>
-        </TouchableOpacity>
-      ))}
-    </ScrollView>
-  );
+  const renderResults = () => {
+    if (!results) {
+      return (
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>Không có kết quả để hiển thị.</Text>
+        </View>
+      );
+    }
+    return (
+      <ScrollView style={styles.resultsContainer}>
+        <Text style={styles.resultsTitle}>Kết quả Quiz</Text>
+        <Text style={styles.resultsSection}>Loại da:</Text>
+        {results.skinTypes && results.skinTypes.length > 0 ? (
+          results.skinTypes.map((type, index) => (
+            <Text key={index} style={styles.resultItem}>- {type.name}</Text>
+          ))
+        ) : (
+          <Text style={styles.resultItem}>- Không có thông tin loại da</Text>
+        )}
+        <Text style={styles.resultsSection}>Tình trạng da:</Text>
+        {results.skinStatuses && results.skinStatuses.length > 0 ? (
+          results.skinStatuses.map((status, index) => (
+            <Text key={index} style={styles.resultItem}>- {status.name}</Text>
+          ))
+        ) : (
+          <Text style={styles.resultItem}>- Không có thông tin tình trạng da</Text>
+        )}
+        <Text style={styles.resultsSection}>Sản phẩm đề xuất:</Text>
+        {results.recommendedProducts && results.recommendedProducts.length > 0 ? (
+          results.recommendedProducts.map((product, index) => (
+            <TouchableOpacity
+              key={index}
+              style={styles.productContainer}
+              onPress={() => handleProductPress(product)}
+            >
+              <Text style={styles.productName}>{product.product?.name || 'Không có tên'}</Text>
+              <Text style={styles.productDetail}>
+                Danh mục: {product.category?.name || 'Không có danh mục'}
+              </Text>
+              <Text style={styles.productDetail}>
+                Giá: {product.product?.salePrice ? `${product.product.salePrice} VNĐ` : 'N/A'}
+              </Text>
+              <Text style={styles.productDetail}>
+                Mô tả: {product.product?.description || 'Không có mô tả'}
+              </Text>
+            </TouchableOpacity>
+          ))
+        ) : (
+          <Text style={styles.resultItem}>- Không có sản phẩm đề xuất</Text>
+        )}
+      </ScrollView>
+    );
+  };
 
   const getProgressPercentage = () => {
     const answeredCount = Object.keys(selectedOptions).length;
