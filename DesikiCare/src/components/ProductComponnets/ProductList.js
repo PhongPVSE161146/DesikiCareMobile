@@ -37,7 +37,7 @@ const ProductCard = ({ product, onPress }) => {
           }}
           style={styles.image}
           resizeMode="contain"
-          onError={() => console.log('Error loading image:', imageUrl)}
+          onError={(error) => console.log(`Error loading image for ${name}:`, error.nativeEvent)}
         />
         {isOutOfStock && (
           <View style={styles.deactivatedBadge}>
@@ -62,11 +62,11 @@ const ProductCard = ({ product, onPress }) => {
       {volume > 0 && (
         <Text style={styles.volume}>Dung tích: {volume} ml</Text>
       )}
-      {/* {typeof stock === 'number' && (
-        <Text style={[styles.stock, isOutOfStock ? styles.deactivatedText : null]}>
+      {typeof stock === 'number' && (
+        <Text style={[styles.stock, isOutOfStock ? styles.deactivatedText : styles.activeText]}>
           Tồn kho: {stock.toLocaleString('vi-VN')} sản phẩm
         </Text>
-      )} */}
+      )}
     </TouchableOpacity>
   );
 };
@@ -86,11 +86,16 @@ export default function ProductList({ navigation }) {
     try {
       console.log(`Fetching products for page ${pageNum}`);
       const result = await ProductService.getProducts(pageNum);
-      console.log('Fetch Products Result:', result);
+      console.log('Fetch Products Result:', JSON.stringify(result, null, 2));
 
       if (result.success) {
         const newProducts = result.data || [];
-        console.log('New Products:', newProducts);
+        console.log('New Products:', newProducts.map(p => ({
+          _id: p._id,
+          name: p.name,
+          stock: p.stock,
+          isDeactivated: p.isDeactivated,
+        })));
         if (newProducts.length === 0) {
           setHasMore(false);
           console.log('No more products to load');
@@ -102,11 +107,31 @@ export default function ProductList({ navigation }) {
                 self.findIndex((p) => p._id === product._id) === index &&
                 !products.some((existing) => existing._id === product._id)
             );
-          console.log('Valid Products:', validProducts);
+          console.log('Valid Products:', validProducts.map(p => ({
+            _id: p._id,
+            name: p.name,
+            stock: p.stock,
+            isDeactivated: p.isDeactivated,
+          })));
           if (validProducts.length > 0) {
             setProducts((prev) => {
               const updatedProducts = pageNum === 1 ? validProducts : [...prev, ...validProducts];
-              console.log('Updated Products State:', updatedProducts); // Debug log
+              // Log specifically for "Mặt nạ giấy"
+              const maskProduct = updatedProducts.find(p => p._id === '6890de3a2b4ddc8d91daa397');
+              if (maskProduct) {
+                console.log('Mặt nạ giấy in Updated Products:', {
+                  _id: maskProduct._id,
+                  name: maskProduct.name,
+                  stock: maskProduct.stock,
+                  isDeactivated: maskProduct.isDeactivated,
+                });
+              }
+              console.log('Updated Products State:', updatedProducts.map(p => ({
+                _id: p._id,
+                name: p.name,
+                stock: p.stock,
+                isDeactivated: p.isDeactivated,
+              })));
               return updatedProducts;
             });
             setPage(pageNum);
@@ -123,7 +148,11 @@ export default function ProductList({ navigation }) {
         );
       }
     } catch (error) {
-      console.error('Fetch products error:', error.message);
+      console.error('Fetch products error:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+      });
       setHasMore(false);
       Alert.alert(
         'Lỗi',
@@ -131,6 +160,7 @@ export default function ProductList({ navigation }) {
       );
     } finally {
       setIsLoading(false);
+      console.log('Loading state set to false');
     }
   }, [isLoading, hasMore, products]);
 
@@ -145,12 +175,12 @@ export default function ProductList({ navigation }) {
     }
   }, [hasMore, isLoading, page, fetchProducts]);
 
-  const renderProduct = ({ item }) => (
+  const renderProduct = useCallback(({ item }) => (
     <ProductCard
       product={item}
       onPress={() => nav.navigate('ProductDetail', { productId: item._id })}
     />
-  );
+  ), [nav]);
 
   const renderFooter = () => {
     if (!isLoading) return null;
@@ -244,6 +274,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     fontSize: 14,
     marginBottom: 2,
+    color: '#333',
   },
   title: {
     fontSize: 12,
@@ -263,8 +294,10 @@ const styles = StyleSheet.create({
   },
   stock: {
     fontSize: 11,
-    color: '#666',
     marginTop: 4,
+  },
+  activeText: {
+    color: '#4CAF50', // Green for available products
   },
   deactivatedText: {
     color: '#999',

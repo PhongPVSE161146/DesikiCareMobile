@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { View, ScrollView, Text, TextInput, TouchableOpacity, ActivityIndicator, Alert, Image, Platform, SafeAreaView } from 'react-native';
+import { View, ScrollView, Text, TextInput, TouchableOpacity, ActivityIndicator, Alert, Image, Platform, SafeAreaView, RefreshControl } from 'react-native';
 import { useSelector, useDispatch } from 'react-redux';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -9,7 +9,6 @@ import profileService from '../../config/axios/Home/AccountProfile/profileServic
 import { logout } from '../../redux/authSlice';
 import Notification from '../../components/NotiComponnets/Notification';
 import styles from './styles';
-
 
 const cache = {
   provinces: null,
@@ -48,6 +47,7 @@ const ProfileScreen = ({ navigation }) => {
   const [profileData, setProfileData] = useState(null);
   const [addresses, setAddresses] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false); // Added for pull-to-refresh
   const [notification, setNotification] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
   const [showGenderOptions, setShowGenderOptions] = useState(false);
@@ -292,6 +292,19 @@ const ProfileScreen = ({ navigation }) => {
     setImageError(true);
   }, []);
 
+  const onRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await fetchProvinces();
+      await fetchProfile();
+    } catch (error) {
+      console.error('Refresh error:', error);
+      setNotification({ message: 'Làm mới dữ liệu thất bại.', type: 'error' });
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
   useEffect(() => {
     if (user) {
       fetchProvinces().then(() => fetchProfile());
@@ -299,10 +312,9 @@ const ProfileScreen = ({ navigation }) => {
       handleUnauthorized('Vui lòng đăng nhập để xem thông tin.');
     }
 
-    
     const unsubscribe = navigation.addListener('focus', () => {
       if (user) {
-        fetchAddresses(); 
+        fetchAddresses();
       }
     });
 
@@ -344,7 +356,11 @@ const ProfileScreen = ({ navigation }) => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView>
+      <ScrollView
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
+      >
         <Notification
           message={notification?.message}
           type={notification?.type}
@@ -381,7 +397,6 @@ const ProfileScreen = ({ navigation }) => {
                     {defaultAddress.addressDetailDescription}, {defaultAddress.wardName},{' '}
                     {defaultAddress.districtName}, {defaultAddress.provinceName}
                   </Text>
-                  
                 </View>
               ) : (
                 <Text style={styles.infoText}>Chưa có địa chỉ mặc định. Vui lòng thêm địa chỉ.</Text>
@@ -557,12 +572,11 @@ const ProfileScreen = ({ navigation }) => {
             </View>
           )}
         </View>
-        <View >
+        <View>
           <Text style={styles.sectionTitle1}>Version 2.4.7</Text>
           <Text style={styles.infoText1}>Ứng dụng DesikiCare</Text>
           <Text style={styles.infoText1}>© 2025 DesikiCare. All rights reserved.</Text>
-   
-          </View>
+        </View>
         <TouchableOpacity
           style={[styles.button, styles.logoutButton]}
           onPress={handleLogout}

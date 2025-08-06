@@ -31,6 +31,7 @@ const ProductDetailScreen = ({ route, navigation }) => {
 
   const fetchProduct = useCallback(async () => {
     if (!productId) {
+      console.error('No productId provided');
       Alert.alert('Lỗi', 'Không tìm thấy ID sản phẩm.');
       setIsLoading(false);
       return;
@@ -43,6 +44,7 @@ const ProductDetailScreen = ({ route, navigation }) => {
       if (result.success) {
         setProductData(result.data);
       } else {
+        console.warn('Failed to fetch product:', result.message);
         Alert.alert('Lỗi', result.message || 'Không thể lấy thông tin sản phẩm.', [
           { text: 'OK', onPress: () => navigation.goBack() },
         ]);
@@ -52,6 +54,7 @@ const ProductDetailScreen = ({ route, navigation }) => {
       Alert.alert('Lỗi', 'Có lỗi xảy ra khi lấy thông tin sản phẩm.');
     } finally {
       setIsLoading(false);
+      console.log('Loading state set to false');
     }
   }, [productId, navigation]);
 
@@ -66,6 +69,7 @@ const ProductDetailScreen = ({ route, navigation }) => {
         const defaultAddress = addressResponse.data.find((addr) => addr.isDefault) || addressResponse.data[0];
         return defaultAddress._id;
       }
+      console.warn('No delivery addresses found');
       return null;
     } catch (error) {
       console.error('Error fetching default address:', error);
@@ -98,20 +102,47 @@ const ProductDetailScreen = ({ route, navigation }) => {
 
   const { product, category, productSkinTypes, productSkinStatuses, shipmentProducts, isAvailable, availabilityStatus } = productData;
   const { name, description, salePrice, imageUrl, isDeactivated, volume, gameTicketReward, stock } = product;
-  const latestShipment = shipmentProducts?.length > 0 ? shipmentProducts[0].shipmentProduct : null;
 
-  // Simplified statusLabel logic
+  // Recalculate stock as a fallback
+  const totalStock = shipmentProducts
+    ?.filter(sp => !sp.shipmentProduct.isDeactivated && !sp.shipment.isDeleted)
+    ?.reduce((sum, sp) => {
+      const stock = sp.shipmentProduct.importQuantity - sp.shipmentProduct.saleQuantity;
+      return sum + (typeof stock === 'number' && stock >= 0 ? stock : 0);
+    }, 0) || 0;
+  const finalStock = typeof totalStock === 'number' && totalStock >= 0 ? totalStock : (typeof stock === 'number' ? stock : 0);
+
+  // Determine availability and status
+  const isExpired = shipmentProducts?.some(sp => sp.shipmentProduct.expiryDate && new Date(sp.shipmentProduct.expiryDate) < new Date());
+  const isProductAvailable = !isDeactivated && finalStock > 0 && !isExpired;
   const statusLabel = isDeactivated
     ? 'Sản phẩm đã ngừng kinh doanh'
-    : stock === 0
+    : finalStock === 0
     ? 'Hết hàng'
-    : latestShipment?.expiryDate && new Date(latestShipment.expiryDate) < new Date()
+    : isExpired
     ? 'Sản phẩm đã hết hạn'
     : 'Đang được bán';
 
-  const isProductAvailable = !isDeactivated && stock > 0 && (!latestShipment?.expiryDate || new Date(latestShipment.expiryDate) >= new Date());
-
-  console.log('Product Status:', { stock, isDeactivated, isAvailable, availabilityStatus, statusLabel, isProductAvailable });
+  console.log('Product Status:', {
+    productId,
+    name,
+    stock: finalStock,
+    isDeactivated,
+    isAvailable,
+    availabilityStatus,
+    statusLabel,
+    isProductAvailable,
+    shipmentCount: shipmentProducts?.length || 0,
+    shipments: shipmentProducts?.map(sp => ({
+      shipmentId: sp.shipment._id,
+      importQuantity: sp.shipmentProduct.importQuantity,
+      saleQuantity: sp.shipmentProduct.saleQuantity,
+      stock: sp.shipmentProduct.importQuantity - sp.shipmentProduct.saleQuantity,
+      isDeactivated: sp.shipmentProduct.isDeactivated,
+      isDeleted: sp.shipment.isDeleted,
+      expiryDate: sp.shipmentProduct.expiryDate,
+    })),
+  });
 
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
@@ -143,7 +174,7 @@ const ProductDetailScreen = ({ route, navigation }) => {
           quantity: 1,
           image: imageUrl,
           gameTicketReward,
-          stock,
+          stock: finalStock,
         };
 
         dispatch(addToCart(productWithId));
@@ -241,7 +272,7 @@ const ProductDetailScreen = ({ route, navigation }) => {
               quantity: 1,
               price: salePrice,
               gameTicketReward,
-              stock,
+              stock: finalStock,
             },
           ],
           subtotal: salePrice,
@@ -353,18 +384,18 @@ const ProductDetailScreen = ({ route, navigation }) => {
             <Text style={styles.specification}>• Giao hàng: Miễn phí toàn quốc</Text>
             <Text style={styles.specification}>• Trạng thái: {statusLabel}</Text>
             <Text style={[styles.specification, !isProductAvailable ? styles.deactivatedText : null]}>
-              • Tồn kho: {(typeof stock === 'number' ? stock : 0).toLocaleString('vi-VN')} sản phẩm
+              • Tồn kho: {finalStock.toLocaleString('vi-VN')} sản phẩm
             </Text>
             {isProductAvailable && (
               <Text style={styles.specification}>• Vé thưởng: {gameTicketReward || 0} vé</Text>
             )}
-            {latestShipment && (
+            {shipmentProducts?.length > 0 && (
               <>
                 <Text style={styles.specification}>
-                  • Ngày sản xuất: {formatDate(latestShipment.manufacturingDate)}
+                  • Ngày sản xuất: {formatDate(shipmentProducts[0].shipmentProduct.manufacturingDate)}
                 </Text>
                 <Text style={styles.specification}>
-                  • Hạn sử dụng: {formatDate(latestShipment.expiryDate)}
+                  • Hạn sử dụng: {formatDate(shipmentProducts[0].shipmentProduct.expiryDate)}
                 </Text>
               </>
             )}

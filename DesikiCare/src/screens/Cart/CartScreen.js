@@ -167,7 +167,7 @@ const ProductImage = ({ imageUrl, title, style, productId }) => {
           resizeMode="cover"
           onLoadStart={handleLoadStart}
           onLoadEnd={handleLoadEnd}
-          onError={handleError}
+          // onError={handleError}
         />
       ) : (
         renderCustomPlaceholder()
