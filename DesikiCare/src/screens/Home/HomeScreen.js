@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
-import { View, FlatList, StyleSheet, TouchableOpacity, Text, Animated } from 'react-native';
+import { View, FlatList, StyleSheet, TouchableOpacity, Text, Animated, RefreshControl } from 'react-native';
 import ProductList from '../../components/ProductComponnets/ProductList';
 import FeatureButton from '../../components/HomeComponents/FeatureButton';
 import FeaturedBrandsCarousel from '../../components/HomeComponents/FeaturedBrandsCarousel';
@@ -24,6 +24,7 @@ const HomeScreen = ({ navigation, route }) => {
   const [notificationType, setNotificationType] = useState(route.params?.notification?.type || 'success');
   const [reloadTrigger, setReloadTrigger] = useState(0);
   const [showScrollToTop, setShowScrollToTop] = useState(false);
+  const [refreshing, setRefreshing] = useState(false); // Thêm trạng thái refreshing
   const user = useSelector((state) => state.auth.user);
   const flatListRef = useRef(null);
   const scrollY = useRef(new Animated.Value(0)).current;
@@ -38,10 +39,19 @@ const HomeScreen = ({ navigation, route }) => {
     }
   }, [notificationMessage]);
 
-  const reload = useCallback(() => {
-    setReloadTrigger((prev) => prev + 1);
-    setNotificationMessage(route.params?.notification?.message || '');
-    setNotificationType(route.params?.notification?.type || 'success');
+  const reload = useCallback(async () => {
+    setRefreshing(true); // Bật trạng thái refreshing
+    try {
+      setReloadTrigger((prev) => prev + 1); // Kích hoạt làm mới dữ liệu
+      setNotificationMessage(route.params?.notification?.message || '');
+      setNotificationType(route.params?.notification?.type || 'success');
+    } catch (error) {
+      console.error('Lỗi khi làm mới:', error);
+      setNotificationMessage('Lỗi khi làm mới dữ liệu.');
+      setNotificationType('error');
+    } finally {
+      setRefreshing(false); // Tắt trạng thái refreshing
+    }
   }, [route.params]);
 
   useFocusEffect(
@@ -74,14 +84,14 @@ const HomeScreen = ({ navigation, route }) => {
     flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
   };
 
- const handleQuizPress = () => {
+  const handleQuizPress = () => {
     if (!user) {
       setNotificationMessage('Vui lòng đăng nhập để tham gia Quiz.');
       setNotificationType('error');
       navigation.navigate('Login');
       return;
     }
-    navigation.navigate('QuizScreen'); // Fixed: Navigate directly to QuizScreen
+    navigation.navigate('QuizScreen');
   };
 
   const handlePress = (title) => {
@@ -150,6 +160,9 @@ const HomeScreen = ({ navigation, route }) => {
         maxToRenderPerBatch={10}
         onScroll={handleScroll}
         scrollEventThrottle={16}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={reload} />
+        }
       />
       <Animated.View
         style={[
